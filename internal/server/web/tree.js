@@ -202,3 +202,36 @@ export function nextStatus(current) {
   const idx = STATUS_CYCLE.indexOf(current || "");
   return STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
 }
+
+// --- Fuzzy search ---
+
+export function fuzzyMatch(query, text) {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  const t = (text || "").toLowerCase();
+  let qi = 0;
+  for (let i = 0; i < t.length && qi < q.length; i++) {
+    if (t[i] === q[qi]) qi++;
+  }
+  return qi === q.length;
+}
+
+// Filter the tree so only nodes whose title (or any descendant's title)
+// matches the query remain. Matching nodes keep all their descendants.
+// Non-matching ancestors are kept as breadcrumbs when a descendant matches.
+// Returns the original list when query is empty.
+export function filterTree(nodes, query) {
+  if (!query) return nodes;
+  const result = [];
+  for (const n of nodes) {
+    if (fuzzyMatch(query, n.title)) {
+      result.push({ ...n, collapsed: false });
+    } else if (n.children?.length > 0) {
+      const kept = filterTree(n.children, query);
+      if (kept.length > 0) {
+        result.push({ ...n, collapsed: false, children: kept });
+      }
+    }
+  }
+  return result;
+}

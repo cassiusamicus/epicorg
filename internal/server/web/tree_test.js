@@ -367,5 +367,96 @@ test("moveUp then moveDown is identity", () => {
   assertEqual(result.map(n => n.id), ["a", "b", "c"]);
 });
 
+// fuzzyMatch
+test("fuzzyMatch: empty query matches anything", () => {
+  assertEqual(tree.fuzzyMatch("", "hello"), true);
+  assertEqual(tree.fuzzyMatch("", ""), true);
+});
+
+test("fuzzyMatch: exact substring matches", () => {
+  assertEqual(tree.fuzzyMatch("hello", "hello world"), true);
+});
+
+test("fuzzyMatch: characters in order with gaps", () => {
+  assertEqual(tree.fuzzyMatch("hwo", "hello world"), true);
+  assertEqual(tree.fuzzyMatch("hlo", "hello"), true);
+});
+
+test("fuzzyMatch: out-of-order characters do not match", () => {
+  assertEqual(tree.fuzzyMatch("woh", "hello world"), false);
+});
+
+test("fuzzyMatch: missing characters do not match", () => {
+  assertEqual(tree.fuzzyMatch("xyz", "hello"), false);
+});
+
+test("fuzzyMatch: case insensitive", () => {
+  assertEqual(tree.fuzzyMatch("HELLO", "hello world"), true);
+  assertEqual(tree.fuzzyMatch("hello", "HELLO WORLD"), true);
+});
+
+test("fuzzyMatch: handles null/undefined text", () => {
+  assertEqual(tree.fuzzyMatch("a", null), false);
+  assertEqual(tree.fuzzyMatch("a", undefined), false);
+  assertEqual(tree.fuzzyMatch("", null), true);
+});
+
+// filterTree
+test("filterTree: empty query returns original list", () => {
+  const t = [node("a", "A"), node("b", "B")];
+  assertEqual(tree.filterTree(t, ""), t);
+});
+
+test("filterTree: keeps matching root nodes, drops non-matches", () => {
+  const t = [node("a", "alpha"), node("b", "beta"), node("c", "gamma")];
+  const result = tree.filterTree(t, "alp");
+  assertEqual(result.length, 1);
+  assertEqual(result[0].id, "a");
+});
+
+test("filterTree: keeps ancestor when descendant matches", () => {
+  const t = [node("a", "alpha", [node("a1", "needle in haystack")])];
+  const result = tree.filterTree(t, "needle");
+  assertEqual(result.length, 1);
+  assertEqual(result[0].id, "a");
+  assertEqual(result[0].children.length, 1);
+  assertEqual(result[0].children[0].id, "a1");
+});
+
+test("filterTree: matching node keeps all descendants", () => {
+  const t = [node("a", "alpha", [node("a1", "x"), node("a2", "y")])];
+  const result = tree.filterTree(t, "alpha");
+  assertEqual(result[0].children.length, 2);
+});
+
+test("filterTree: prunes non-matching siblings of descendant match", () => {
+  const t = [node("a", "root", [node("a1", "needle"), node("a2", "haystack")])];
+  const result = tree.filterTree(t, "need");
+  assertEqual(result[0].children.length, 1);
+  assertEqual(result[0].children[0].id, "a1");
+});
+
+test("filterTree: uncollapses matching branches", () => {
+  const t = [{ ...node("a", "alpha", [node("a1", "needle")]), collapsed: true }];
+  const result = tree.filterTree(t, "needle");
+  assertEqual(result[0].collapsed, false);
+});
+
+test("filterTree: drops branches with no matches", () => {
+  const t = [
+    node("a", "alpha", [node("a1", "x")]),
+    node("b", "beta", [node("b1", "needle")]),
+  ];
+  const result = tree.filterTree(t, "needle");
+  assertEqual(result.length, 1);
+  assertEqual(result[0].id, "b");
+});
+
+test("filterTree: immutable — original unchanged", () => {
+  const t = [{ ...node("a", "A", [node("a1", "A1")]), collapsed: true }];
+  tree.filterTree(t, "A1");
+  assertEqual(t[0].collapsed, true);
+});
+
 // --- Done ---
 report();

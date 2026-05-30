@@ -15,6 +15,11 @@
   --caret: #333;
 }
 
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
@@ -23,11 +28,14 @@ body {
 }
 
 #root {
-  max-width: 1100px;
-  padding: 32px 40px 80px;
+  height: 100%;
+  padding: 24px 32px 0;
+  display: flex;
+  flex-direction: column;
 }
 
 header {
+  flex-shrink: 0;
   padding: 0 0 12px;
   margin-bottom: 8px;
   display: flex;
@@ -145,6 +153,58 @@ header h1 {
   gap: 10px;
 }
 
+/* Search box */
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  max-width: 320px;
+  margin: 0 12px;
+}
+
+.search-input {
+  flex: 1;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 4px 28px 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: var(--bullet-active);
+}
+
+.search-input::placeholder {
+  color: var(--text-dim);
+}
+
+.search-clear {
+  position: absolute;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+}
+
+.search-clear:hover {
+  color: var(--text);
+  background: var(--focused-bg);
+}
+
 /* Sync indicator */
 .sync-indicator {
   font-size: 11px;
@@ -154,6 +214,12 @@ header h1 {
 }
 
 /* View toggle */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .view-toggle {
   display: flex;
   gap: 2px;
@@ -179,8 +245,16 @@ header h1 {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
-.view-tab:hover:not(.active) {
+.view-tab:hover:not(.active):not(:disabled) {
   color: var(--text);
+}
+
+.view-tab:disabled {
+  cursor: default;
+}
+
+.view-tab.active:disabled {
+  opacity: 1;
 }
 
 .sync-saved {
@@ -331,69 +405,74 @@ header h1 {
 
 /* App layout */
 .app-layout {
+  flex: 1;
+  min-height: 0;
   display: flex;
-  gap: 32px;
-  align-items: flex-start;
+  gap: 24px;
+  align-items: stretch;
 }
 
 .outline-pane {
   flex: 1;
   min-width: 0;
-  padding-bottom: 48px;
+  overflow-y: auto;
+  height: 100%;
 }
 
-/* Detail pane — drawer layout */
+/* Detail pane — slides open on Shift+Enter, closes on Esc unless pinned */
 .detail-pane {
-  width: 360px;
   flex-shrink: 0;
-  position: sticky;
-  top: 32px;
-  align-self: flex-start;
-  height: calc(100vh - 64px);
+  height: 100%;
   display: flex;
   align-items: stretch;
-  transition: width 0.2s ease;
   overflow: hidden;
+  transition: width 0.18s ease;
 }
 
-.detail-pane.collapsed {
-  width: 16px;
+.detail-pane.closed .detail-gripper {
+  width: 100%;
+  cursor: pointer;
+}
+
+.detail-pane.closed .detail-gripper:hover {
+  background: var(--focused-bg);
 }
 
 .detail-gripper {
-  width: 16px;
+  width: 12px;
   flex-shrink: 0;
   background: transparent;
-  border: none;
   border-left: 1px solid var(--border);
-  cursor: pointer;
+  cursor: col-resize;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--text-dim);
-  padding: 0;
-  font-family: inherit;
 }
 
 .detail-gripper:hover {
+  background: var(--focused-bg);
   color: var(--text);
 }
 
 .detail-gripper-icon {
-  font-size: 18px;
-  line-height: 1;
-  padding: 14px 3px;
-  border-radius: 4px;
-  background: var(--focused-bg);
-  border: 1px solid var(--border);
-  color: var(--text);
-  font-weight: 600;
+  display: block;
+  width: 6px;
+  height: 32px;
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--text-dim) 0 1.5px,
+    transparent 1.5px 3px
+  );
+  user-select: none;
 }
 
 .detail-gripper:hover .detail-gripper-icon {
-  background: var(--bg);
-  border-color: var(--bullet-active);
-  color: var(--bullet-active);
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--bullet-active) 0 1.5px,
+    transparent 1.5px 3px
+  );
 }
 
 .detail-content {
@@ -411,13 +490,49 @@ header h1 {
 }
 
 .detail-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 15px;
   font-weight: 600;
   color: var(--text);
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 16px;
-  word-break: break-word;
+}
+
+.detail-title {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.detail-pin {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  opacity: 0.4;
+  filter: grayscale(1);
+  line-height: 1;
+}
+
+.detail-pin:hover {
+  opacity: 0.9;
+  filter: none;
+}
+
+.detail-pin.pinned {
+  opacity: 1;
+  filter: none;
+  background: var(--focused-bg);
+  border-color: var(--bullet-active);
 }
 
 .detail-section {
@@ -436,11 +551,11 @@ header h1 {
 
 .detail-body {
   width: 100%;
-  min-height: 60px;
+  min-height: 280px;
   background: #fafafa;
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   font-family: inherit;
   font-size: 14px;
   color: var(--text);
@@ -449,6 +564,7 @@ header h1 {
   overflow: hidden;
   outline: none;
   caret-color: var(--caret);
+  white-space: pre-wrap;
 }
 
 .detail-body:focus {
@@ -694,27 +810,6 @@ header h1 {
   text-align: center;
   font-size: 14px;
   cursor: pointer;
-}
-
-/* Keyboard hints */
-.hints {
-  position: fixed;
-  bottom: 12px;
-  left: 40px;
-  font-size: 11px;
-  color: var(--text-dim);
-  display: flex;
-  gap: 14px;
-}
-
-.hints kbd {
-  background: #f5f5f5;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 1px 5px;
-  font-family: inherit;
-  font-size: 10px;
-  color: #888;
 }
 
 /* Date input in detail pane */

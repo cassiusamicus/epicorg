@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createRoot } from "react-dom/client";
 import htm from "htm";
 import * as tree from "./tree.js";
@@ -194,7 +194,11 @@ function PropertiesEditor({ nodeId, properties, dispatch }) {
   `;
 }
 
-function DetailPane({ node, isPreamble, dispatch, inputRefs, bodyTextareaRef, collapsed, onToggleCollapsed }) {
+const DETAIL_MIN_WIDTH = 220;
+const DETAIL_MAX_WIDTH_RATIO = 0.70;
+const DETAIL_CLOSED_WIDTH = 14;
+
+function DetailPane({ node, isPreamble, dispatch, inputRefs, bodyTextareaRef, width, visible, pinned, onWidthChange, onTogglePin, onOpen }) {
   const [bodyText, setBodyText] = useState(isPreamble ? (node?.body || "") : (node?.body || ""));
   const localRef = useRef(null);
 
@@ -203,71 +207,115 @@ function DetailPane({ node, isPreamble, dispatch, inputRefs, bodyTextareaRef, co
     if (ta) { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; }
   }, [bodyText]);
 
+  const onGripperMouseDown = useCallback((e) => {
+    if (!visible) {
+      e.preventDefault();
+      onOpen();
+      return;
+    }
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = width;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    const onMove = (ev) => {
+      const dx = startX - ev.clientX;
+      const max = Math.round(window.innerWidth * DETAIL_MAX_WIDTH_RATIO);
+      onWidthChange(Math.max(DETAIL_MIN_WIDTH, Math.min(max, startWidth + dx)));
+    };
+    const onUp = () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [width, visible, onWidthChange, onOpen]);
+
   const gripper = html`
-    <button className="detail-gripper" onClick=${onToggleCollapsed}
-            title=${collapsed ? "Show details" : "Hide details"}
-            aria-label=${collapsed ? "Show details" : "Hide details"}>
-      <span className="detail-gripper-icon">${collapsed ? "\u2039" : "\u203A"}</span>
-    </button>
+    <div className="detail-gripper" onMouseDown=${onGripperMouseDown}
+         role="separator" aria-orientation="vertical"
+         aria-label=${visible ? "Resize details pane" : "Open details pane"}
+         title=${visible ? "Drag to resize" : "Click to open details"}>
+      <span className="detail-gripper-icon" aria-hidden="true"></span>
+    </div>
   `;
 
-  const inner = (!node && !isPreamble)
-    ? html`<div className="detail-empty">Select an item to see details</div>`
-    : html`
-      <div className="detail-header">${isPreamble ? "Preamble" : (node?.title || "Untitled")}</div>
+  const hasTarget = !!node || isPreamble;
+  const header = isPreamble ? "Preamble" : (node?.title || (hasTarget ? "Untitled" : "No selection"));
+  const inner = html`
+    <div className="detail-header">
+      <span className="detail-title">${header}</span>
+      <button className=${"detail-pin" + (pinned ? " pinned" : "")}
+              onMouseDown=${(e) => e.preventDefault()}
+              onClick=${onTogglePin}
+              title=${pinned ? "Unpin (Esc closes pane)" : "Pin to keep open"}
+              aria-label=${pinned ? "Unpin pane" : "Pin pane open"}>
+        \u{1F4CC}
+      </button>
+    </div>
+    <div className="detail-section">
+      <label className="detail-label">${isPreamble ? "Content" : "Body"}</label>
+      <textarea
+        ref=${(el) => { localRef.current = el; if (bodyTextareaRef) bodyTextareaRef.current = el; }}
+        className="detail-body"
+        value=${hasTarget ? bodyText : ""}
+        disabled=${!hasTarget}
+        placeholder=${!hasTarget ? "Select an item to see details" : (isPreamble ? "File header, #+TITLE, etc..." : "Add notes...")}
+        onChange=${(e) => {
+          if (!hasTarget) return;
+          setBodyText(e.target.value);
+          if (isPreamble) dispatch("preamble", "change-preamble", e.target.value);
+          else dispatch(node.id, "change-body", e.target.value);
+        }}
+        onKeyDown=${(e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            dispatch(isPreamble ? "preamble" : node?.id, "focus-outline");
+          }
+        }}
+      />
+    </div>
+    ${!isPreamble && html`
       <div className="detail-section">
-        <label className="detail-label">${isPreamble ? "Content" : "Body"}</label>
-        <textarea
-          ref=${(el) => { localRef.current = el; if (bodyTextareaRef) bodyTextareaRef.current = el; }}
-          className="detail-body"
-          value=${bodyText}
-          placeholder=${isPreamble ? "File header, #+TITLE, etc..." : "Add notes..."}
+        <label className="detail-label">Due date</label>
+        <input type="date" className="detail-date"
+          value=${node ? tree.parseOrgDate(node.properties?.DEADLINE) : ""}
+          disabled=${!node}
           onChange=${(e) => {
-            setBodyText(e.target.value);
-            if (isPreamble) dispatch("preamble", "change-preamble", e.target.value);
-            else dispatch(node.id, "change-body", e.target.value);
-          }}
-          onKeyDown=${(e) => {
-            if (e.key === "Escape") {
-              e.preventDefault();
-              dispatch(isPreamble ? "preamble" : node?.id, "focus-outline");
-            }
-          }}
-        />
+            if (!node) return;
+            const updated = { ...(node.properties || {}) };
+            if (e.target.value) updated.DEADLINE = tree.formatOrgDate(e.target.value);
+            else delete updated.DEADLINE;
+            dispatch(node.id, "update-properties", updated);
+          }} />
       </div>
-      ${!isPreamble && html`
-        <div className="detail-section">
-          <label className="detail-label">Due date</label>
-          <input type="date" className="detail-date"
-            value=${tree.parseOrgDate(node.properties?.DEADLINE)}
-            onChange=${(e) => {
-              const updated = { ...(node.properties || {}) };
-              if (e.target.value) updated.DEADLINE = tree.formatOrgDate(e.target.value);
-              else delete updated.DEADLINE;
-              dispatch(node.id, "update-properties", updated);
-            }} />
-        </div>
-        <div className="detail-section">
-          <label className="detail-label">Properties</label>
-          <${PropertiesEditor} nodeId=${node.id} properties=${node.properties} dispatch=${dispatch} />
-        </div>
-      `}
-    `;
+      <div className="detail-section">
+        <label className="detail-label">Properties</label>
+        ${node
+          ? html`<${PropertiesEditor} nodeId=${node.id} properties=${node.properties} dispatch=${dispatch} />`
+          : html`<div className="detail-empty">—</div>`}
+      </div>
+    `}
+  `;
 
+  const effectiveWidth = visible ? width : DETAIL_CLOSED_WIDTH;
   return html`
-    <div className=${"detail-pane" + (collapsed ? " collapsed" : "")}>
+    <div className=${"detail-pane" + (visible ? "" : " closed")} style=${{ width: effectiveWidth + "px" }}>
       ${gripper}
-      <div className="detail-content" aria-hidden=${collapsed}>${inner}</div>
+      <div className="detail-content">${inner}</div>
     </div>
   `;
 }
 
-function AgendaView({ nodes, onSelect }) {
-  const items = collectDatedItems(nodes);
+function AgendaView({ nodes, onSelect, searchQuery }) {
+  let items = collectDatedItems(nodes);
+  if (searchQuery) items = items.filter((item) => tree.fuzzyMatch(searchQuery, item.title));
   items.sort((a, b) => a.date.localeCompare(b.date));
 
   if (items.length === 0) {
-    return html`<div className="agenda-empty">No items with due dates</div>`;
+    return html`<div className="agenda-empty">${searchQuery ? "No matches" : "No items with due dates"}</div>`;
   }
 
   const groups = [];
@@ -375,13 +423,31 @@ function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [syncStatus, setSyncStatus] = useState(SYNC_SAVED);
   const [view, setView] = useState("outline");
-  const [detailCollapsed, setDetailCollapsed] = useState(() => {
-    try { return localStorage.getItem("torg.detailCollapsed") === "1"; } catch { return false; }
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef(null);
+  const [detailWidth, setDetailWidth] = useState(() => {
+    try {
+      const stored = parseInt(localStorage.getItem("torg.detailWidth"), 10);
+      if (Number.isFinite(stored) && stored > 0) return stored;
+    } catch {}
+    return Math.round(window.innerWidth * 0.20);
   });
-  const toggleDetailCollapsed = useCallback(() => {
-    setDetailCollapsed((v) => {
-      const next = !v;
-      try { localStorage.setItem("torg.detailCollapsed", next ? "1" : "0"); } catch {}
+  const [detailPinned, setDetailPinned] = useState(() => {
+    try { return localStorage.getItem("torg.detailPinned") === "1"; } catch { return false; }
+  });
+  const [detailVisible, setDetailVisible] = useState(() => {
+    try { return localStorage.getItem("torg.detailPinned") === "1"; } catch { return false; }
+  });
+  const detailPinnedRef = useRef(detailPinned);
+  useEffect(() => { detailPinnedRef.current = detailPinned; }, [detailPinned]);
+  const setDetailWidthPersisted = useCallback((w) => {
+    setDetailWidth(w);
+    try { localStorage.setItem("torg.detailWidth", String(w)); } catch {}
+  }, []);
+  const toggleDetailPinned = useCallback(() => {
+    setDetailPinned((p) => {
+      const next = !p;
+      try { localStorage.setItem("torg.detailPinned", next ? "1" : "0"); } catch {}
       return next;
     });
   }, []);
@@ -390,9 +456,15 @@ function App() {
   const bodyTextareaRef = useRef(null);
   const dirtyRef = useRef(false);
   const nodesRef = useRef(null);
+  const visibleNodesRef = useRef(null);
   const preambleRef = useRef("");
   const hashRef = useRef("");
   const currentFileRef = useRef(null);
+
+  const visibleNodes = useMemo(
+    () => searchQuery && nodes ? tree.filterTree(nodes, searchQuery) : nodes,
+    [nodes, searchQuery]
+  );
 
   useEffect(() => { nodesRef.current = nodes; }, [nodes]);
   useEffect(() => { preambleRef.current = preamble; }, [preamble]);
@@ -409,6 +481,12 @@ function App() {
     const handler = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "h") {
         e.preventDefault(); setShowHelp((v) => !v); return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "/")) {
+        e.preventDefault();
+        const el = searchInputRef.current;
+        if (el) { el.focus(); el.select(); }
+        return;
       }
       if (e.altKey && e.key >= "1" && e.key <= "9") {
         e.preventDefault();
@@ -432,7 +510,11 @@ function App() {
     }
   });
 
+  const focusedIdRef = useRef(focusedId);
+  useEffect(() => { focusedIdRef.current = focusedId; }, [focusedId]);
+
   const focusNode = useCallback((id) => {
+    if (focusedIdRef.current !== id && !detailPinnedRef.current) setDetailVisible(false);
     setFocusedId(id);
     pendingFocusRef.current = id;
   }, []);
@@ -517,13 +599,19 @@ function App() {
 
   // Dispatch: all operations are local state mutations
   const dispatch = useCallback((nodeId, action, value) => {
-    const flat = [{ id: "preamble" }, ...tree.flattenVisible(nodesRef.current || [])];
+    const navTree = visibleNodesRef.current || nodesRef.current || [];
+    const flat = [{ id: "preamble" }, ...tree.flattenVisible(navTree)];
     const idx = flat.findIndex((n) => n.id === nodeId);
 
-    if (action === "focus") { setFocusedId(nodeId); return; }
+    if (action === "focus") {
+      if (focusedIdRef.current !== nodeId && !detailPinnedRef.current) setDetailVisible(false);
+      setFocusedId(nodeId);
+      return;
+    }
 
     if (action === "focus-outline") {
       setFocusedId(nodeId);
+      if (!detailPinnedRef.current) setDetailVisible(false);
       requestAnimationFrame(() => {
         const el = inputRefs.current[nodeId];
         if (el) { el.focus(); if (el.setSelectionRange) el.selectionStart = el.selectionEnd = el.value?.length || 0; }
@@ -531,7 +619,11 @@ function App() {
       return;
     }
 
-    if (action === "focus-body") { if (bodyTextareaRef.current) bodyTextareaRef.current.focus(); return; }
+    if (action === "focus-body") {
+      setDetailVisible(true);
+      requestAnimationFrame(() => { if (bodyTextareaRef.current) bodyTextareaRef.current.focus(); });
+      return;
+    }
     if (action === "nav-up" && idx > 0) { focusNode(flat[idx - 1].id); return; }
     if (action === "nav-down" && idx < flat.length - 1) { focusNode(flat[idx + 1].id); return; }
 
@@ -561,6 +653,7 @@ function App() {
     }
 
     if (action === "new-sibling") {
+      setSearchQuery("");
       setNodes((p) => {
         const { nodes: updated, newId } = tree.insertSiblingAfter(p, nodeId);
         requestAnimationFrame(() => focusNode(newId));
@@ -603,23 +696,32 @@ function App() {
   const focusedNode = (!isPreambleFocused && focusedId) ? tree.findNode(nodes, focusedId) : null;
   const detailNode = isPreambleFocused ? { body: preamble } : focusedNode;
   const detailKey = isPreambleFocused ? "preamble" : focusedId;
+  visibleNodesRef.current = visibleNodes;
 
   return html`
     <div>
       <${Header} onHelp=${() => setShowHelp(true)} syncStatus=${syncStatus}
                   view=${view} setView=${setView} currentFile=${currentFile}
+                  searchQuery=${searchQuery} setSearchQuery=${setSearchQuery}
+                  searchInputRef=${searchInputRef}
+                  detailVisible=${detailVisible} detailPinned=${detailPinned}
+                  onToggleDetails=${() => {
+                    if (detailPinned) return;
+                    setDetailVisible((v) => !v);
+                  }}
                   onBack=${() => { setCurrentFile(null); setNodes(null); }} />
       ${showHelp && html`<${HelpPanel} onClose=${() => setShowHelp(false)} />`}
       <div className="app-layout">
         ${view === "outline" && html`
           <div className="outline-pane">
-            <${PreambleRow} focused=${isPreambleFocused} dispatch=${dispatch} inputRefs=${inputRefs} />
-            ${nodes.length === 0 ? html`
+            ${!searchQuery && html`<${PreambleRow} focused=${isPreambleFocused} dispatch=${dispatch} inputRefs=${inputRefs} />`}
+            ${visibleNodes.length === 0 ? html`
               <div className="empty" onClick=${() => {
+                if (searchQuery) { setSearchQuery(""); return; }
                 const nn = tree.newNode();
                 setNodes([nn]); focusNode(nn.id); markDirty();
-              }}>Click or press any key to start</div>
-            ` : nodes.map((node) => html`
+              }}>${searchQuery ? "No matches — click to clear search" : "Click or press any key to start"}</div>
+            ` : visibleNodes.map((node) => html`
               <${OutlineNode} key=${node.id} node=${node} focusedId=${focusedId}
                 dispatch=${dispatch} inputRefs=${inputRefs} depth=${0} />
             `)}
@@ -627,19 +729,20 @@ function App() {
         `}
         ${view === "agenda" && html`
           <div className="outline-pane">
-            <${AgendaView} nodes=${nodes} onSelect=${handleAgendaSelect} />
+            <${AgendaView} nodes=${nodes} onSelect=${handleAgendaSelect} searchQuery=${searchQuery} />
           </div>
         `}
         <${DetailPane} key=${detailKey} node=${detailNode} isPreamble=${isPreambleFocused}
           dispatch=${dispatch} inputRefs=${inputRefs} bodyTextareaRef=${bodyTextareaRef}
-          collapsed=${detailCollapsed} onToggleCollapsed=${toggleDetailCollapsed} />
+          width=${detailWidth} visible=${detailVisible} pinned=${detailPinned}
+          onWidthChange=${setDetailWidthPersisted} onTogglePin=${toggleDetailPinned}
+          onOpen=${() => setDetailVisible(true)} />
       </div>
-      <${Hints} />
     </div>
   `;
 }
 
-function Header({ onHelp, syncStatus, view, setView, currentFile, onBack }) {
+function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, detailVisible, detailPinned, onToggleDetails }) {
   return html`
     <header>
       <div className="header-left">
@@ -651,11 +754,41 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack }) {
         `}
       </div>
       ${currentFile && html`
-        <div className="view-toggle">
-          <button className=${"view-tab" + (view === "outline" ? " active" : "")}
-                  onClick=${() => setView("outline")}>Outline</button>
-          <button className=${"view-tab" + (view === "agenda" ? " active" : "")}
-                  onClick=${() => setView("agenda")}>Agenda</button>
+        <div className="toolbar">
+          <div className="view-toggle">
+            <button className=${"view-tab" + (view === "outline" ? " active" : "")}
+                    onClick=${() => setView("outline")}>Outline</button>
+            <button className=${"view-tab" + (view === "agenda" ? " active" : "")}
+                    onClick=${() => setView("agenda")}>Agenda</button>
+          </div>
+          <div className="view-toggle">
+            <button className=${"view-tab" + ((detailVisible || detailPinned) ? " active" : "")}
+                    onClick=${onToggleDetails}
+                    disabled=${detailPinned}
+                    title=${detailPinned ? "Details pinned open — unpin in the pane to hide" : "Toggle details pane"}>Details</button>
+          </div>
+        </div>
+      `}
+      ${currentFile && html`
+        <div className="search-box">
+          <input
+            ref=${searchInputRef}
+            type="text"
+            className="search-input"
+            placeholder="Filter… (Ctrl+K)"
+            value=${searchQuery || ""}
+            onChange=${(e) => setSearchQuery(e.target.value)}
+            onKeyDown=${(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setSearchQuery("");
+                e.target.blur();
+              }
+            }}
+          />
+          ${searchQuery && html`
+            <button className="search-clear" onClick=${() => setSearchQuery("")} title="Clear (Esc)">×</button>
+          `}
         </div>
       `}
       <div className="header-right">
@@ -713,20 +846,6 @@ function HelpSection({ title, children }) {
 
 function HelpRow({ keys, desc }) {
   return html`<div className="help-row"><span className="help-keys">${keys}</span><span className="help-desc">${desc}</span></div>`;
-}
-
-function Hints() {
-  return html`
-    <div className="hints">
-      <span><kbd>\u2191\u2193</kbd> navigate</span>
-      <span><kbd>Enter</kbd> new</span>
-      <span><kbd>Shift+Enter</kbd> body</span>
-      <span><kbd>Tab</kbd> fold</span>
-      <span><kbd>Alt+\u2190\u2192</kbd> indent</span>
-      <span><kbd>Alt+\u2191\u2193</kbd> move</span>
-      <span><kbd>Ctrl+H</kbd> help</span>
-    </div>
-  `;
 }
 
 createRoot(document.getElementById("root")).render(html`<${App} />`);
