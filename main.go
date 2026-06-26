@@ -14,19 +14,53 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/suprjinx/torg/internal/api"
-	"github.com/suprjinx/torg/internal/git"
-	"github.com/suprjinx/torg/internal/orgfile"
-	"github.com/suprjinx/torg/internal/server"
+	"epicorg/internal/api"
+	"epicorg/internal/git"
+	"epicorg/internal/orgfile"
+	"epicorg/internal/server"
 )
 
+// reorderArgs moves recognized flags (and their values) ahead of positional
+// arguments. The standard flag package stops parsing at the first
+// non-flag token, so without this, "epicorg DIR -file x.org" would silently
+// ignore -file — flags must normally come before positional args.
+func reorderArgs(args []string) (flags, positional []string) {
+	takesValue := map[string]bool{"addr": true, "file": true, "no-browser": false}
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if !strings.HasPrefix(a, "-") {
+			positional = append(positional, a)
+			continue
+		}
+		flags = append(flags, a)
+		name := strings.TrimLeft(a, "-")
+		if strings.Contains(name, "=") {
+			continue // value embedded as -flag=value
+		}
+		if takesValue[name] && i+1 < len(args) {
+			i++
+			flags = append(flags, args[i])
+		}
+	}
+	return flags, positional
+}
+
 func main() {
-	addr := flag.String("addr", ":8080", "listen address")
-	flag.Parse()
+	addr      := flag.String("addr", ":58217", "listen address")
+	file      := flag.String("file", "", "default file to open on startup")
+	noBrowser := flag.Bool("no-browser", false, "do not open browser on startup")
+
+	flagArgs, positionalArgs := reorderArgs(os.Args[1:])
+	flag.CommandLine.Parse(flagArgs)
 
 	dir := "."
-	if flag.NArg() > 0 {
-		dir = flag.Arg(0)
+	if len(positionalArgs) > 0 {
+		dir = positionalArgs[0]
+	}
+
+	defaultFile := *file
+	if defaultFile != "" && !strings.HasSuffix(defaultFile, ".org") {
+		defaultFile += ".org"
 	}
 
 	// Ensure directory exists
@@ -50,13 +84,15 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	api.Register(mux, store, onSave)
+	api.Register(mux, store, onSave, defaultFile)
 	server.RegisterStatic(mux)
 
 	srv := &http.Server{Addr: *addr, Handler: mux}
 
-	// Signal handling for graceful shutdown
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	// Signal handling for graceful shutdown. SIGHUP is included so closing
+	// the terminal (the .desktop launcher runs in one) triggers the same
+	// final-commit path as Ctrl+C, instead of an abrupt kill.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
 	defer stop()
 
 	// Idle timer goroutine
@@ -79,8 +115,10 @@ func main() {
 	}
 	url := "http://" + host
 
-	fmt.Printf("torg listening on %s (dir: %s)\n", url, dir)
-	openBrowser(url)
+	fmt.Printf("epicorg listening on %s (dir: %s)\n", url, dir)
+	if !*noBrowser {
+		openBrowser(url)
+	}
 
 	go func() {
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {

@@ -367,38 +367,74 @@ test("moveUp then moveDown is identity", () => {
   assertEqual(result.map(n => n.id), ["a", "b", "c"]);
 });
 
-// fuzzyMatch
-test("fuzzyMatch: empty query matches anything", () => {
-  assertEqual(tree.fuzzyMatch("", "hello"), true);
-  assertEqual(tree.fuzzyMatch("", ""), true);
+// formatFileSize
+test("formatFileSize: bytes under 1024 shown as B", () => {
+  assertEqual(tree.formatFileSize(500), "500 B");
+  assertEqual(tree.formatFileSize(0), "0 B");
 });
 
-test("fuzzyMatch: exact substring matches", () => {
-  assertEqual(tree.fuzzyMatch("hello", "hello world"), true);
+test("formatFileSize: kilobytes", () => {
+  assertEqual(tree.formatFileSize(2048), "2.0 KB");
+  assertEqual(tree.formatFileSize(1536), "1.5 KB");
 });
 
-test("fuzzyMatch: characters in order with gaps", () => {
-  assertEqual(tree.fuzzyMatch("hwo", "hello world"), true);
-  assertEqual(tree.fuzzyMatch("hlo", "hello"), true);
+test("formatFileSize: megabytes and gigabytes", () => {
+  assertEqual(tree.formatFileSize(5 * 1024 * 1024), "5.0 MB");
+  assertEqual(tree.formatFileSize(2 * 1024 * 1024 * 1024), "2.0 GB");
 });
 
-test("fuzzyMatch: out-of-order characters do not match", () => {
-  assertEqual(tree.fuzzyMatch("woh", "hello world"), false);
+test("formatFileSize: large values drop decimal point", () => {
+  assertEqual(tree.formatFileSize(123 * 1024), "123 KB");
 });
 
-test("fuzzyMatch: missing characters do not match", () => {
-  assertEqual(tree.fuzzyMatch("xyz", "hello"), false);
+test("formatFileSize: handles null/undefined", () => {
+  assertEqual(tree.formatFileSize(null), "");
+  assertEqual(tree.formatFileSize(undefined), "");
 });
 
-test("fuzzyMatch: case insensitive", () => {
-  assertEqual(tree.fuzzyMatch("HELLO", "hello world"), true);
-  assertEqual(tree.fuzzyMatch("hello", "HELLO WORLD"), true);
+// formatFileDate
+test("formatFileDate: formats a valid ISO date", () => {
+  const result = tree.formatFileDate("2026-06-24T16:32:00-04:00");
+  assert(result.includes("2026"), `expected year in ${result}`);
+  assert(result.includes("Jun"), `expected month in ${result}`);
 });
 
-test("fuzzyMatch: handles null/undefined text", () => {
-  assertEqual(tree.fuzzyMatch("a", null), false);
-  assertEqual(tree.fuzzyMatch("a", undefined), false);
-  assertEqual(tree.fuzzyMatch("", null), true);
+test("formatFileDate: handles empty/invalid input", () => {
+  assertEqual(tree.formatFileDate(""), "");
+  assertEqual(tree.formatFileDate("not a date"), "");
+});
+
+// matchesQuery
+test("matchesQuery: empty query matches anything", () => {
+  assertEqual(tree.matchesQuery("", "hello"), true);
+  assertEqual(tree.matchesQuery("", ""), true);
+});
+
+test("matchesQuery: exact substring matches", () => {
+  assertEqual(tree.matchesQuery("hello", "hello world"), true);
+});
+
+test("matchesQuery: non-contiguous characters do not match", () => {
+  // Unlike a fuzzy/subsequence matcher, letters that merely appear in order
+  // (with gaps) must NOT match — that's what caused unrelated paragraphs to
+  // match short queries like "Walker".
+  assertEqual(tree.matchesQuery("hwo", "hello world"), false);
+  assertEqual(tree.matchesQuery("hlo", "hello"), false);
+});
+
+test("matchesQuery: missing characters do not match", () => {
+  assertEqual(tree.matchesQuery("xyz", "hello"), false);
+});
+
+test("matchesQuery: case insensitive", () => {
+  assertEqual(tree.matchesQuery("HELLO", "hello world"), true);
+  assertEqual(tree.matchesQuery("hello", "HELLO WORLD"), true);
+});
+
+test("matchesQuery: handles null/undefined text", () => {
+  assertEqual(tree.matchesQuery("a", null), false);
+  assertEqual(tree.matchesQuery("a", undefined), false);
+  assertEqual(tree.matchesQuery("", null), true);
 });
 
 // filterTree
@@ -423,10 +459,17 @@ test("filterTree: keeps ancestor when descendant matches", () => {
   assertEqual(result[0].children[0].id, "a1");
 });
 
-test("filterTree: matching node keeps all descendants", () => {
+test("filterTree: matching node still prunes non-matching children (sparse tree)", () => {
   const t = [node("a", "alpha", [node("a1", "x"), node("a2", "y")])];
   const result = tree.filterTree(t, "alpha");
-  assertEqual(result[0].children.length, 2);
+  assertEqual(result[0].children.length, 0);
+});
+
+test("filterTree: matching node keeps its own matching descendants", () => {
+  const t = [node("a", "alpha", [node("a1", "alpha junior"), node("a2", "y")])];
+  const result = tree.filterTree(t, "alpha");
+  assertEqual(result[0].children.length, 1);
+  assertEqual(result[0].children[0].id, "a1");
 });
 
 test("filterTree: prunes non-matching siblings of descendant match", () => {
@@ -456,6 +499,173 @@ test("filterTree: immutable — original unchanged", () => {
   const t = [{ ...node("a", "A", [node("a1", "A1")]), collapsed: true }];
   tree.filterTree(t, "A1");
   assertEqual(t[0].collapsed, true);
+});
+
+test("filterTree: tag filter keeps nodes matching any selected tag", () => {
+  const t = [
+    { ...node("a", "alpha"), tags: ["work"] },
+    { ...node("b", "beta"), tags: ["home"] },
+    { ...node("c", "gamma"), tags: ["work", "urgent"] },
+  ];
+  const result = tree.filterTree(t, "", ["work"]);
+  assertEqual(result.map((n) => n.id), ["a", "c"]);
+});
+
+test("filterTree: tag filter is OR across multiple selected tags", () => {
+  const t = [
+    { ...node("a", "alpha"), tags: ["work"] },
+    { ...node("b", "beta"), tags: ["home"] },
+    { ...node("c", "gamma"), tags: [] },
+  ];
+  const result = tree.filterTree(t, "", ["work", "home"]);
+  assertEqual(result.map((n) => n.id), ["a", "b"]);
+});
+
+test("filterTree: text query and tag filter combine with AND", () => {
+  const t = [
+    { ...node("a", "alpha"), tags: ["work"] },
+    { ...node("b", "alpha two"), tags: ["home"] },
+  ];
+  const result = tree.filterTree(t, "alpha", ["work"]);
+  assertEqual(result.map((n) => n.id), ["a"]);
+});
+
+test("filterTree: tagged descendant keeps ancestor as breadcrumb", () => {
+  const t = [node("a", "alpha", [{ ...node("a1", "child"), tags: ["work"] }])];
+  const result = tree.filterTree(t, "", ["work"]);
+  assertEqual(result.length, 1);
+  assertEqual(result[0].children.map((n) => n.id), ["a1"]);
+});
+
+// collectAllTags
+test("collectAllTags: collects unique tags across the tree, sorted", () => {
+  const t = [
+    { ...node("a", "alpha"), tags: ["zebra", "work"] },
+    node("b", "beta", [{ ...node("b1", "child"), tags: ["work", "urgent"] }]),
+  ];
+  assertEqual(tree.collectAllTags(t), ["urgent", "work", "zebra"]);
+});
+
+test("collectAllTags: empty when no nodes have tags", () => {
+  const t = [node("a", "alpha"), node("b", "beta")];
+  assertEqual(tree.collectAllTags(t), []);
+});
+
+// collapsedMap
+test("collapsedMap: collects ids of collapsed nodes across the tree", () => {
+  const t = [
+    { ...node("a", "alpha", [{ ...node("a1", "child"), collapsed: true }]), collapsed: true },
+    node("b", "beta"),
+  ];
+  assertEqual(tree.collapsedMap(t), { a: true, a1: true });
+});
+
+test("collapsedMap: empty when nothing is collapsed", () => {
+  const t = [node("a", "alpha"), node("b", "beta")];
+  assertEqual(tree.collapsedMap(t), {});
+});
+
+// extractPreambleTitle / setPreambleTitle
+test("extractPreambleTitle: finds the value after #+TITLE:", () => {
+  assertEqual(tree.extractPreambleTitle("#+TITLE: My Doc\n#+OPTIONS: toc:4\n"), "My Doc");
+});
+
+test("extractPreambleTitle: case-insensitive keyword", () => {
+  assertEqual(tree.extractPreambleTitle("#+title: lowercase\n"), "lowercase");
+});
+
+test("extractPreambleTitle: empty when no title line", () => {
+  assertEqual(tree.extractPreambleTitle("#+OPTIONS: toc:4\n"), "");
+});
+
+test("extractPreambleTitle: empty for empty/missing preamble", () => {
+  assertEqual(tree.extractPreambleTitle(""), "");
+  assertEqual(tree.extractPreambleTitle(undefined), "");
+});
+
+test("setPreambleTitle: replaces an existing title line in place", () => {
+  const result = tree.setPreambleTitle("#+TITLE: Old\n#+OPTIONS: toc:4", "New");
+  assertEqual(result, "#+TITLE: New\n#+OPTIONS: toc:4");
+});
+
+test("setPreambleTitle: inserts a title line at the top when missing", () => {
+  const result = tree.setPreambleTitle("#+OPTIONS: toc:4", "Fresh Title");
+  assertEqual(result, "#+TITLE: Fresh Title\n#+OPTIONS: toc:4");
+});
+
+test("setPreambleTitle: removes the line entirely when cleared", () => {
+  const result = tree.setPreambleTitle("#+TITLE: Old\n#+OPTIONS: toc:4", "");
+  assertEqual(result, "#+OPTIONS: toc:4");
+});
+
+test("setPreambleTitle: handles an empty preamble", () => {
+  assertEqual(tree.setPreambleTitle("", "New Title"), "#+TITLE: New Title");
+  assertEqual(tree.setPreambleTitle("", ""), "");
+});
+
+// renderOrgInline
+test("renderOrgInline: bold", () => {
+  assertEqual(tree.renderOrgInline("*bold*"), "<strong>bold</strong>");
+});
+
+test("renderOrgInline: italic", () => {
+  assertEqual(tree.renderOrgInline("/italic/"), "<em>italic</em>");
+});
+
+test("renderOrgInline: underline", () => {
+  assertEqual(tree.renderOrgInline("_underline_"), "<u>underline</u>");
+});
+
+test("renderOrgInline: code", () => {
+  assertEqual(tree.renderOrgInline("=code="), "<code>code</code>");
+});
+
+test("renderOrgInline: link with label", () => {
+  assertEqual(
+    tree.renderOrgInline("[[https://example.com][label]]"),
+    '<a href="https://example.com" target="_blank" rel="noopener noreferrer">label</a>'
+  );
+});
+
+test("renderOrgInline: link without label uses url as label", () => {
+  assertEqual(
+    tree.renderOrgInline("[[https://example.com]]"),
+    '<a href="https://example.com" target="_blank" rel="noopener noreferrer">https://example.com</a>'
+  );
+});
+
+test("renderOrgInline: unsafe url scheme is left unlinkified", () => {
+  assertEqual(
+    tree.renderOrgInline("[[javascript:alert(1)][click]]"),
+    "[[javascript:alert(1)][click]]"
+  );
+});
+
+test("renderOrgInline: escapes HTML special characters", () => {
+  assertEqual(tree.renderOrgInline("<script>alert(1)</script>"), "&lt;script&gt;alert(1)&lt;/script&gt;");
+});
+
+test("renderOrgInline: markup adjacent to escaped tags does not bleed across", () => {
+  assertEqual(tree.renderOrgInline("*bold* /italic/"), "<strong>bold</strong> <em>italic</em>");
+});
+
+test("renderOrgInline: combination of multiple markers", () => {
+  assertEqual(
+    tree.renderOrgInline("*bold* /italic/ _underline_ =code="),
+    "<strong>bold</strong> <em>italic</em> <u>underline</u> <code>code</code>"
+  );
+});
+
+test("renderOrgInline: plain text with no markup is only escaped", () => {
+  assertEqual(tree.renderOrgInline("just plain text"), "just plain text");
+});
+
+test("renderOrgInline: empty string returns empty string", () => {
+  assertEqual(tree.renderOrgInline(""), "");
+});
+
+test("renderOrgInline: lone marker characters are left as-is", () => {
+  assertEqual(tree.renderOrgInline("5 * 5 = 25"), "5 * 5 = 25");
 });
 
 // --- Done ---

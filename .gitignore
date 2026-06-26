@@ -1,4 +1,4 @@
-torg
+epicorg
 *.org
 *.meta.json
 !test.org

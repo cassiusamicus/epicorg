@@ -28,7 +28,7 @@ func EnsureRepo(dir string) error {
 	// Add any existing org files
 	// Only add org files, not everything in the directory
 	run(dir, "add", "*.org")
-	run(dir, "commit", "-m", "torg: initial commit", "--allow-empty")
+	run(dir, "commit", "-m", "epicorg: initial commit", "--allow-empty")
 	// Ignore meta files
 	run(dir, "config", "core.excludesFile", "")
 	return nil
@@ -72,7 +72,7 @@ func CommitFiles(dir string, filenames []string, message string) error {
 // MergeFile performs a three-way merge. Returns the merged content,
 // whether conflict markers are present, and any error.
 func MergeFile(oursContent, baseContent, theirsContent string) (string, bool, error) {
-	tmpDir, err := os.MkdirTemp("", "torg-merge-")
+	tmpDir, err := os.MkdirTemp("", "epicorg-merge-")
 	if err != nil {
 		return "", false, err
 	}
@@ -99,9 +99,9 @@ func MergeFile(oursContent, baseContent, theirsContent string) (string, bool, er
 }
 
 func AutoSaveMessage() string {
-	return fmt.Sprintf("torg: auto-save %s", time.Now().Format("2006-01-02 15:04:05"))
+	return fmt.Sprintf("epicorg: auto-save %s", time.Now().Format("2006-01-02 15:04:05"))
 }
 
 func ShutdownMessage() string {
-	return fmt.Sprintf("torg: shutdown %s", time.Now().Format("2006-01-02 15:04:05"))
+	return fmt.Sprintf("epicorg: shutdown %s", time.Now().Format("2006-01-02 15:04:05"))
 }

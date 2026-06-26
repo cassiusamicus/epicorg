@@ -79,20 +79,14 @@ func inlineNodesToText(nodes []org.Node) string {
 	return b.String()
 }
 
+// emphasisMarker returns the org delimiter for a parsed emphasis node.
+// go-org's Emphasis.Kind is the literal marker character it matched
+// (e.g. "*" for bold, "/" for italic), not a descriptive word, so for the
+// symmetric single-character markers the marker IS the kind.
 func emphasisMarker(kind string) string {
 	switch kind {
-	case "bold":
-		return "*"
-	case "italic":
-		return "/"
-	case "underline":
-		return "_"
-	case "strikethrough":
-		return "+"
-	case "code":
-		return "="
-	case "verbatim":
-		return "~"
+	case "*", "/", "_", "+", "~", "=":
+		return kind
 	default:
 		return ""
 	}

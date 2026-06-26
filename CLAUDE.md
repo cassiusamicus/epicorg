@@ -5,19 +5,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Run
 
 ```bash
-make build          # go build -o torg .
-make run            # build + run with current directory
-make test           # go test ./...
-go build ./...      # check compilation without producing binary
-./torg ~/org        # run with specific directory (default: .)
-./torg -addr :9090 ~/org  # custom port
+make build  # go build -o epicorg .
+make run    # build + run with current directory
+make test   # go test ./...
+go build ./...  # check compilation without producing binary
+./epicorg ~/org  # run with specific directory (default: .)
+./epicorg -addr :9090 ~/org  # custom port
 ```
 
-No test files exist yet. The frontend has no build step — pure ES modules loaded from CDN.
+The frontend has no build step — pure ES modules loaded from CDN.
 
 ## Architecture
 
-Torg is a local-first outliner backed by org-mode files. The frontend owns the document as a JSON tree and mutates it synchronously. A background sync pushes the full document to the server every 3 seconds.
+Epicorg is a local-first outliner backed by org-mode files. The frontend owns the document as a JSON tree and mutates it synchronously. A background sync pushes the full document to the server every 3 seconds.
 
 ### Data Flow
 

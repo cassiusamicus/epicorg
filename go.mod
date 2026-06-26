@@ -1,4 +1,4 @@
-module github.com/suprjinx/torg
+module epicorg
 
 go 1.26.1
 

@@ -47,6 +47,17 @@ export function findNode(nodes, id) {
   return null;
 }
 
+export function findNodeByProperty(nodes, propName, propValue) {
+  for (const n of nodes) {
+    if (n.properties?.[propName] === propValue) return n;
+    if (n.children?.length > 0) {
+      const found = findNodeByProperty(n.children, propName, propValue);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 export function findParentInfo(nodes, id, parent = null) {
   for (let i = 0; i < nodes.length; i++) {
     if (nodes[i].id === id) return { parent, parentList: nodes, index: i };
@@ -188,10 +199,71 @@ export function formatOrgDate(isoDate) {
   return `<${isoDate} ${DAYS[d.getDay()]}>`;
 }
 
+export function formatOrgScheduled(isoDate, time) {
+  if (!isoDate) return "";
+  const d = new Date(isoDate + "T00:00:00");
+  const day = DAYS[d.getDay()];
+  return time ? `<${isoDate} ${day} ${time}>` : `<${isoDate} ${day}>`;
+}
+
 export function parseOrgDate(orgDate) {
   if (!orgDate) return "";
   const m = orgDate.match(/(\d{4}-\d{2}-\d{2})/);
   return m ? m[1] : "";
+}
+
+export function parseOrgScheduledTime(orgDate) {
+  if (!orgDate) return "";
+  const m = orgDate.match(/\d{4}-\d{2}-\d{2}\s+\w+\s+(\d{2}:\d{2})/);
+  return m ? m[1] : "";
+}
+
+// --- Preamble #+TITLE: ---
+
+export function extractPreambleTitle(preamble) {
+  const m = (preamble || "").match(/^#\+TITLE:\s*(.*)$/im);
+  return m ? m[1].trim() : "";
+}
+
+// Sets (or removes, when title is empty) the #+TITLE: line within the
+// preamble, preserving every other line as-is.
+export function setPreambleTitle(preamble, title) {
+  const trimmed = (title || "").trim();
+  if (!preamble) return trimmed ? "#+TITLE: " + trimmed : "";
+  const lines = preamble.split("\n");
+  const idx = lines.findIndex((l) => /^#\+TITLE:/i.test(l));
+  if (trimmed) {
+    const line = "#+TITLE: " + trimmed;
+    if (idx >= 0) lines[idx] = line;
+    else lines.unshift(line);
+  } else if (idx >= 0) {
+    lines.splice(idx, 1);
+  }
+  return lines.join("\n");
+}
+
+// --- File picker formatting ---
+
+export function formatFileSize(bytes) {
+  if (bytes == null || isNaN(bytes)) return "";
+  if (bytes < 1024) return bytes + " B";
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unitIndex = -1;
+  do {
+    value /= 1024;
+    unitIndex++;
+  } while (value >= 1024 && unitIndex < units.length - 1);
+  return (value < 10 ? value.toFixed(1) : Math.round(value)) + " " + units[unitIndex];
+}
+
+export function formatFileDate(isoString) {
+  if (!isoString) return "";
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return "";
+  const date = d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  return `${date} ${time}`;
 }
 
 // --- Status ---
@@ -203,35 +275,157 @@ export function nextStatus(current) {
   return STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
 }
 
-// --- Fuzzy search ---
+// --- Search ---
 
-export function fuzzyMatch(query, text) {
+// Case-insensitive substring match. Titles are often full sentences/paragraphs
+// rather than short labels, where subsequence-style fuzzy matching produces
+// false positives (almost any short query is a subsequence of a long enough
+// paragraph), so plain substring matching is what users actually expect here.
+export function matchesQuery(query, text) {
   if (!query) return true;
-  const q = query.toLowerCase();
-  const t = (text || "").toLowerCase();
-  let qi = 0;
-  for (let i = 0; i < t.length && qi < q.length; i++) {
-    if (t[i] === q[qi]) qi++;
-  }
-  return qi === q.length;
+  return (text || "").toLowerCase().includes(query.toLowerCase());
 }
 
-// Filter the tree so only nodes whose title (or any descendant's title)
-// matches the query remain. Matching nodes keep all their descendants.
-// Non-matching ancestors are kept as breadcrumbs when a descendant matches.
-// Returns the original list when query is empty.
-export function filterTree(nodes, query) {
-  if (!query) return nodes;
+// --- Org inline markup rendering ---
+// Renders a small subset of org-mode inline markup to safe HTML:
+// *bold*, /italic/, _underline_, =code= and [[url][label]] links.
+
+function escapeHtml(s) {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function isSafeUrl(url) {
+  return /^(https?:|mailto:)/i.test(url);
+}
+
+function isFileUrl(url) {
+  return /^file:/i.test(url);
+}
+
+function fileUrlToPath(url) {
+  // Strip file:// or file: prefix, leaving the bare path.
+  // file:///home/x → /home/x  |  file:/home/x → /home/x  |  file:relative → relative
+  return url.replace(/^file:\/\//i, "").replace(/^file:/i, "");
+}
+
+const LINK_RE = /\[\[([^\]]+)\]\[([^\]]*)\]\]|\[\[([^\]]+)\]\]/g;
+
+// Single combined pass: scanning left-to-right for whichever marker comes
+// first avoids re-scanning HTML tags already emitted for an earlier match
+// (e.g. italic's "/" matching inside a just-inserted "</strong>").
+const MARKUP_RE = /\*([^\s*][^*]*?)\*|\/([^\s/][^/]*?)\/|_([^\s_][^_]*?)_|=([^\s=][^=]*?)=/g;
+
+// Sentinel char (not producible by escapeHtml or normal text) used to mark
+// link placeholders so the markup regex above doesn't reprocess link content.
+const LINK_PLACEHOLDER = String.fromCharCode(1);
+
+export function renderOrgInline(text) {
+  if (!text) return "";
+
+  // Escape first so all later substitutions only ever insert trusted markup.
+  const escaped = escapeHtml(text);
+
+  // Pull links out into placeholders before applying emphasis markup, so
+  // markers inside labels/URLs aren't reprocessed.
+  const links = [];
+  let result = escaped.replace(LINK_RE, (match, url1, label1, url2) => {
+    const url = url1 !== undefined ? url1 : url2;
+    const label = label1 || url;
+    let html;
+    if (isSafeUrl(url)) {
+      html = `<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+    } else if (isFileUrl(url)) {
+      const path = fileUrlToPath(url);
+      html = `<a href="#" class="org-file-link" data-file-path="${path}">${label}</a>`;
+    } else {
+      html = match;
+    }
+    links.push(html);
+    return LINK_PLACEHOLDER + links.length + LINK_PLACEHOLDER;
+  });
+
+  result = result.replace(MARKUP_RE, (match, bold, italic, underline, code) => {
+    if (bold !== undefined) return `<strong>${bold}</strong>`;
+    if (italic !== undefined) return `<em>${italic}</em>`;
+    if (underline !== undefined) return `<u>${underline}</u>`;
+    return `<code>${code}</code>`;
+  });
+
+  const placeholderRe = new RegExp(LINK_PLACEHOLDER + "(\\d+)" + LINK_PLACEHOLDER, "g");
+  result = result.replace(placeholderRe, (_, i) => links[Number(i) - 1]);
+
+  return result;
+}
+
+// Filter the tree into a sparse view: a node is kept only if its own title
+// matches, or one of its descendants does (kept as a breadcrumb). Either
+// way, children are filtered too, so non-matching descendants are pruned
+// even under a matching node. Returns the original list when both filters
+// are empty. `selectedTags` matches with OR semantics (any one tag present
+// on the node is enough); it combines with the text query using AND.
+export function filterTree(nodes, query, selectedTags) {
+  const hasTagFilter = selectedTags && selectedTags.length > 0;
+  if (!query && !hasTagFilter) return nodes;
   const result = [];
   for (const n of nodes) {
-    if (fuzzyMatch(query, n.title)) {
-      result.push({ ...n, collapsed: false });
-    } else if (n.children?.length > 0) {
-      const kept = filterTree(n.children, query);
-      if (kept.length > 0) {
-        result.push({ ...n, collapsed: false, children: kept });
-      }
+    const textMatch = matchesQuery(query, n.title);
+    const tagMatch = !hasTagFilter || (n.tags || []).some((t) => selectedTags.includes(t));
+    const selfMatch = textMatch && tagMatch;
+    const children = n.children?.length > 0 ? filterTree(n.children, query, selectedTags) : [];
+    if (selfMatch || children.length > 0) {
+      result.push({ ...n, collapsed: false, children });
     }
   }
   return result;
+}
+
+// All bookmarked nodes in document order — returns [{id, title, bookmark}]
+// for every node that has a BOOKMARK property set.
+export function collectBookmarks(nodes) {
+  const result = [];
+  function walk(list) {
+    for (const n of list) {
+      if (n.properties?.BOOKMARK) {
+        result.push({ id: n.id, title: n.title, bookmark: n.properties.BOOKMARK });
+      }
+      if (n.children?.length > 0) walk(n.children);
+    }
+  }
+  walk(nodes || []);
+  return result;
+}
+
+// All distinct tags present anywhere in the tree, sorted alphabetically —
+// the full set offered by the tag-filter popup, independent of any filter
+// currently applied.
+export function collectAllTags(nodes) {
+  const seen = new Set();
+  const walk = (list) => {
+    for (const n of list) {
+      for (const t of n.tags || []) seen.add(t);
+      if (n.children?.length > 0) walk(n.children);
+    }
+  };
+  walk(nodes || []);
+  return [...seen].sort((a, b) => a.localeCompare(b));
+}
+
+// Collapsed-by-id map, mirroring the backend's model.CollapsedFromTree —
+// sent along when exiting text mode so fold state survives a reparse when
+// the edit didn't reorder/insert/delete headings above a given node.
+export function collapsedMap(nodes) {
+  const m = {};
+  const walk = (list) => {
+    for (const n of list) {
+      if (n.collapsed) m[n.id] = true;
+      if (n.children?.length > 0) walk(n.children);
+    }
+  };
+  walk(nodes || []);
+  return m;
 }

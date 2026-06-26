@@ -16,19 +16,19 @@ jobs:
         include:
           - goos: linux
             goarch: amd64
-            name: torg-linux-amd64
+            name: epicorg-linux-amd64
           - goos: linux
             goarch: arm64
-            name: torg-linux-arm64
+            name: epicorg-linux-arm64
           - goos: darwin
             goarch: amd64
-            name: torg-darwin-amd64
+            name: epicorg-darwin-amd64
           - goos: darwin
             goarch: arm64
-            name: torg-darwin-arm64
+            name: epicorg-darwin-arm64
           - goos: windows
             goarch: amd64
-            name: torg-windows-amd64.exe
+            name: epicorg-windows-amd64.exe
 
     steps:
       - uses: actions/checkout@v4
