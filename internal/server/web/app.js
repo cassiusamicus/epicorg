@@ -1419,11 +1419,24 @@ function AgendaView({ nodes, onSelect, searchQuery, selectedTags }) {
 // Ctrl+B/I/U wrap the selection in org-mode's inline markup characters.
 // Org has no native underline marker — "_underline_" is the closest
 // convention (rendered as underline by tree.renderOrgInline elsewhere).
-const FORMAT_MARKERS = { b: "*", i: "/", u: "_" };
+const FORMAT_MARKERS = { b: "*", i: "/", u: "_", s: "+" }; // Ctrl+B/I/U/S
 
 function formatMarkerForKey(e) {
   if (!e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return null;
   return FORMAT_MARKERS[e.key.toLowerCase()] || null;
+}
+
+// Apply an org inline marker to whichever textarea currently has focus,
+// used by the command palette where there's no keyboard event to anchor to.
+function applyMarkerToFocused(marker) {
+  const el = document.activeElement;
+  if (!el || el.tagName !== "TEXTAREA") return;
+  const { selectionStart: start, selectionEnd: end, value } = el;
+  const newVal = value.slice(0, start) + marker + value.slice(start, end) + marker + value.slice(end);
+  const nativeSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set;
+  nativeSetter.call(el, newVal);
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  requestAnimationFrame(() => el.setSelectionRange(start + marker.length, end + marker.length));
 }
 
 // Wraps the current selection (or, for a collapsed selection, just the
@@ -2538,6 +2551,25 @@ function App() {
     else enterTextMode();
   }, [enterTextMode, exitTextMode]);
 
+  // Three-way cycle: plain → formatted → reveal codes → plain
+  const cycleViewMode = useCallback(() => {
+    if (textModeRef.current) {
+      // reveal codes → plain
+      exitTextMode();
+      setTitleFormatMode(false);
+      try { localStorage.setItem("epicorg.titleFormatMode", "0"); } catch {}
+    } else if (titleFormatMode) {
+      // formatted → reveal codes
+      enterTextMode();
+      setTitleFormatMode(false);
+      try { localStorage.setItem("epicorg.titleFormatMode", "0"); } catch {}
+    } else {
+      // plain → formatted
+      setTitleFormatMode(true);
+      try { localStorage.setItem("epicorg.titleFormatMode", "1"); } catch {}
+    }
+  }, [enterTextMode, exitTextMode, titleFormatMode]);
+
   const handleCreateFile = useCallback(async (name) => {
     if (!name.endsWith(".org")) name += ".org";
     await api.post("/api/files", { filename: name });
@@ -3101,6 +3133,7 @@ function App() {
                   onToggleDetails=${() => setDetailVisiblePersisted((v) => !v)}
                   titleFormatMode=${titleFormatMode} onToggleTitleFormat=${toggleTitleFormatMode}
                   textMode=${textMode} onToggleTextMode=${toggleTextMode} textModeError=${textModeError}
+                  onCycleViewMode=${cycleViewMode}
                   canUndo=${canUndo} canRedo=${canRedo} onUndo=${undo} onRedo=${redo}
                   notesVisible=${notesVisible} onToggleNotesVisible=${toggleNotesVisible}
                   numberedBullets=${numberedBullets} onToggleNumberedBullets=${toggleNumberedBullets}
@@ -3121,7 +3154,8 @@ function App() {
       ${showHelp && html`<${CommandPalette} commands=${buildCommands({
           undo, redo, canUndo, canRedo,
           goBack, goForward, canGoBack, canGoForward,
-          toggleTheme, toggleTitleFormatMode, toggleTextMode,
+          toggleTheme, toggleTitleFormatMode, toggleTextMode, cycleViewMode,
+          titleFormatMode, textMode,
           toggleNotesVisible, notesVisible,
           toggleNumberedBullets, numberedBullets,
           toggleVerticalLines, verticalLines,
@@ -3433,7 +3467,17 @@ function IconDetails() {
   `;
 }
 
-function IconFormatted() {
+// Plain mode icon: simple "Aa"
+function IconModePlain() {
+  return html`
+    <svg width="16" height="16" viewBox="0 0 24 24">
+      <text x="12" y="17" fontSize="13" fontWeight="400" textAnchor="middle" fill="currentColor">Aa</text>
+    </svg>
+  `;
+}
+
+// Formatted mode icon: bold "Aa"
+function IconModeFormatted() {
   return html`
     <svg width="16" height="16" viewBox="0 0 24 24">
       <text x="12" y="17" fontSize="13" fontWeight="700" textAnchor="middle" fill="currentColor">Aa</text>
@@ -3441,13 +3485,19 @@ function IconFormatted() {
   `;
 }
 
-function IconTextMode() {
+// Reveal codes icon: </>
+function IconModeReveal() {
   return html`
-    <svg width="16" height="16" viewBox="0 0 24 24">
-      <text x="12" y="17" fontSize="15" fontWeight="700" textAnchor="middle" fill="currentColor">T</text>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="7 8 3 12 7 16" />
+      <polyline points="17 8 21 12 17 16" />
+      <line x1="13" y1="6" x2="11" y2="18" />
     </svg>
   `;
 }
+
+function IconFormatted() { return html`<${IconModeFormatted} />`; }
+function IconTextMode()   { return html`<${IconModeReveal} />`; }
 
 // Hoist: corners point inward (toward each other) when off — clicking
 // narrows the view. Once hoisted, they point outward — clicking expands
@@ -3740,7 +3790,7 @@ function HamburgerMenu({
   // their controls are reachable from here instead. On an uncollapsed
   // header those are already toolbar buttons, so this stays unused there.
   collapsed,
-  view, setView, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode,
+  view, setView, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode,
   notesVisible, onToggleNotesVisible, isHoisted, canToggleHoist, onToggleHoist,
   readingWidth, onToggleReadingWidth, onFoldToLevel,
   searchQuery, setSearchQuery, allTags, selectedTags, onToggleTag,
@@ -3819,12 +3869,8 @@ function HamburgerMenu({
             ${view === "outline" && html`
               <div className="hamburger-mobile-section">
                 <label className="hamburger-menu-option">
-                  <input type="checkbox" checked=${titleFormatMode} onChange=${onToggleTitleFormat} disabled=${textMode} />
-                  <span>Formatted text</span>
-                </label>
-                <label className="hamburger-menu-option">
-                  <input type="checkbox" checked=${textMode} onChange=${onToggleTextMode} />
-                  <span>Text mode (raw org source)</span>
+                  <input type="checkbox" checked=${titleFormatMode || textMode} onChange=${onCycleViewMode} />
+                  <span>${textMode ? "Reveal codes (click to exit)" : titleFormatMode ? "Formatted titles (click for reveal codes)" : "Plain mode (click for formatted)"}</span>
                 </label>
                 ${!textMode && html`
                   <label className="hamburger-menu-option">
@@ -3838,13 +3884,6 @@ function HamburgerMenu({
                 `}
               </div>
             `}
-
-            <div className="hamburger-mobile-section">
-              <label className="hamburger-menu-option">
-                <input type="checkbox" checked=${readingWidth} onChange=${onToggleReadingWidth} />
-                <span>Reading width</span>
-              </label>
-            </div>
 
             ${view === "outline" && !textMode && html`
               <div className="hamburger-mobile-section">
@@ -3881,6 +3920,10 @@ function HamburgerMenu({
               <label className="hamburger-menu-option">
                 <input type="checkbox" checked=${theme === "dark"} onChange=${onToggleTheme} />
                 <span>Dark mode</span>
+              </label>
+              <label className="hamburger-menu-option">
+                <input type="checkbox" checked=${readingWidth} onChange=${onToggleReadingWidth} />
+                <span>Reading width</span>
               </label>
               <div className="hamburger-mobile-row">
                 <span>${SYNC_LABELS[syncStatus] || syncStatus}</span>
@@ -3942,7 +3985,7 @@ function TagFilterButton({ allTags, selectedTags, onToggleTag, onClearTags }) {
   `;
 }
 
-function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, textModeError, notesVisible, onToggleNotesVisible, numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward }) {
+function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, textModeError, notesVisible, onToggleNotesVisible, numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward }) {
   // Whether the toolbar/search/etc. actually fit is measured, not
   // guessed from viewport width — a long filename or a pile of tags
   // eats into the same space a phone-width media query would assume is
@@ -4036,23 +4079,21 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
           </div>
           ${view === "outline" && html`
             <div className="view-toggle">
-              <button className=${"view-tab" + (titleFormatMode ? " active" : "")}
-                      onClick=${onToggleTitleFormat} disabled=${textMode}
-                      title=${textMode ? "Not available in text mode" : titleFormatMode ? "Showing formatted titles — click a title to edit it" : "Show *bold*, /italic/, etc. as formatted text"}><${IconFormatted} /></button>
-              <button className=${"view-tab" + (textMode ? " active" : "")}
-                      onClick=${onToggleTextMode}
+              <button className=${"view-tab" + (titleFormatMode || textMode ? " active" : "")}
+                      onClick=${onCycleViewMode}
                       title=${textMode
-                        ? "Exit text mode — reparse and return to the outline"
-                        : "Text mode — edit the raw org text directly, including heading asterisks, tags, and properties"}><${IconTextMode} /></button>
+                        ? "Reveal codes — click to return to plain mode"
+                        : titleFormatMode
+                          ? "Formatted titles — click for reveal codes"
+                          : "Plain mode — click for formatted titles"}>
+                ${textMode
+                  ? html`<${IconModeReveal} />`
+                  : titleFormatMode
+                    ? html`<${IconModeFormatted} />`
+                    : html`<${IconModePlain} />`}
+              </button>
             </div>
             ${textModeError && html`<span className="text-mode-error" title="Couldn't switch modes — see console">Error</span>`}
-          `}
-          ${!textMode && html`
-            <div className="view-toggle">
-              <button className=${"view-tab" + (readingWidth ? " active" : "")}
-                      onClick=${onToggleReadingWidth}
-                      title=${readingWidth ? "Showing reading width — click for full width" : "Center content in a narrower reading column"}><${IconWidth} /></button>
-            </div>
           `}
         </div>
       `}
@@ -4088,7 +4129,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
             collapsed=${collapsed}
             view=${view} setView=${setView}
             titleFormatMode=${titleFormatMode} onToggleTitleFormat=${onToggleTitleFormat}
-            textMode=${textMode} onToggleTextMode=${onToggleTextMode}
+            textMode=${textMode} onToggleTextMode=${onToggleTextMode} onCycleViewMode=${onCycleViewMode}
             notesVisible=${notesVisible} onToggleNotesVisible=${onToggleNotesVisible}
             isHoisted=${isHoisted} canToggleHoist=${canToggleHoist} onToggleHoist=${onToggleHoist}
             readingWidth=${readingWidth} onToggleReadingWidth=${onToggleReadingWidth}
@@ -4141,7 +4182,8 @@ function buildCommands(ctx) {
   const {
     undo, redo, canUndo, canRedo,
     goBack, goForward, canGoBack, canGoForward,
-    toggleTheme, toggleTitleFormatMode, toggleTextMode,
+    toggleTheme, toggleTitleFormatMode, toggleTextMode, cycleViewMode,
+    titleFormatMode, textMode,
     toggleNotesVisible, notesVisible,
     toggleNumberedBullets, numberedBullets,
     toggleVerticalLines, verticalLines,
@@ -4181,13 +4223,16 @@ function buildCommands(ctx) {
     // Edit
     { category: "Edit", label: "Undo",                    desc: "Undo last change",               keys: "Ctrl+Z",        action: undo,      disabled: !canUndo },
     { category: "Edit", label: "Redo",                    desc: "Redo last undone change",        keys: "Ctrl+Shift+Z",  action: redo,      disabled: !canRedo },
+    { category: "Edit", label: "Bold selection",          desc: "Wrap selection in *bold*",       keys: "Ctrl+B",        action: () => applyMarkerToFocused("*") },
+    { category: "Edit", label: "Italic selection",        desc: "Wrap selection in /italic/",     keys: "Ctrl+I",        action: () => applyMarkerToFocused("/") },
+    { category: "Edit", label: "Underline selection",     desc: "Wrap selection in _underline_",  keys: "Ctrl+U",        action: () => applyMarkerToFocused("_") },
+    { category: "Edit", label: "Strikethrough selection", desc: "Wrap selection in +strike+",     keys: "Ctrl+S",        action: () => applyMarkerToFocused("+") },
     { category: "Edit", label: "Hoist / Unhoist",         desc: isHoisted ? "Unhoist — show full tree" : "Hoist focused item", keys: "", action: toggleHoist },
     // Search
     { category: "Search", label: "Full-text Search…",    desc: "Search across all org files",    keys: "Ctrl+Shift+F",  action: () => setShowTextSearch(true) },
     // Settings
     { category: "Settings", label: "Toggle Dark/Light Theme", desc: "Switch colour theme",       keys: "",              action: toggleTheme },
-    { category: "Settings", label: "Toggle Rich/Plain Titles", desc: "Switch title format mode", keys: "",              action: toggleTitleFormatMode },
-    { category: "Settings", label: "Toggle Text Mode",    desc: "Edit raw org text",              keys: "",              action: toggleTextMode },
+    { category: "Settings", label: "Cycle View Mode",       desc: textMode ? "Reveal codes → Plain" : titleFormatMode ? "Formatted → Reveal codes" : "Plain → Formatted titles", keys: "", action: cycleViewMode },
     { category: "Settings", label: "Change Home Folder…", desc: "Pick a new home org folder",    keys: "",              action: () => setShowFolderPicker(true) },
     // Help
     { category: "Help", label: "Keyboard Shortcuts",      desc: "Show this command palette",      keys: "Ctrl+H",        action: () => setShowHelp(true) },
