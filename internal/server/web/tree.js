@@ -279,7 +279,7 @@ export function formatFileDate(isoString) {
 
 // --- Status ---
 
-export const STATUS_CYCLE = ["", "TODO", "DONE"];
+export const STATUS_CYCLE = ["", "TODO", "NEXT", "URGENT", "WAITING", "DONE", "CANCELLED"];
 
 export function nextStatus(current) {
   const idx = STATUS_CYCLE.indexOf(current || "");

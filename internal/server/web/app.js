@@ -66,7 +66,7 @@ function priorityRank(p) { return p && PRIORITY_ORDER[p] !== undefined ? PRIORIT
 function collectTodoItems(nodes, ancestors = []) {
   const items = [];
   for (const n of nodes) {
-    if (n.status && n.status !== "DONE") {
+    if (n.status && n.status !== "DONE" && n.status !== "CANCELLED") {
       items.push({ id: n.id, title: n.title, status: n.status, priority: n.priority || "", tags: n.tags || [], ancestors });
     }
     if (n.children?.length > 0) {
@@ -274,7 +274,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
         `}
         ${showFormatted
           ? html`
-            <div className=${"node-title node-title-preview" + (node.status === "DONE" ? " done" : "")}
+            <div className=${"node-title node-title-preview" + (node.status === "DONE" || node.status === "CANCELLED" ? " done" : "")}
                  onClick=${(e) => {
                    if (e.target.closest(".node-has-notes-indicator")) { dispatch(node.id, "edit-body"); return; }
                    dispatch(node.id, "edit-title");
@@ -291,7 +291,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                 titleRef.current = el;
                 if (el) { inputRefs.current[node.id] = el; adjustTextareaHeight(el); }
               }}
-              className=${"node-title" + (node.status === "DONE" ? " done" : "")}
+              className=${"node-title" + (node.status === "DONE" || node.status === "CANCELLED" ? " done" : "")}
               style=${showOverlay ? {position:"absolute",left:"-9999px",opacity:0,pointerEvents:"none",width:"1px",height:"1px",padding:0,border:0,overflow:"hidden",margin:0} : {}}
               value=${node.title}
               placeholder=""
@@ -304,7 +304,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
             />
           `}
         ${showOverlay && html`
-          <div className=${"node-title node-title-preview" + (node.status === "DONE" ? " done" : "")}
+          <div className=${"node-title node-title-preview" + (node.status === "DONE" || node.status === "CANCELLED" ? " done" : "")}
                onClick=${(e) => {
                  if (e.target.closest(".node-has-notes-indicator")) { dispatch(node.id, "edit-body"); return; }
                  setIsEditing(true);
@@ -392,14 +392,86 @@ function PropertiesEditor({ nodeId, properties, dispatch }) {
   `;
 }
 
-function TagsEditor({ nodeId, tags, dispatch }) {
-  const [newTag, setNewTag] = useState("");
+function flattenTagNames(tags, out = []) {
+  for (const t of tags) {
+    if (t.name) out.push(t.name);
+    if (t.children?.length) flattenTagNames(t.children, out);
+  }
+  return out;
+}
+
+function TagPickerModal({ currentTags, globalTags, onAdd, onClose }) {
+  const [filter, setFilter] = useState("");
+  const [highlighted, setHighlighted] = useState(0);
+  const inputRef = useRef(null);
+  const listRef = useRef(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const allKnown = useMemo(() => flattenTagNames(globalTags || []), [globalTags]);
+  const suggestions = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    const known = allKnown.filter((t) => !currentTags.includes(t) && (!q || t.toLowerCase().includes(q)));
+    // If typed text isn't already in the list, show it as a "new tag" option at top
+    const trimmed = filter.trim();
+    if (trimmed && !currentTags.includes(trimmed) && !known.includes(trimmed)) {
+      return [{ name: trimmed, isNew: true }, ...known.map((n) => ({ name: n, isNew: false }))];
+    }
+    return known.map((n) => ({ name: n, isNew: false }));
+  }, [filter, allKnown, currentTags]);
+
+  useEffect(() => { setHighlighted(0); }, [filter]);
+
+  useEffect(() => {
+    const el = listRef.current?.children[highlighted];
+    el?.scrollIntoView({ block: "nearest" });
+  }, [highlighted]);
+
+  const select = (item) => { onAdd(item.name); setFilter(""); setHighlighted(0); };
+
+  const onKeyDown = (e) => {
+    if (e.key === "Escape") { e.preventDefault(); onClose(); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); setHighlighted((h) => Math.min(h + 1, suggestions.length - 1)); }
+    else if (e.key === "ArrowUp")   { e.preventDefault(); setHighlighted((h) => Math.max(h - 1, 0)); }
+    else if (e.key === "Enter") { e.preventDefault(); if (suggestions[highlighted]) select(suggestions[highlighted]); }
+  };
+
+  return html`
+    <div className="folder-picker-overlay" onMouseDown=${(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="tag-picker-modal">
+        <div className="text-search-header">
+          <span className="text-search-title">Add Tag</span>
+          <button className="folder-picker-close" onClick=${onClose}>×</button>
+        </div>
+        <div className="tag-picker-body">
+          <input ref=${inputRef} className="text-search-input" type="text"
+                 placeholder="Type to filter or add new tag…"
+                 value=${filter} onInput=${(e) => setFilter(e.target.value)}
+                 onKeyDown=${onKeyDown} />
+          <div ref=${listRef} className="tag-picker-list">
+            ${suggestions.length === 0 && html`
+              <div className="tag-picker-empty">No tags in TagList.org yet</div>
+            `}
+            ${suggestions.map((item, i) => html`
+              <div key=${item.name}
+                   className=${"tag-picker-item" + (i === highlighted ? " highlighted" : "") + (item.isNew ? " is-new" : "")}
+                   onMouseDown=${(e) => { e.preventDefault(); select(item); }}>
+                ${item.isNew ? html`<span className="tag-picker-new-label">New:</span> ` : ""}${item.name}
+              </div>
+            `)}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function TagsEditor({ nodeId, tags, dispatch, globalTags }) {
+  const [showPicker, setShowPicker] = useState(false);
   const list = tags || [];
 
-  const addTag = () => {
-    const t = newTag.trim();
+  const addTag = (t) => {
     if (t && !list.includes(t)) dispatch(nodeId, "update-tags", [...list, t]);
-    setNewTag("");
   };
 
   return html`
@@ -411,10 +483,14 @@ function TagsEditor({ nodeId, tags, dispatch }) {
                   onClick=${() => dispatch(nodeId, "update-tags", list.filter((_, idx) => idx !== i))}>×</button>
         </span>
       `)}
-      <input className="tags-add-input" placeholder="add tag"
-             value=${newTag} onChange=${(e) => setNewTag(e.target.value)}
-             onKeyDown=${(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }}
-             onBlur=${addTag} />
+      <button className="tags-add-btn" onClick=${() => setShowPicker(true)}>+ add tag</button>
+      ${showPicker && html`
+        <${TagPickerModal}
+          currentTags=${list}
+          globalTags=${globalTags}
+          onAdd=${(t) => addTag(t)}
+          onClose=${() => setShowPicker(false)} />
+      `}
     </div>
   `;
 }
@@ -953,7 +1029,7 @@ const DETAIL_MAX_WIDTH_RATIO = 0.70;
 // handles reopening it, so no need to reserve a sliver for a gripper too.
 const DETAIL_CLOSED_WIDTH = 0;
 
-const DetailPane = forwardRef(function DetailPane({ node, isPreamble, dispatch, inputRefs, width, visible, onWidthChange, onOpen, titleFormatMode }, ref) {
+const DetailPane = forwardRef(function DetailPane({ node, isPreamble, dispatch, inputRefs, width, visible, onWidthChange, onOpen, titleFormatMode, globalTags }, ref) {
   // Only preamble's content still lives here — it has no bulleted row of
   // its own to display notes inline under. Every regular node's body now
   // shows inline in the outline, so the pane is properties-only for those.
@@ -1178,7 +1254,7 @@ const DetailPane = forwardRef(function DetailPane({ node, isPreamble, dispatch, 
       <div className="detail-section">
         <label className="detail-label">Tags</label>
         ${node
-          ? html`<${TagsEditor} nodeId=${node.id} tags=${node.tags} dispatch=${dispatch} />`
+          ? html`<${TagsEditor} nodeId=${node.id} tags=${node.tags} dispatch=${dispatch} globalTags=${globalTags} />`
           : html`<div className="detail-empty">—</div>`}
       </div>
       <div className="detail-section">
@@ -1205,13 +1281,26 @@ const TODO_SORT_OPTIONS = [
   { key: "title",    label: "Title"    },
 ];
 
+const TODO_STATUS_FILTERS = ["TODO", "NEXT", "URGENT", "WAITING"];
+
 function TodoView({ nodes, onSelect, searchQuery, selectedTags }) {
   const [sortBy, setSortBy] = useState("priority");
-  const isFiltering = !!searchQuery || (selectedTags && selectedTags.length > 0);
+  const [statusFilter, setStatusFilter] = useState(new Set());
+
+  const toggleStatus = (s) => setStatusFilter((prev) => {
+    const next = new Set(prev);
+    next.has(s) ? next.delete(s) : next.add(s);
+    return next;
+  });
+
+  const isFiltering = !!searchQuery || (selectedTags && selectedTags.length > 0) || statusFilter.size > 0;
   let items = collectTodoItems(nodes);
   if (searchQuery) items = items.filter((item) => tree.matchesQuery(searchQuery, item.title));
   if (selectedTags && selectedTags.length > 0) {
     items = items.filter((item) => item.tags.some((t) => selectedTags.includes(t)));
+  }
+  if (statusFilter.size > 0) {
+    items = items.filter((item) => statusFilter.has(item.status));
   }
 
   items = [...items].sort((a, b) => {
@@ -1231,12 +1320,23 @@ function TodoView({ nodes, onSelect, searchQuery, selectedTags }) {
   return html`
     <div className="agenda-view todo-view">
       <div className="todo-sort-bar">
-        <span className="todo-sort-label">Sort by:</span>
+        <span className="todo-sort-label">Sort:</span>
         ${TODO_SORT_OPTIONS.map((opt) => html`
           <button key=${opt.key}
                   className=${"todo-sort-btn" + (sortBy === opt.key ? " active" : "")}
                   onClick=${() => setSortBy(opt.key)}>${opt.label}</button>
         `)}
+      </div>
+      <div className="todo-filter-bar">
+        <span className="todo-sort-label">Filter:</span>
+        ${TODO_STATUS_FILTERS.map((s) => html`
+          <button key=${s}
+                  className=${"todo-filter-chip status-badge status-" + s.toLowerCase() + (statusFilter.has(s) ? " active" : "")}
+                  onClick=${() => toggleStatus(s)}>${s}</button>
+        `)}
+        ${statusFilter.size > 0 && html`
+          <button className="todo-filter-clear" onClick=${() => setStatusFilter(new Set())}>✕ clear</button>
+        `}
       </div>
       ${items.length === 0 ? html`
         <div className="agenda-empty">${isFiltering ? "No matches" : "No TODO items in this file"}</div>
@@ -3018,7 +3118,23 @@ function App() {
                   onOpenTextSearch=${() => setShowTextSearch(true)}
                   canGoBack=${canGoBack} canGoForward=${canGoForward}
                   onGoBack=${goBack} onGoForward=${goForward} />
-      ${showHelp && html`<${HelpPanel} onClose=${() => setShowHelp(false)} />`}
+      ${showHelp && html`<${CommandPalette} commands=${buildCommands({
+          undo, redo, canUndo, canRedo,
+          goBack, goForward, canGoBack, canGoForward,
+          toggleTheme, toggleTitleFormatMode, toggleTextMode,
+          toggleNotesVisible, notesVisible,
+          toggleNumberedBullets, numberedBullets,
+          toggleVerticalLines, verticalLines,
+          toggleReadingWidth, readingWidth,
+          toggleSidebar, sidebarVisible,
+          toggleHoist, isHoisted,
+          toggleTagPanel, tagPanelVisible,
+          toggleBookmarkPanel, bookmarkPanelVisible,
+          foldToLevel,
+          setView, view,
+          setShowPicker, setShowTextSearch, setShowFolderPicker,
+          setShowHelp,
+        })} onClose=${() => setShowHelp(false)} />`}
       ${showFolderPicker && html`
         <${FolderPicker}
           initialPath=${homeDir || "/"}
@@ -3170,7 +3286,8 @@ function App() {
           width=${detailWidth} visible=${detailVisible}
           onWidthChange=${setDetailWidthPersisted}
           onOpen=${() => setDetailVisiblePersisted(true)}
-          titleFormatMode=${titleFormatMode} />
+          titleFormatMode=${titleFormatMode}
+          globalTags=${globalTags} />
       </div>
     </div>
   `;
@@ -4020,60 +4137,171 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
   `;
 }
 
-function HelpPanel({ onClose }) {
+function buildCommands(ctx) {
+  const {
+    undo, redo, canUndo, canRedo,
+    goBack, goForward, canGoBack, canGoForward,
+    toggleTheme, toggleTitleFormatMode, toggleTextMode,
+    toggleNotesVisible, notesVisible,
+    toggleNumberedBullets, numberedBullets,
+    toggleVerticalLines, verticalLines,
+    toggleReadingWidth, readingWidth,
+    toggleSidebar, sidebarVisible,
+    toggleHoist, isHoisted,
+    toggleTagPanel, tagPanelVisible,
+    toggleBookmarkPanel, bookmarkPanelVisible,
+    foldToLevel,
+    setView, view,
+    setShowPicker, setShowTextSearch, setShowFolderPicker, setShowHelp,
+  } = ctx;
+
+  return [
+    // Navigation
+    { category: "Navigation", label: "Go Back",            desc: "Navigate to previous location",  keys: "Alt+←",         action: goBack,                     disabled: !canGoBack },
+    { category: "Navigation", label: "Go Forward",         desc: "Navigate to next location",      keys: "Alt+→",         action: goForward,                  disabled: !canGoForward },
+    { category: "Navigation", label: "Open File…",         desc: "Switch to a different file",     keys: "",              action: () => setShowPicker(true) },
+    // View
+    { category: "View", label: "Outline View",             desc: "Show the outline",               keys: "",              action: () => setView("outline") },
+    { category: "View", label: "Agenda View",              desc: "Show scheduled items",           keys: "",              action: () => setView("agenda") },
+    { category: "View", label: "TODO View",                desc: "Show all TODO items",            keys: "",              action: () => setView("todo") },
+    { category: "View", label: "Toggle Sidebar",           desc: "Show/hide the file sidebar",     keys: "",              action: toggleSidebar },
+    { category: "View", label: "Toggle Tag Panel",         desc: "Show/hide the tag panel",        keys: "",              action: toggleTagPanel },
+    { category: "View", label: "Toggle Bookmark Panel",    desc: "Show/hide bookmarks",            keys: "",              action: toggleBookmarkPanel },
+    { category: "View", label: "Toggle Detail Panel",      desc: "Show/hide the detail pane",      keys: "",              action: () => {} }, // wired below
+    { category: "View", label: "Toggle Notes",             desc: notesVisible ? "Hide inline notes" : "Show inline notes", keys: "", action: toggleNotesVisible },
+    { category: "View", label: "Toggle Reading Width",     desc: readingWidth ? "Full width" : "Comfortable reading width", keys: "", action: toggleReadingWidth },
+    { category: "View", label: "Toggle Vertical Lines",    desc: verticalLines ? "Hide indent guides" : "Show indent guides", keys: "", action: toggleVerticalLines },
+    { category: "View", label: "Toggle Numbered Bullets",  desc: numberedBullets ? "Switch to dot bullets" : "Switch to numbered bullets", keys: "", action: toggleNumberedBullets },
+    // Fold
+    { category: "Folding", label: "Fold to Level 1",      desc: "Collapse all but top level",     keys: "Alt+1",         action: () => foldToLevel(1) },
+    { category: "Folding", label: "Fold to Level 2",      desc: "Expand to level 2",              keys: "Alt+2",         action: () => foldToLevel(2) },
+    { category: "Folding", label: "Fold to Level 3",      desc: "Expand to level 3",              keys: "Alt+3",         action: () => foldToLevel(3) },
+    { category: "Folding", label: "Fold to Level 4",      desc: "Expand to level 4",              keys: "Alt+4",         action: () => foldToLevel(4) },
+    { category: "Folding", label: "Expand All",           desc: "Unfold everything",              keys: "Alt+9",         action: () => foldToLevel(9) },
+    // Edit
+    { category: "Edit", label: "Undo",                    desc: "Undo last change",               keys: "Ctrl+Z",        action: undo,      disabled: !canUndo },
+    { category: "Edit", label: "Redo",                    desc: "Redo last undone change",        keys: "Ctrl+Shift+Z",  action: redo,      disabled: !canRedo },
+    { category: "Edit", label: "Hoist / Unhoist",         desc: isHoisted ? "Unhoist — show full tree" : "Hoist focused item", keys: "", action: toggleHoist },
+    // Search
+    { category: "Search", label: "Full-text Search…",    desc: "Search across all org files",    keys: "Ctrl+Shift+F",  action: () => setShowTextSearch(true) },
+    // Settings
+    { category: "Settings", label: "Toggle Dark/Light Theme", desc: "Switch colour theme",       keys: "",              action: toggleTheme },
+    { category: "Settings", label: "Toggle Rich/Plain Titles", desc: "Switch title format mode", keys: "",              action: toggleTitleFormatMode },
+    { category: "Settings", label: "Toggle Text Mode",    desc: "Edit raw org text",              keys: "",              action: toggleTextMode },
+    { category: "Settings", label: "Change Home Folder…", desc: "Pick a new home org folder",    keys: "",              action: () => setShowFolderPicker(true) },
+    // Help
+    { category: "Help", label: "Keyboard Shortcuts",      desc: "Show this command palette",      keys: "Ctrl+H",        action: () => setShowHelp(true) },
+  ].filter((c) => !c.disabled);
+}
+
+function CommandPalette({ commands, onClose }) {
+  const [query, setQuery] = useState("");
+  const [highlighted, setHighlighted] = useState(0);
+  const inputRef = useRef(null);
+  const listRef = useRef(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return commands;
+    return commands.filter((c) =>
+      c.label.toLowerCase().includes(q) ||
+      c.desc.toLowerCase().includes(q) ||
+      (c.category || "").toLowerCase().includes(q) ||
+      (c.keys || "").toLowerCase().includes(q)
+    );
+  }, [query, commands]);
+
+  useEffect(() => { setHighlighted(0); }, [query]);
+
   useEffect(() => {
-    const handler = (e) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
+    const el = listRef.current?.children[highlighted];
+    el?.scrollIntoView({ block: "nearest" });
+  }, [highlighted]);
+
+  const run = (cmd) => {
+    onClose();
+    cmd.action();
+  };
+
+  const onKeyDown = (e) => {
+    if (e.key === "Escape") { e.preventDefault(); onClose(); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); setHighlighted((h) => Math.min(h + 1, filtered.length - 1)); }
+    else if (e.key === "ArrowUp")   { e.preventDefault(); setHighlighted((h) => Math.max(h - 1, 0)); }
+    else if (e.key === "Enter")     { e.preventDefault(); if (filtered[highlighted]) run(filtered[highlighted]); }
+  };
+
+  // Group by category for display when not filtering
+  const grouped = useMemo(() => {
+    if (query.trim()) return null; // flat list when searching
+    const map = {};
+    for (const c of filtered) {
+      const cat = c.category || "Other";
+      if (!map[cat]) map[cat] = [];
+      map[cat].push(c);
+    }
+    return map;
+  }, [filtered, query]);
+
+  // Flat index \u2192 command mapping (needed for highlight tracking across groups)
+  const flatFiltered = filtered;
 
   return html`
-    <div className="help-overlay" onClick=${onClose}>
-      <div className="help-panel" onClick=${(e) => e.stopPropagation()}>
-        <div className="help-header">
-          <h2>Keyboard shortcuts</h2>
-          <button className="help-close" onClick=${onClose}>\u00D7</button>
+    <div className="cp-overlay" onMouseDown=${(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="cp-dialog">
+        <div className="cp-input-row">
+          <svg className="cp-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input ref=${inputRef} className="cp-input" type="text"
+                 placeholder="Search commands\u2026"
+                 value=${query} onInput=${(e) => setQuery(e.target.value)}
+                 onKeyDown=${onKeyDown} />
+          <button className="cp-close" onClick=${onClose}>\u00D7</button>
         </div>
-        <div className="help-body">
-          <${HelpSection} title="Navigation">
-            <${HelpRow} keys="\u2191 / \u2193" desc="Move between items" />
-            <${HelpRow} keys="Enter" desc="Create new item below" />
-            <${HelpRow} keys="Shift + Enter" desc="Add/edit notes inline" />
-            <${HelpRow} keys="Escape" desc="Return to outline" />
-            <${HelpRow} keys="Backspace" desc="Delete empty item" />
-          <//>
-          <${HelpSection} title="Structure">
-            <${HelpRow} keys="Alt + \u2190" desc="Outdent (promote)" />
-            <${HelpRow} keys="Alt + \u2192" desc="Indent (demote)" />
-            <${HelpRow} keys="Alt + \u2191" desc="Move item up" />
-            <${HelpRow} keys="Alt + \u2193" desc="Move item down" />
-          <//>
-          <${HelpSection} title="Folding">
-            <${HelpRow} keys="Tab" desc="Fold / unfold children" />
-            <${HelpRow} keys="Alt + 1\u20139" desc="Fold to level N" />
-          <//>
-          <${HelpSection} title="Formatting">
-            <${HelpRow} keys="Ctrl + B" desc="Wrap selection in *bold*" />
-            <${HelpRow} keys="Ctrl + I" desc="Wrap selection in /italic/" />
-            <${HelpRow} keys="Ctrl + U" desc="Wrap selection in _underline_" />
-          <//>
-          <${HelpSection} title="Other">
-            <${HelpRow} keys="Ctrl + Z" desc="Undo" />
-            <${HelpRow} keys="Ctrl + Shift + Z" desc="Redo" />
-            <${HelpRow} keys="Ctrl + H" desc="Toggle this help" />
-          <//>
+        <div ref=${listRef} className="cp-list">
+          ${flatFiltered.length === 0 && html`
+            <div className="cp-empty">No commands match "${query}"</div>
+          `}
+          ${grouped
+            ? Object.entries(grouped).map(([cat, cmds]) => html`
+                <div key=${cat} className="cp-group">
+                  <div className="cp-group-label">${cat}</div>
+                  ${cmds.map((cmd) => {
+                    const idx = flatFiltered.indexOf(cmd);
+                    return html`
+                      <div key=${cmd.label}
+                           className=${"cp-item" + (idx === highlighted ? " highlighted" : "")}
+                           onMouseEnter=${() => setHighlighted(idx)}
+                           onMouseDown=${(e) => { e.preventDefault(); run(cmd); }}>
+                        <span className="cp-item-label">${cmd.label}</span>
+                        ${cmd.keys && html`<span className="cp-item-keys">${cmd.keys}</span>`}
+                      </div>
+                    `;
+                  })}
+                </div>
+              `)
+            : flatFiltered.map((cmd, idx) => html`
+                <div key=${cmd.label}
+                     className=${"cp-item" + (idx === highlighted ? " highlighted" : "")}
+                     onMouseEnter=${() => setHighlighted(idx)}
+                     onMouseDown=${(e) => { e.preventDefault(); run(cmd); }}>
+                  <div className="cp-item-left">
+                    <span className="cp-item-label">${cmd.label}</span>
+                    <span className="cp-item-desc">${cmd.desc}</span>
+                  </div>
+                  ${cmd.keys && html`<span className="cp-item-keys">${cmd.keys}</span>`}
+                </div>
+              `)
+          }
+        </div>
+        <div className="cp-footer">
+          <span>\u2191\u2193 navigate</span><span>\u21B5 run</span><span>Esc close</span>
         </div>
       </div>
     </div>
   `;
-}
-
-function HelpSection({ title, children }) {
-  return html`<div className="help-section"><h3>${title}</h3><div className="help-rows">${children}</div></div>`;
-}
-
-function HelpRow({ keys, desc }) {
-  return html`<div className="help-row"><span className="help-keys">${keys}</span><span className="help-desc">${desc}</span></div>`;
 }
 
 createRoot(document.getElementById("root")).render(html`<${App} />`);
