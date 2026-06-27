@@ -3565,6 +3565,15 @@ function IconSearch() {
   `;
 }
 
+function IconCommandPalette() {
+  return html`
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="4 17 9 12 4 7" />
+      <line x1="12" y1="17" x2="20" y2="17" />
+    </svg>
+  `;
+}
+
 function IconPencil() {
   return html`
     <svg ...${SMALL_ICON_PROPS}>
@@ -3853,6 +3862,13 @@ function HamburgerMenu({
             </button>
           </div>
 
+          <div className="hamburger-section">
+            <label className="hamburger-menu-option">
+              <input type="checkbox" checked=${readingWidth} onChange=${onToggleReadingWidth} />
+              <span>Reading width</span>
+            </label>
+          </div>
+
           ${collapsed && html`
           <div className="hamburger-mobile-only">
             <div className="hamburger-mobile-section">
@@ -3921,13 +3937,9 @@ function HamburgerMenu({
                 <input type="checkbox" checked=${theme === "dark"} onChange=${onToggleTheme} />
                 <span>Dark mode</span>
               </label>
-              <label className="hamburger-menu-option">
-                <input type="checkbox" checked=${readingWidth} onChange=${onToggleReadingWidth} />
-                <span>Reading width</span>
-              </label>
               <div className="hamburger-mobile-row">
                 <span>${SYNC_LABELS[syncStatus] || syncStatus}</span>
-                <button onClick=${() => { onHelp(); setOpen(false); }}>Help</button>
+                <button onClick=${() => { onHelp(); setOpen(false); }}>Commands</button>
               </div>
             </div>
           </div>
@@ -4019,13 +4031,11 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
           <button className=${"panel-toggle-btn" + (sidebarVisible ? " active" : "")}
                   onClick=${onToggleSidebar}
                   title="Toggle Favorites / Recent Files sidebar"><${IconSidebar} /></button>
-          ${!textMode && html`
-            <button className=${"panel-toggle-btn" + (bookmarkPanelVisible ? " active" : "")}
-                    onClick=${onToggleBookmarkPanel}
-                    title=${bookmarkPanelVisible ? "Close bookmark panel" : "Open bookmark panel"}>
-              <${IconBookmark} />
-            </button>
-          `}
+          <button className=${"panel-toggle-btn" + (bookmarkPanelVisible && !textMode ? " active" : "")}
+                  onClick=${onToggleBookmarkPanel} disabled=${textMode}
+                  title=${textMode ? "Not available in reveal codes mode" : bookmarkPanelVisible ? "Close bookmark panel" : "Open bookmark panel"}>
+            <${IconBookmark} />
+          </button>
         </div>
       `}
       <div className="header-left">
@@ -4038,21 +4048,23 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
       </div>
       ${currentFile && showFull && html`
         <div className="toolbar">
-          ${view === "outline" && !textMode && html`
+          ${view === "outline" && html`
             <div className="view-toggle">
               ${FOLD_LEVELS.map((lvl) => html`
                 <button key=${lvl} className="view-tab"
+                        disabled=${textMode}
                         onClick=${() => onFoldToLevel(lvl)}
-                        title=${"Fold to level " + lvl + " (Alt+" + lvl + ")"}>${lvl}</button>
+                        title=${textMode ? "Not available in reveal codes mode" : "Fold to level " + lvl + " (Alt+" + lvl + ")"}>${lvl}</button>
               `)}
             </div>
             <div className="view-toggle">
-              <button className=${"view-tab" + (notesVisible ? " active" : "")}
+              <button className=${"view-tab" + (notesVisible && !textMode ? " active" : "")}
+                      disabled=${textMode}
                       onClick=${onToggleNotesVisible}
-                      title=${notesVisible ? "Hide notes" : "Show notes inline"}><${IconNotes} /></button>
+                      title=${textMode ? "Not available in reveal codes mode" : notesVisible ? "Hide notes" : "Show notes inline"}><${IconNotes} /></button>
               <button className=${"view-tab" + (isHoisted ? " active" : "")}
-                      onClick=${onToggleHoist} disabled=${!canToggleHoist}
-                      title=${isHoisted ? "Show full outline again" : "Hoist — isolate the focused item and its children"}>
+                      onClick=${onToggleHoist} disabled=${!canToggleHoist || textMode}
+                      title=${textMode ? "Not available in reveal codes mode" : isHoisted ? "Show full outline again" : "Hoist — isolate the focused item and its children"}>
                 ${isHoisted ? html`<${IconHoistOn} />` : html`<${IconHoistOff} />`}
               </button>
             </div>
@@ -4097,8 +4109,8 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
           `}
         </div>
       `}
-      ${currentFile && showFull && !textMode && html`
-        <div className="search-box">
+      ${currentFile && showFull && html`
+        <div className="search-box" style=${{ opacity: textMode ? 0.4 : 1, pointerEvents: textMode ? "none" : "auto" }}>
           <input
             ref=${expanded ? null : searchInputRef}
             type="text"
@@ -4146,12 +4158,12 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
                   title=${theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
             ${theme === "dark" ? html`<${IconSun}/>` : html`<${IconMoon}/>`}
           </button>
-          <button className="help-btn" onClick=${onHelp} title="Keyboard shortcuts (Ctrl+H)">?</button>
+          <button className="help-btn" onClick=${onHelp} title="Command palette — search and run any command (Ctrl+H)"><${IconCommandPalette} /></button>
         `}
-        ${currentFile && !textMode && html`
-          <button className=${"panel-toggle-btn" + (tagPanelVisible ? " active" : "") + (selectedTags.length > 0 ? " has-filter" : "")}
-                  onClick=${onToggleTagPanel}
-                  title=${tagPanelVisible ? "Close tag panel" : "Open tag panel"}>
+        ${currentFile && html`
+          <button className=${"panel-toggle-btn" + (tagPanelVisible && !textMode ? " active" : "") + (selectedTags.length > 0 ? " has-filter" : "")}
+                  onClick=${onToggleTagPanel} disabled=${textMode}
+                  title=${textMode ? "Not available in reveal codes mode" : tagPanelVisible ? "Close tag panel" : "Open tag panel"}>
             <${IconTag} />
             ${selectedTags.length > 0 && html`<span className="tag-filter-count">${selectedTags.length}</span>`}
           </button>
@@ -4239,13 +4251,26 @@ function buildCommands(ctx) {
   ].filter((c) => !c.disabled);
 }
 
+const CP_RECENT_KEY = "epicorg.cp.recent";
+const CP_RECENT_MAX = 5;
+
+function cpLoadRecent() {
+  try { return JSON.parse(localStorage.getItem(CP_RECENT_KEY)) || []; } catch { return []; }
+}
+function cpSaveRecent(labels) {
+  try { localStorage.setItem(CP_RECENT_KEY, JSON.stringify(labels)); } catch {}
+}
+
 function CommandPalette({ commands, onClose }) {
   const [query, setQuery] = useState("");
   const [highlighted, setHighlighted] = useState(0);
+  const [recentLabels, setRecentLabels] = useState(cpLoadRecent);
   const inputRef = useRef(null);
   const listRef = useRef(null);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const isSearching = query.trim() !== "";
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -4258,39 +4283,75 @@ function CommandPalette({ commands, onClose }) {
     );
   }, [query, commands]);
 
+  // Recent commands that still exist in the current commands list
+  const recentCmds = useMemo(() => {
+    if (isSearching) return [];
+    return recentLabels
+      .map((label) => commands.find((c) => c.label === label))
+      .filter(Boolean)
+      .slice(0, CP_RECENT_MAX);
+  }, [recentLabels, commands, isSearching]);
+
+  // Non-recent commands grouped by category (when not searching)
+  const grouped = useMemo(() => {
+    if (isSearching) return null;
+    const recentSet = new Set(recentCmds.map((c) => c.label));
+    const map = {};
+    for (const c of commands) {
+      if (recentSet.has(c.label)) continue;
+      const cat = c.category || "Other";
+      if (!map[cat]) map[cat] = [];
+      map[cat].push(c);
+    }
+    // Sort each category alphabetically by label
+    for (const cat of Object.keys(map)) map[cat].sort((a, b) => a.label.localeCompare(b.label));
+    return map;
+  }, [commands, recentCmds, isSearching]);
+
+  // Flat list for highlight index tracking (recents first, then grouped rest)
+  const flatList = useMemo(() => {
+    if (isSearching) return filtered;
+    const rest = grouped ? Object.values(grouped).flat() : [];
+    return [...recentCmds, ...rest];
+  }, [isSearching, filtered, recentCmds, grouped]);
+
   useEffect(() => { setHighlighted(0); }, [query]);
 
   useEffect(() => {
-    const el = listRef.current?.children[highlighted];
-    el?.scrollIntoView({ block: "nearest" });
+    const items = listRef.current?.querySelectorAll(".cp-item");
+    items?.[highlighted]?.scrollIntoView({ block: "nearest" });
   }, [highlighted]);
 
   const run = (cmd) => {
+    // Record in recents
+    const next = [cmd.label, ...recentLabels.filter((l) => l !== cmd.label)].slice(0, CP_RECENT_MAX);
+    setRecentLabels(next);
+    cpSaveRecent(next);
     onClose();
     cmd.action();
   };
 
   const onKeyDown = (e) => {
     if (e.key === "Escape") { e.preventDefault(); onClose(); }
-    else if (e.key === "ArrowDown") { e.preventDefault(); setHighlighted((h) => Math.min(h + 1, filtered.length - 1)); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); setHighlighted((h) => Math.min(h + 1, flatList.length - 1)); }
     else if (e.key === "ArrowUp")   { e.preventDefault(); setHighlighted((h) => Math.max(h - 1, 0)); }
-    else if (e.key === "Enter")     { e.preventDefault(); if (filtered[highlighted]) run(filtered[highlighted]); }
+    else if (e.key === "Enter")     { e.preventDefault(); if (flatList[highlighted]) run(flatList[highlighted]); }
   };
 
-  // Group by category for display when not filtering
-  const grouped = useMemo(() => {
-    if (query.trim()) return null; // flat list when searching
-    const map = {};
-    for (const c of filtered) {
-      const cat = c.category || "Other";
-      if (!map[cat]) map[cat] = [];
-      map[cat].push(c);
-    }
-    return map;
-  }, [filtered, query]);
-
-  // Flat index \u2192 command mapping (needed for highlight tracking across groups)
-  const flatFiltered = filtered;
+  const renderItem = (cmd, idx) => html`
+    <div key=${cmd.label}
+         className=${"cp-item" + (idx === highlighted ? " highlighted" : "")}
+         onMouseEnter=${() => setHighlighted(idx)}
+         onMouseDown=${(e) => { e.preventDefault(); run(cmd); }}>
+      <div className="cp-item-left">
+        <span className="cp-item-label">${cmd.label}</span>
+        ${!isSearching
+          ? html`<span className="cp-item-desc">${cmd.desc}</span>`
+          : html`<span className="cp-item-desc">${cmd.category} \u00B7 ${cmd.desc}</span>`}
+      </div>
+      ${cmd.keys && html`<span className="cp-item-keys">${cmd.keys}</span>`}
+    </div>
+  `;
 
   return html`
     <div className="cp-overlay" onMouseDown=${(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -4306,39 +4367,25 @@ function CommandPalette({ commands, onClose }) {
           <button className="cp-close" onClick=${onClose}>\u00D7</button>
         </div>
         <div ref=${listRef} className="cp-list">
-          ${flatFiltered.length === 0 && html`
+          ${flatList.length === 0 && html`
             <div className="cp-empty">No commands match "${query}"</div>
           `}
-          ${grouped
-            ? Object.entries(grouped).map(([cat, cmds]) => html`
-                <div key=${cat} className="cp-group">
-                  <div className="cp-group-label">${cat}</div>
-                  ${cmds.map((cmd) => {
-                    const idx = flatFiltered.indexOf(cmd);
-                    return html`
-                      <div key=${cmd.label}
-                           className=${"cp-item" + (idx === highlighted ? " highlighted" : "")}
-                           onMouseEnter=${() => setHighlighted(idx)}
-                           onMouseDown=${(e) => { e.preventDefault(); run(cmd); }}>
-                        <span className="cp-item-label">${cmd.label}</span>
-                        ${cmd.keys && html`<span className="cp-item-keys">${cmd.keys}</span>`}
-                      </div>
-                    `;
-                  })}
-                </div>
-              `)
-            : flatFiltered.map((cmd, idx) => html`
-                <div key=${cmd.label}
-                     className=${"cp-item" + (idx === highlighted ? " highlighted" : "")}
-                     onMouseEnter=${() => setHighlighted(idx)}
-                     onMouseDown=${(e) => { e.preventDefault(); run(cmd); }}>
-                  <div className="cp-item-left">
-                    <span className="cp-item-label">${cmd.label}</span>
-                    <span className="cp-item-desc">${cmd.desc}</span>
+          ${isSearching
+            ? filtered.map((cmd, idx) => renderItem(cmd, idx))
+            : html`
+                ${recentCmds.length > 0 && html`
+                  <div className="cp-group">
+                    <div className="cp-group-label">Recent</div>
+                    ${recentCmds.map((cmd) => renderItem(cmd, flatList.indexOf(cmd)))}
                   </div>
-                  ${cmd.keys && html`<span className="cp-item-keys">${cmd.keys}</span>`}
-                </div>
-              `)
+                `}
+                ${Object.entries(grouped).map(([cat, cmds]) => html`
+                  <div key=${cat} className="cp-group">
+                    <div className="cp-group-label">${cat}</div>
+                    ${cmds.map((cmd) => renderItem(cmd, flatList.indexOf(cmd)))}
+                  </div>
+                `)}
+              `
           }
         </div>
         <div className="cp-footer">

@@ -613,6 +613,12 @@ header h1 {
   padding-top: 6px;
 }
 
+.hamburger-section {
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+  padding-top: 6px;
+}
+
 .hamburger-mobile-section:first-child {
   border-top: none;
   margin-top: 0;
