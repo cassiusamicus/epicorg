@@ -2554,21 +2554,34 @@ function App() {
   // Three-way cycle: plain → formatted → reveal codes → plain
   const cycleViewMode = useCallback(() => {
     if (textModeRef.current) {
-      // reveal codes → plain
       exitTextMode();
       setTitleFormatMode(false);
       try { localStorage.setItem("epicorg.titleFormatMode", "0"); } catch {}
     } else if (titleFormatMode) {
-      // formatted → reveal codes
       enterTextMode();
       setTitleFormatMode(false);
       try { localStorage.setItem("epicorg.titleFormatMode", "0"); } catch {}
     } else {
-      // plain → formatted
       setTitleFormatMode(true);
       try { localStorage.setItem("epicorg.titleFormatMode", "1"); } catch {}
     }
   }, [enterTextMode, exitTextMode, titleFormatMode]);
+
+  const setViewMode = useCallback((mode) => {
+    if (mode === "plain") {
+      if (textModeRef.current) exitTextMode();
+      setTitleFormatMode(false);
+      try { localStorage.setItem("epicorg.titleFormatMode", "0"); } catch {}
+    } else if (mode === "formatted") {
+      if (textModeRef.current) exitTextMode();
+      setTitleFormatMode(true);
+      try { localStorage.setItem("epicorg.titleFormatMode", "1"); } catch {}
+    } else if (mode === "reveal") {
+      setTitleFormatMode(false);
+      try { localStorage.setItem("epicorg.titleFormatMode", "0"); } catch {}
+      if (!textModeRef.current) enterTextMode();
+    }
+  }, [enterTextMode, exitTextMode]);
 
   const handleCreateFile = useCallback(async (name) => {
     if (!name.endsWith(".org")) name += ".org";
@@ -3133,7 +3146,7 @@ function App() {
                   onToggleDetails=${() => setDetailVisiblePersisted((v) => !v)}
                   titleFormatMode=${titleFormatMode} onToggleTitleFormat=${toggleTitleFormatMode}
                   textMode=${textMode} onToggleTextMode=${toggleTextMode} textModeError=${textModeError}
-                  onCycleViewMode=${cycleViewMode}
+                  onCycleViewMode=${cycleViewMode} onSetViewMode=${setViewMode}
                   canUndo=${canUndo} canRedo=${canRedo} onUndo=${undo} onRedo=${redo}
                   notesVisible=${notesVisible} onToggleNotesVisible=${toggleNotesVisible}
                   numberedBullets=${numberedBullets} onToggleNumberedBullets=${toggleNumberedBullets}
@@ -3806,8 +3819,10 @@ function HamburgerMenu({
   theme, onToggleTheme, onHelp, syncStatus,
   topBarColor, onSetTopBarColor,
   homeDir, onPickHomeDir,
+  onSetViewMode,
 }) {
   const [open, setOpen] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -3831,47 +3846,89 @@ function HamburgerMenu({
       </button>
       ${open && html`
         <div className="hamburger-menu-popup">
+
+          <!-- ── Outline ── -->
+          <div className="hamburger-group-label">Outline</div>
+          ${view === "outline" && html`
+            <div className="hamburger-menu-label">View mode</div>
+            <div className="hamburger-segmented">
+              <button className=${"hamburger-segmented-btn" + (!titleFormatMode && !textMode ? " active" : "")}
+                      onClick=${() => onSetViewMode("plain")}>Plain</button>
+              <button className=${"hamburger-segmented-btn" + (titleFormatMode && !textMode ? " active" : "")}
+                      onClick=${() => onSetViewMode("formatted")}>Formatted</button>
+              <button className=${"hamburger-segmented-btn" + (textMode ? " active" : "")}
+                      onClick=${() => onSetViewMode("reveal")}>Reveal Codes</button>
+            </div>
+          `}
+          <label className="hamburger-menu-option">
+            <input type="checkbox" checked=${notesVisible} onChange=${onToggleNotesVisible} disabled=${textMode || view !== "outline"} />
+            <span>Show notes inline</span>
+          </label>
+          <label className="hamburger-menu-option">
+            <input type="checkbox" checked=${isHoisted} onChange=${onToggleHoist} disabled=${!canToggleHoist || textMode || view !== "outline"} />
+            <span>Hoist (isolate focused item)</span>
+          </label>
           <label className="hamburger-menu-option">
             <input type="checkbox" checked=${numberedBullets} onChange=${onToggleNumberedBullets} disabled=${textMode} />
-            <span>Toggle numbering for all outline bullets</span>
+            <span>Numbered bullets</span>
           </label>
           <label className="hamburger-menu-option">
             <input type="checkbox" checked=${verticalLines} onChange=${onToggleVerticalLines} disabled=${textMode} />
-            <span>Toggle vertical lines</span>
+            <span>Vertical lines</span>
           </label>
+          ${view === "outline" && html`
+            <div className="hamburger-fold-row">
+              <span>Fold to level</span>
+              <span>
+                ${FOLD_LEVELS.map((lvl) => html`
+                  <button key=${lvl} className="hamburger-fold-btn" disabled=${textMode}
+                          onClick=${() => { onFoldToLevel(lvl); setOpen(false); }}>${lvl}</button>
+                `)}
+              </span>
+            </div>
+          `}
 
-          <div className="hamburger-menu-option hamburger-topbar-row">
-            <span>Top Bar Color</span>
-            <div className="topbar-color-chips">
-              <button className=${"topbar-chip topbar-chip-none" + (!topBarColor ? " active" : "")}
-                      onClick=${() => onSetTopBarColor(null)}>None</button>
-              ${["green", "blue", "red"].map((c) => html`
-                <button key=${c}
-                        className=${"topbar-chip" + (topBarColor === c ? " active" : "")}
-                        style=${{ background: TOPBAR_COLORS[c] }}
-                        onClick=${() => onSetTopBarColor(c)}
-                        title=${c.charAt(0).toUpperCase() + c.slice(1)}></button>
-              `)}
+          <!-- ── Workspace ── -->
+          <div className="hamburger-section">
+            <div className="hamburger-group-label">Workspace</div>
+            <div className="hamburger-menu-option hamburger-homefolder-row">
+              <span>Home Folder</span>
+              <button className="homefolder-path-btn" title="Click to change home folder" onClick=${onPickHomeDir}>
+                ${homeDir || "…"}
+              </button>
             </div>
           </div>
 
-          <div className="hamburger-menu-option hamburger-homefolder-row">
-            <span>Home Folder</span>
-            <button className="homefolder-path-btn" title="Click to change home folder" onClick=${onPickHomeDir}>
-              ${homeDir || "…"}
-            </button>
-          </div>
-
+          <!-- ── Appearance (infrequent) ── -->
           <div className="hamburger-section">
+            <div className="hamburger-group-label">Appearance</div>
+            <div className="hamburger-menu-option hamburger-topbar-row">
+              <span>Top Bar Color</span>
+              <div className="topbar-color-chips">
+                <button className=${"topbar-chip topbar-chip-none" + (!topBarColor ? " active" : "")}
+                        onClick=${() => onSetTopBarColor(null)}>None</button>
+                ${["green", "blue", "red"].map((c) => html`
+                  <button key=${c}
+                          className=${"topbar-chip" + (topBarColor === c ? " active" : "")}
+                          style=${{ background: TOPBAR_COLORS[c] }}
+                          onClick=${() => onSetTopBarColor(c)}
+                          title=${c.charAt(0).toUpperCase() + c.slice(1)}></button>
+                `)}
+              </div>
+            </div>
             <label className="hamburger-menu-option">
               <input type="checkbox" checked=${readingWidth} onChange=${onToggleReadingWidth} />
               <span>Reading width</span>
             </label>
+            <label className="hamburger-menu-option">
+              <input type="checkbox" checked=${theme === "dark"} onChange=${onToggleTheme} />
+              <span>Dark mode</span>
+            </label>
           </div>
 
+          <!-- ── Mobile-only: view switcher + status ── -->
           ${collapsed && html`
-          <div className="hamburger-mobile-only">
-            <div className="hamburger-mobile-section">
+            <div className="hamburger-section hamburger-mobile-only">
               <div className="hamburger-segmented">
                 <button className=${"hamburger-segmented-btn" + (view === "outline" ? " active" : "")}
                         onClick=${() => setView("outline")}><${IconOutline} /> Outline</button>
@@ -3880,72 +3937,50 @@ function HamburgerMenu({
                 <button className=${"hamburger-segmented-btn" + (view === "todo" ? " active" : "")}
                         onClick=${() => setView("todo")}><${IconTodo} /> TODO</button>
               </div>
-            </div>
-
-            ${view === "outline" && html`
-              <div className="hamburger-mobile-section">
-                <label className="hamburger-menu-option">
-                  <input type="checkbox" checked=${titleFormatMode || textMode} onChange=${onCycleViewMode} />
-                  <span>${textMode ? "Reveal codes (click to exit)" : titleFormatMode ? "Formatted titles (click for reveal codes)" : "Plain mode (click for formatted)"}</span>
-                </label>
-                ${!textMode && html`
-                  <label className="hamburger-menu-option">
-                    <input type="checkbox" checked=${notesVisible} onChange=${onToggleNotesVisible} />
-                    <span>Show notes inline</span>
-                  </label>
-                  <label className="hamburger-menu-option">
-                    <input type="checkbox" checked=${isHoisted} onChange=${onToggleHoist} disabled=${!canToggleHoist} />
-                    <span>Hoist (isolate focused item)</span>
-                  </label>
-                `}
-              </div>
-            `}
-
-            ${view === "outline" && !textMode && html`
-              <div className="hamburger-mobile-section">
-                <div className="hamburger-mobile-row">
-                  <span>Fold to level</span>
-                  <span>
-                    ${FOLD_LEVELS.map((lvl) => html`
-                      <button key=${lvl} onClick=${() => { onFoldToLevel(lvl); setOpen(false); }}>${lvl}</button>
-                    `)}
-                  </span>
-                </div>
-              </div>
-            `}
-
-            ${!textMode && html`
-              <div className="hamburger-mobile-section hamburger-mobile-search">
-                <input type="text" placeholder="Filter…" value=${searchQuery || ""}
-                       onChange=${(e) => setSearchQuery(e.target.value)} />
-              </div>
-            `}
-
-            ${!textMode && allTags.length > 0 && html`
-              <div className="hamburger-mobile-section">
-                ${allTags.map((tag) => html`
-                  <label className="hamburger-menu-option" key=${tag}>
-                    <input type="checkbox" checked=${selectedTags.includes(tag)} onChange=${() => onToggleTag(tag)} />
-                    <span>#${tag}</span>
-                  </label>
-                `)}
-              </div>
-            `}
-
-            <div className="hamburger-mobile-section">
-              <label className="hamburger-menu-option">
-                <input type="checkbox" checked=${theme === "dark"} onChange=${onToggleTheme} />
-                <span>Dark mode</span>
-              </label>
               <div className="hamburger-mobile-row">
                 <span>${SYNC_LABELS[syncStatus] || syncStatus}</span>
                 <button onClick=${() => { onHelp(); setOpen(false); }}>Commands</button>
               </div>
             </div>
-          </div>
           `}
+
+          <!-- ── About ── -->
+          <div className="hamburger-section">
+            <button className="hamburger-about-btn" onClick=${() => { setOpen(false); setShowAbout(true); }}>
+              About Epicorg…
+            </button>
+          </div>
         </div>
       `}
+
+      ${showAbout && html`<${AboutModal} onClose=${() => setShowAbout(false)} />`}
+    </div>
+  `;
+}
+
+function AboutModal({ onClose }) {
+  useEffect(() => {
+    const onKeyDown = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  return html`
+    <div className="folder-picker-overlay" onMouseDown=${(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="about-dialog">
+        <div className="about-header">
+          <h2>About Epicorg</h2>
+          <button className="folder-picker-close" onClick=${onClose}>×</button>
+        </div>
+        <div className="about-body">
+          <p>Epicorg was originally prepared by Cassius Amicus in 2026 for his personal use in working with an outline of Epicurean philosophy.</p>
+          <p>As Epicurus wrote in his letter to Herodotus:</p>
+          <blockquote className="about-quote">
+            <p>For those who are unable, Herodotus, to work in detail through all that I have written about nature, or to peruse the larger books which I have composed, I have already prepared at sufficient length an epitome of the whole system, that they may keep adequately in mind at least the most general principles in each department, in order that as occasion arises they may be able to assist themselves on the most important points, in so far as they undertake the study of nature. But those also who have made considerable progress in the survey of the main principles ought to bear in mind the scheme of the whole system set forth in its essentials. For we have frequent need of the general view, but not so often of the detailed exposition.</p>
+            <p>Indeed it is necessary to go back on the main principles, and constantly to fix in one's memory enough to give one the most essential comprehension of the truth. And in fact the accurate knowledge of details will be fully discovered, if the general principles in the various departments are thoroughly grasped and borne in mind; for even in the case of one fully initiated the most essential feature in all accurate knowledge is the capacity to make a rapid use of observation and mental apprehension, and this can be done if everything is summed up in elementary principles and formulae. For it is not possible for anyone to abbreviate the complete course through the whole system, if he cannot embrace in his own mind by means of short formulae all that might be set out with accuracy in detail.</p>
+          </blockquote>
+        </div>
+      </div>
     </div>
   `;
 }
@@ -3997,7 +4032,7 @@ function TagFilterButton({ allTags, selectedTags, onToggleTag, onClearTags }) {
   `;
 }
 
-function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, textModeError, notesVisible, onToggleNotesVisible, numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward }) {
+function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward }) {
   // Whether the toolbar/search/etc. actually fit is measured, not
   // guessed from viewport width — a long filename or a pile of tags
   // eats into the same space a phone-width media query would assume is
@@ -4141,7 +4176,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
             collapsed=${collapsed}
             view=${view} setView=${setView}
             titleFormatMode=${titleFormatMode} onToggleTitleFormat=${onToggleTitleFormat}
-            textMode=${textMode} onToggleTextMode=${onToggleTextMode} onCycleViewMode=${onCycleViewMode}
+            textMode=${textMode} onToggleTextMode=${onToggleTextMode} onCycleViewMode=${onCycleViewMode} onSetViewMode=${onSetViewMode}
             notesVisible=${notesVisible} onToggleNotesVisible=${onToggleNotesVisible}
             isHoisted=${isHoisted} canToggleHoist=${canToggleHoist} onToggleHoist=${onToggleHoist}
             readingWidth=${readingWidth} onToggleReadingWidth=${onToggleReadingWidth}
