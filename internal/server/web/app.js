@@ -213,14 +213,25 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
   const hasChildren = node.children?.length > 0;
   const titleRef = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
+  const pendingEditRef = useRef(false);
   const showFormatted = titleFormatMode && !isFocused;
   // When focused but not yet editing: overlay rendered view over a hidden (keyboard-capturing) textarea.
-  const showOverlay = titleFormatMode && isFocused && !isEditing;
+  // Skip overlay for empty titles — there's nothing to render and no way for the user to click into it.
+  const showOverlay = titleFormatMode && isFocused && !isEditing && node.title !== "";
   const bodyEditing = bodyEditingId === node.id;
   const hasHiddenNote = !notesVisible && !!node.body && !bodyEditing;
 
-  // Reset to view mode whenever this node loses focus.
-  useEffect(() => { if (!isFocused) setIsEditing(false); }, [isFocused]);
+  // Reset to view mode when losing focus; enter edit immediately when a mouse
+  // click set pendingEditRef before the dispatch that changed focusedId.
+  useEffect(() => {
+    if (!isFocused) {
+      setIsEditing(false);
+    } else if (pendingEditRef.current) {
+      pendingEditRef.current = false;
+      setIsEditing(true);
+      requestAnimationFrame(() => titleRef.current?.focus());
+    }
+  }, [isFocused]);
 
   useEffect(() => {
     adjustTextareaHeight(titleRef.current);
@@ -277,6 +288,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
             <div className=${"node-title node-title-preview" + (node.status === "DONE" || node.status === "CANCELLED" ? " done" : "")}
                  onClick=${(e) => {
                    if (e.target.closest(".node-has-notes-indicator")) { dispatch(node.id, "edit-body"); return; }
+                   pendingEditRef.current = true;
                    dispatch(node.id, "edit-title");
                  }}
                  dangerouslySetInnerHTML=${{
