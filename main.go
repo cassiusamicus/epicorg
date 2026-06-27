@@ -66,11 +66,18 @@ func main() {
 	// Require git — it's used for conflict detection and history snapshots.
 	if _, err := exec.LookPath("git"); err != nil {
 		fmt.Fprintln(os.Stderr, "epicorg requires git, but it was not found on your PATH.")
-		fmt.Fprintln(os.Stderr, "Install it with your package manager, e.g.:")
-		fmt.Fprintln(os.Stderr, "  Debian/Ubuntu:  sudo apt install git")
-		fmt.Fprintln(os.Stderr, "  Fedora/RHEL:    sudo dnf install git")
-		fmt.Fprintln(os.Stderr, "  Arch:           sudo pacman -S git")
-		fmt.Fprintln(os.Stderr, "  macOS:          brew install git  (or: xcode-select --install)")
+		fmt.Fprintln(os.Stderr, "Install it for your platform:")
+		switch runtime.GOOS {
+		case "windows":
+			fmt.Fprintln(os.Stderr, "  Download Git for Windows: https://git-scm.com/download/win")
+			fmt.Fprintln(os.Stderr, "  Or via winget:  winget install Git.Git")
+		case "darwin":
+			fmt.Fprintln(os.Stderr, "  brew install git  (or: xcode-select --install)")
+		default:
+			fmt.Fprintln(os.Stderr, "  Debian/Ubuntu:  sudo apt install git")
+			fmt.Fprintln(os.Stderr, "  Fedora/RHEL:    sudo dnf install git")
+			fmt.Fprintln(os.Stderr, "  Arch:           sudo pacman -S git")
+		}
 		os.Exit(1)
 	}
 

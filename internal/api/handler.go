@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"epicorg/internal/model"
@@ -265,8 +266,21 @@ func (h *handlers) openPath(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing path", http.StatusBadRequest)
 		return
 	}
-	go exec.Command("xdg-open", req.Path).Start()
+	go openWithSystem(req.Path)
 	writeJSON(w, map[string]bool{"ok": true})
+}
+
+func openWithSystem(path string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", path)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", path)
+	default:
+		cmd = exec.Command("xdg-open", path)
+	}
+	cmd.Start()
 }
 
 func (h *handlers) getGlobalBookmarks(w http.ResponseWriter, r *http.Request) {
