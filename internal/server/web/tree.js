@@ -58,6 +58,17 @@ export function findNodeByProperty(nodes, propName, propValue) {
   return null;
 }
 
+export function findNodeByTitle(nodes, title) {
+  for (const n of nodes) {
+    if (n.title === title) return n;
+    if (n.children?.length > 0) {
+      const found = findNodeByTitle(n.children, title);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 export function findParentInfo(nodes, id, parent = null) {
   for (let i = 0; i < nodes.length; i++) {
     if (nodes[i].id === id) return { parent, parentList: nodes, index: i };

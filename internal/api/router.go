@@ -122,6 +122,43 @@ func Register(mux *http.ServeMux, store *orgfile.Store, onSave func(), defaultFi
 		}
 	})
 
+	// Home directory management and filesystem browsing.
+	mux.HandleFunc("/api/homedir", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			h.getHomeDir(w, r)
+		case http.MethodPost:
+			h.setHomeDir(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/browse", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		h.browseDir(w, r)
+	})
+
+	// Full-text search — scans all .org files for nodes matching a query.
+	mux.HandleFunc("/api/search/text", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		h.searchText(w, r)
+	})
+
+	// Tag search — scans all .org files for nodes with a given tag.
+	mux.HandleFunc("/api/search/tag", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		h.searchTag(w, r)
+	})
+
 	// Global tags — persisted to ~/.config/epicorg/tags.json.
 	mux.HandleFunc("/api/global-tags", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {

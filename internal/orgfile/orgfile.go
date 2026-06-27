@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -58,7 +59,33 @@ func NewStore(dir string) (*Store, error) {
 }
 
 // Dir returns the directory path.
-func (s *Store) Dir() string { return s.dir }
+func (s *Store) Dir() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.dir
+}
+
+// SetDir changes the working directory at runtime. All cached file state is
+// cleared and git is initialized in the new directory.
+func (s *Store) SetDir(dir string) error {
+	dir = filepath.Clean(dir)
+	info, err := os.Stat(dir)
+	if err != nil {
+		return fmt.Errorf("cannot access directory: %w", err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("%q is not a directory", dir)
+	}
+	if err := git.EnsureRepo(dir); err != nil {
+		return fmt.Errorf("cannot initialize git repo: %w", err)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.dir = dir
+	s.active = make(map[string]*FileState)
+	s.currentFile = ""
+	return nil
+}
 
 // FileInfo describes a single org file for the file picker.
 type FileInfo struct {

@@ -11,6 +11,7 @@ type Item struct {
 	IsBody     bool              `json:"-"`
 	Title      string            `json:"title"`
 	Status     string            `json:"status,omitempty"`
+	Priority   string            `json:"priority,omitempty"` // "A", "B", "C", or ""
 	Tags       []string          `json:"tags,omitempty"`
 	Properties map[string]string `json:"properties,omitempty"`
 }
@@ -24,6 +25,7 @@ type Node struct {
 	Title      string            `json:"title"`
 	Body       string            `json:"body,omitempty"`
 	Status     string            `json:"status,omitempty"`
+	Priority   string            `json:"priority,omitempty"` // "A", "B", "C", or ""
 	Tags       []string          `json:"tags,omitempty"`
 	Properties map[string]string `json:"properties,omitempty"`
 	Children   []*Node           `json:"children"`
@@ -56,6 +58,7 @@ func (items Items) ToTree(collapsed map[string]bool) []*Node {
 		n := &Node{
 			Title:      item.Title,
 			Status:     item.Status,
+			Priority:   item.Priority,
 			Tags:       item.Tags,
 			Properties: item.Properties,
 			Children:   []*Node{},
@@ -128,6 +131,7 @@ func ItemsFromTree(nodes []*Node, level int) Items {
 			Level:      level,
 			Title:      n.Title,
 			Status:     n.Status,
+			Priority:   n.Priority,
 			Tags:       n.Tags,
 			Properties: n.Properties,
 		})

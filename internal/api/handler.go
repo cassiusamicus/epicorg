@@ -3,7 +3,9 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"epicorg/internal/model"
@@ -346,6 +348,93 @@ func (h *handlers) putGlobalTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]bool{"ok": true})
+}
+
+func (h *handlers) getHomeDir(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]string{"dir": h.store.Dir()})
+}
+
+func (h *handlers) setHomeDir(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Dir string `json:"dir"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Dir == "" {
+		http.Error(w, "missing dir", http.StatusBadRequest)
+		return
+	}
+	if err := h.store.SetDir(req.Dir); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, map[string]string{"dir": req.Dir})
+}
+
+func (h *handlers) browseDir(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		var err error
+		path, err = os.UserHomeDir()
+		if err != nil {
+			path = "/"
+		}
+	}
+	path = filepath.Clean(path)
+
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	var dirs []string
+	for _, e := range entries {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		dirs = append(dirs, e.Name())
+	}
+	parent := filepath.Dir(path)
+	if parent == path {
+		parent = ""
+	}
+	writeJSON(w, map[string]interface{}{
+		"path":   path,
+		"parent": parent,
+		"dirs":   dirs,
+	})
+}
+
+func (h *handlers) searchText(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query().Get("q")
+	if q == "" {
+		http.Error(w, "missing q parameter", http.StatusBadRequest)
+		return
+	}
+	results, err := h.store.SearchText(q)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if results == nil {
+		results = []orgfile.TextSearchResult{}
+	}
+	writeJSON(w, map[string]interface{}{"results": results})
+}
+
+func (h *handlers) searchTag(w http.ResponseWriter, r *http.Request) {
+	tag := r.URL.Query().Get("q")
+	if tag == "" {
+		http.Error(w, "missing q parameter", http.StatusBadRequest)
+		return
+	}
+	results, err := h.store.SearchTag(tag)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if results == nil {
+		results = []orgfile.TagSearchResult{}
+	}
+	writeJSON(w, map[string]interface{}{"results": results})
 }
 
 func writeJSON(w http.ResponseWriter, v interface{}) {

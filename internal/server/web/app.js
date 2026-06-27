@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, useReducer, forwardRef, useImperativeHandle } from "react";
 import { createRoot } from "react-dom/client";
 import htm from "htm";
 import * as tree from "./tree.js";
@@ -59,6 +59,22 @@ const api = {
 };
 
 // --- Agenda helpers ---
+
+const PRIORITY_ORDER = { A: 0, B: 1, C: 2 };
+function priorityRank(p) { return p && PRIORITY_ORDER[p] !== undefined ? PRIORITY_ORDER[p] : 3; }
+
+function collectTodoItems(nodes, ancestors = []) {
+  const items = [];
+  for (const n of nodes) {
+    if (n.status && n.status !== "DONE") {
+      items.push({ id: n.id, title: n.title, status: n.status, priority: n.priority || "", tags: n.tags || [], ancestors });
+    }
+    if (n.children?.length > 0) {
+      items.push(...collectTodoItems(n.children, [...ancestors, n.title]));
+    }
+  }
+  return items;
+}
 
 function collectDatedItems(nodes, ancestors = []) {
   const items = [];
@@ -124,6 +140,16 @@ function adjustTextareaHeight(ta) {
   ta.style.height = ta.scrollHeight + "px";
 }
 
+// Fire a custom event so the App can show the file-link picker without
+// prop-drilling a callback through the entire OutlineNode tree.
+function triggerLinkPicker(textarea) {
+  const pos = textarea.selectionStart;
+  if (!textarea.value.substring(0, pos).endsWith("[[")) return;
+  document.body.dispatchEvent(new CustomEvent("epicLinkTrigger", {
+    detail: { textarea, cursorPos: pos },
+  }));
+}
+
 // Notes/body text under a bullet — shown only when non-empty or actively
 // being edited, so empty items don't clutter the outline. Mirrors the
 // title's formatted-preview/edit-textarea split, governed by the same
@@ -169,7 +195,7 @@ function NodeBody({ node, dispatch, isEditing, titleFormatMode, notesVisible, de
             className="node-body-textarea"
             value=${node.body || ""}
             placeholder="Add notes..."
-            onChange=${(e) => dispatch(node.id, "change-body", e.target.value)}
+            onChange=${(e) => { dispatch(node.id, "change-body", e.target.value); triggerLinkPicker(e.target); }}
             onBlur=${() => dispatch(node.id, "stop-edit-body")}
             onKeyDown=${(e) => {
               const marker = formatMarkerForKey(e);
@@ -241,6 +267,11 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                 onClick=${(e) => { e.stopPropagation(); dispatch(node.id, "cycle-status"); }}
                 title="Click to set status"></span>
         `}
+        ${node.priority && html`
+          <span className=${"priority-badge priority-" + node.priority}
+                onClick=${(e) => { e.stopPropagation(); dispatch(node.id, "set-priority", node.priority === "A" ? "B" : node.priority === "B" ? "C" : "A"); }}
+                title="Click to cycle priority">[#${node.priority}]</span>
+        `}
         ${showFormatted
           ? html`
             <div className=${"node-title node-title-preview" + (node.status === "DONE" ? " done" : "")}
@@ -269,7 +300,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                 if (showOverlay && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) setIsEditing(true);
                 handleKey(e, node.id, dispatch);
               }}
-              onChange=${(e) => { setIsEditing(true); dispatch(node.id, "change", e.target.value); }}
+              onChange=${(e) => { setIsEditing(true); dispatch(node.id, "change", e.target.value); triggerLinkPicker(e.target); }}
             />
           `}
         ${showOverlay && html`
@@ -530,7 +561,7 @@ let gBMLineIdx = null;
 
 // Recursive sibling list — each instance owns its own render state (line/nest indicators)
 // but shares the module-level drag vars for reliable drop logic.
-function TagList({ tags, onUpdate, depth, selectedTags, onToggleTag, onAddTagToItem, onNestTag }) {
+function TagList({ tags, onUpdate, depth, selectedTags, onToggleTag, onAddTagToItem, onNestTag, onSearch }) {
   const [draggingIdx, setDraggingIdx] = useState(null);
   const [dropLineIdx, setDropLineIdx] = useState(null);  // line shown between items
   const [nestOverIdx, setNestOverIdx] = useState(null);  // box shown on nest target
@@ -635,6 +666,8 @@ function TagList({ tags, onUpdate, depth, selectedTags, onToggleTag, onAddTagToI
                     onClick=${(e) => { e.stopPropagation(); if (hasChildren) toggleCollapsed(); }}>
               ${hasChildren ? (tag.collapsed ? "▶" : "▼") : ""}
             </button>
+            <button className="tag-search-btn" title=${"Search all files for :" + tag.name + ":"}
+                    onClick=${(e) => { e.stopPropagation(); onSearch(tag.name); }}><${IconSearch} /></button>
             <span className="tag-panel-drag-icon">⠿</span>
             <span className="tag-panel-name" onClick=${() => onToggleTag(tag.name)}>${tag.name}</span>
             <button className="tag-add-to-item-btn" title="Add this tag to the focused item"
@@ -670,7 +703,8 @@ function TagList({ tags, onUpdate, depth, selectedTags, onToggleTag, onAddTagToI
               selectedTags=${selectedTags}
               onToggleTag=${onToggleTag}
               onAddTagToItem=${onAddTagToItem}
-              onNestTag=${onNestTag} />
+              onNestTag=${onNestTag}
+              onSearch=${onSearch} />
           `}
         </div>
       `;
@@ -679,7 +713,7 @@ function TagList({ tags, onUpdate, depth, selectedTags, onToggleTag, onAddTagToI
   `;
 }
 
-function TagPanel({ globalTags, onUpdateTags, onNestTag, onAddTagToItem, selectedTags, onToggleTag, onClearTags, onEditTagFile, width, onWidthChange }) {
+function TagPanel({ globalTags, onUpdateTags, onNestTag, onAddTagToItem, selectedTags, onToggleTag, onClearTags, onEditTagFile, width, onWidthChange, onSearch }) {
   const onGripperMouseDown = (e) => {
     e.preventDefault();
     const startX = e.clientX;
@@ -716,7 +750,8 @@ function TagPanel({ globalTags, onUpdateTags, onNestTag, onAddTagToItem, selecte
             onAddTagToItem=${onAddTagToItem}
             depth=${0}
             selectedTags=${selectedTags}
-            onToggleTag=${onToggleTag} />
+            onToggleTag=${onToggleTag}
+            onSearch=${onSearch} />
           ${globalTags.length === 0 && html`
             <div className="tag-panel-empty">No tags yet.<br/>Open org files with tags to populate this list.</div>
           `}
@@ -1074,13 +1109,26 @@ const DetailPane = forwardRef(function DetailPane({ node, isPreamble, dispatch, 
     `}
     ${!isPreamble && html`
       <div className="detail-section">
-        <label className="detail-label">Status</label>
+        <label className="detail-label">TODO Status</label>
         <div className="detail-status-group">
           ${tree.STATUS_CYCLE.map((s) => html`
             <button key=${s || "none"}
                     className=${"detail-status-btn" + (s ? " status-" + s.toLowerCase() : " status-none") + (node?.status === s ? " active" : "")}
                     disabled=${!node}
                     onClick=${() => dispatch(node.id, "set-status", s)}>${s || "NONE"}</button>
+          `)}
+        </div>
+      </div>
+      <div className="detail-section">
+        <label className="detail-label">Priority</label>
+        <div className="detail-priority-group">
+          ${["A","B","C",""].map((p) => html`
+            <button key=${p || "none"}
+                    className=${"detail-priority-btn priority-" + (p || "none") + (node?.priority === p ? " active" : "")}
+                    disabled=${!node}
+                    onClick=${() => dispatch(node.id, "set-priority", p)}>
+              ${p ? html`[#${p}]` : "NONE"}
+            </button>
           `)}
         </div>
       </div>
@@ -1150,6 +1198,70 @@ const DetailPane = forwardRef(function DetailPane({ node, isPreamble, dispatch, 
     </div>
   `;
 });
+
+const TODO_SORT_OPTIONS = [
+  { key: "priority", label: "Priority" },
+  { key: "status",   label: "Status"   },
+  { key: "title",    label: "Title"    },
+];
+
+function TodoView({ nodes, onSelect, searchQuery, selectedTags }) {
+  const [sortBy, setSortBy] = useState("priority");
+  const isFiltering = !!searchQuery || (selectedTags && selectedTags.length > 0);
+  let items = collectTodoItems(nodes);
+  if (searchQuery) items = items.filter((item) => tree.matchesQuery(searchQuery, item.title));
+  if (selectedTags && selectedTags.length > 0) {
+    items = items.filter((item) => item.tags.some((t) => selectedTags.includes(t)));
+  }
+
+  items = [...items].sort((a, b) => {
+    if (sortBy === "priority") {
+      const pd = priorityRank(a.priority) - priorityRank(b.priority);
+      if (pd !== 0) return pd;
+      return a.status.localeCompare(b.status);
+    }
+    if (sortBy === "status") {
+      const sd = a.status.localeCompare(b.status);
+      if (sd !== 0) return sd;
+      return priorityRank(a.priority) - priorityRank(b.priority);
+    }
+    return a.title.localeCompare(b.title);
+  });
+
+  return html`
+    <div className="agenda-view todo-view">
+      <div className="todo-sort-bar">
+        <span className="todo-sort-label">Sort by:</span>
+        ${TODO_SORT_OPTIONS.map((opt) => html`
+          <button key=${opt.key}
+                  className=${"todo-sort-btn" + (sortBy === opt.key ? " active" : "")}
+                  onClick=${() => setSortBy(opt.key)}>${opt.label}</button>
+        `)}
+      </div>
+      ${items.length === 0 ? html`
+        <div className="agenda-empty">${isFiltering ? "No matches" : "No TODO items in this file"}</div>
+      ` : items.map((item) => html`
+        <div className="todo-item" key=${item.id} onClick=${() => onSelect(item.id)}>
+          <span className=${"todo-item-priority priority-chip" + (item.priority ? " has-priority priority-" + item.priority : "")}>
+            ${item.priority ? html`[#${item.priority}]` : "–"}
+          </span>
+          <span className=${"todo-item-status status-badge status-" + item.status.toLowerCase()}>
+            ${item.status}
+          </span>
+          <span className="todo-item-title">${item.title || "Untitled"}</span>
+          ${item.tags.length > 0 && html`
+            <span className="agenda-item-tags">
+              ${item.tags.map((t) => html`<span key=${t} className="agenda-item-tag">:${t}:</span>`)}
+            </span>
+          `}
+          ${item.ancestors.length > 0 && html`
+            <span className="todo-item-path">${item.ancestors.join(" › ")}</span>
+          `}
+        </div>
+      `)}
+    </div>
+  `;
+}
 
 function AgendaView({ nodes, onSelect, searchQuery, selectedTags }) {
   const isFiltering = !!searchQuery || (selectedTags && selectedTags.length > 0);
@@ -1253,11 +1365,13 @@ const SYNC_MERGED = "merged";
 const SYNC_RELOADED = "reloaded";
 
 const SYNC_LABELS = {
-  [SYNC_SAVED]: "Saved", [SYNC_DIRTY]: "Unsaved changes",
-  [SYNC_SAVING]: "Saving\u2026", [SYNC_ERROR]: "Save failed",
-  [SYNC_CONFLICT]: "Merge conflict \u2014 resolve markers",
-  [SYNC_MERGED]: "Merged external edits",
-  [SYNC_RELOADED]: "Reloaded \u2014 changed on disk",
+  [SYNC_SAVED]:    "Saved \u2014 gray dot: up to date",
+  [SYNC_DIRTY]:    "Unsaved changes \u2014 yellow hollow dot: pending save",
+  [SYNC_SAVING]:   "Saving\u2026 \u2014 gray dot: save in progress",
+  [SYNC_ERROR]:    "Save failed \u2014 red dot: network or server error",
+  [SYNC_CONFLICT]: "Merge conflict \u2014 red dot: resolve conflict markers in file",
+  [SYNC_MERGED]:   "Merged external edits \u2014 blue dot: external edit was merged in",
+  [SYNC_RELOADED]: "Reloaded \u2014 blue dot: file changed on disk and was reloaded",
 };
 
 function SyncIndicator({ status }) {
@@ -1366,7 +1480,7 @@ function FilePicker({ files, onSelect, onCreate, onClose, onRename, onDelete }) 
         ${sorted.map((f) => html`
           <div className="file-item" key=${f.name} onClick=${() => { if (renamingFile !== f.name) onSelect(f.name); }}>
             <span className="file-col-name file-name-col">
-              <span className="file-icon">▯</span>
+              <span className="file-icon"><${IconDoc}/></span>
               ${renamingFile === f.name
                 ? html`
                   <input
@@ -1464,7 +1578,7 @@ function SidebarFileRow({ name, active, isFavorite, onSelect, onToggleFavorite }
   return html`
     <div className=${"sidebar-item" + (active ? " active" : "")}>
       <span className="sidebar-item-main" onClick=${() => onSelect(name)} title=${name}>
-        <span className="sidebar-item-icon">▯</span>
+        <span className="sidebar-item-icon"><${IconDoc}/></span>
         <span className="sidebar-item-name">${name}</span>
       </span>
       <button className=${"sidebar-star" + (isFavorite ? " sidebar-star-active" : "")}
@@ -1543,7 +1657,7 @@ const UNDO_LIMIT = 100;
 // state, not content) are deliberately excluded.
 const UNDOABLE_ACTIONS = new Set([
   "change-preamble", "change", "change-body", "update-properties", "update-tags", "update-bookmarks",
-  "set-status", "cycle-status", "new-sibling", "delete", "indent", "outdent", "move-up", "move-down",
+  "set-status", "set-priority", "cycle-status", "new-sibling", "delete", "indent", "outdent", "move-up", "move-down",
 ]);
 // Of those, typing actions get debounced into one undo step per "burst"
 // rather than one per keystroke.
@@ -1581,6 +1695,17 @@ function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [syncStatus, setSyncStatus] = useState(SYNC_SAVED);
   const [view, setView] = useState("outline");
+  const [tagSearch, setTagSearch] = useState(null); // { tag, results } | null
+  const pendingTagNavRef = useRef(null); // { file, title } to navigate to after load
+  const [homeDir, setHomeDir] = useState(null);
+  const [showFolderPicker, setShowFolderPicker] = useState(false);
+  const [showTextSearch, setShowTextSearch] = useState(false);
+  // Unified search results: { type: "tag"|"text", query, results } | null
+  const [searchResults, setSearchResults] = useState(null);
+  const [showLinkPicker, setShowLinkPicker] = useState(false);
+  const linkPickerTargetRef = useRef(null); // { textarea, cursorPos }
+  const [navState, navDispatch] = useReducer(navReducer, { history: [], index: -1 });
+  const histNavRef = useRef(false); // true while back/forward is in progress (suppresses push)
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef(null);
   const [selectedTags, setSelectedTags] = useState([]);
@@ -1993,6 +2118,13 @@ function App() {
         if (el) { el.focus(); el.select(); }
         return;
       }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "F") {
+        e.preventDefault();
+        setShowTextSearch(true);
+        return;
+      }
+      if (e.altKey && e.key === "ArrowLeft") { e.preventDefault(); goBackRef.current?.(); return; }
+      if (e.altKey && e.key === "ArrowRight") { e.preventDefault(); goForwardRef.current?.(); return; }
       if (e.altKey && e.key >= "1" && e.key <= "9" && !textModeRef.current) {
         e.preventDefault();
         foldToLevel(parseInt(e.key));
@@ -2019,7 +2151,14 @@ function App() {
       pendingFocusRef.current = null;
       requestAnimationFrame(() => {
         const el = inputRefs.current[id];
-        if (el) { el.focus(); if (el.setSelectionRange) el.selectionStart = el.selectionEnd = el.value?.length || 0; }
+        if (el) {
+          el.focus();
+          if (el.setSelectionRange) el.selectionStart = el.selectionEnd = el.value?.length || 0;
+          // The textarea may be off-screen at -9999px when overlay mode is active,
+          // so scroll the .node-row (always in the real layout) instead.
+          const row = document.querySelector(`.node-row[data-node-id="${id}"]`);
+          (row || el).scrollIntoView({ block: "nearest" });
+        }
       });
     }
   });
@@ -2041,8 +2180,76 @@ function App() {
     if (found) {
       setNodes((prev) => tree.uncollapseToNode(prev, found.id));
       focusNode(found.id);
+      navDispatch({ type: "patch", title: found.title });
     }
-  }, [nodes, focusNode]);
+  }, [nodes, focusNode, navDispatch]);
+
+  // After a file loads via tag/text-search result click, find the node by title and focus it.
+  useEffect(() => {
+    if (!nodes || !pendingTagNavRef.current) return;
+    const { title } = pendingTagNavRef.current;
+    pendingTagNavRef.current = null;
+    const found = tree.findNodeByTitle(nodes, title);
+    if (found) {
+      setNodes((prev) => tree.uncollapseToNode(prev, found.id));
+      focusNode(found.id);
+      navDispatch({ type: "patch", title: found.title });
+    }
+  }, [nodes, focusNode, navDispatch]);
+
+  const searchTag = useCallback(async (tag) => {
+    setTagSearch({ tag, results: null });
+    setSearchResults({ type: "tag", query: tag, results: null });
+    setView("search");
+    try {
+      const data = await api.get("/api/search/tag?q=" + encodeURIComponent(tag));
+      const r = data.results || [];
+      setTagSearch({ tag, results: r });
+      setSearchResults({ type: "tag", query: tag, results: r });
+    } catch {
+      setTagSearch({ tag, results: [] });
+      setSearchResults({ type: "tag", query: tag, results: [] });
+    }
+  }, []);
+
+  // Listen for the [[ trigger fired from node textareas.
+  useEffect(() => {
+    const handler = (e) => {
+      linkPickerTargetRef.current = e.detail;
+      setShowLinkPicker(true);
+    };
+    document.body.addEventListener("epicLinkTrigger", handler);
+    return () => document.body.removeEventListener("epicLinkTrigger", handler);
+  }, []);
+
+  const insertFileLink = useCallback((filename, title) => {
+    const target = linkPickerTargetRef.current;
+    setShowLinkPicker(false);
+    if (!target) return;
+    const { textarea, cursorPos } = target;
+    const link = `[[file:${filename}][${title}]]`;
+    const before = textarea.value.substring(0, cursorPos - 2); // -2 removes the [[
+    const after = textarea.value.substring(cursorPos);
+    const newVal = before + link + after;
+    const proto = window.HTMLTextAreaElement.prototype;
+    Object.getOwnPropertyDescriptor(proto, "value").set.call(textarea, newVal);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    const newCursor = before.length + link.length;
+    textarea.setSelectionRange(newCursor, newCursor);
+    textarea.focus();
+  }, []);
+
+  const runTextSearch = useCallback(async (query) => {
+    setShowTextSearch(false);
+    setSearchResults({ type: "text", query, results: null });
+    setView("search");
+    try {
+      const data = await api.get("/api/search/text?q=" + encodeURIComponent(query));
+      setSearchResults({ type: "text", query, results: data.results || [] });
+    } catch {
+      setSearchResults({ type: "text", query, results: [] });
+    }
+  }, []);
 
   // Load file list on mount. The file the user last had open (persisted
   // across refreshes) takes priority over the launch -file default, so
@@ -2058,6 +2265,38 @@ function App() {
       else if (data.default && f.some((file) => file.name === data.default)) loadFile(data.default);
       else if (f.length === 1) loadFile(f[0].name);
     });
+  }, []);
+
+  // Fetch and track home directory.
+  useEffect(() => {
+    api.get("/api/homedir").then((d) => setHomeDir(d.dir)).catch(() => {});
+  }, []);
+
+  const changeHomeDir = useCallback(async (dir) => {
+    await api.post("/api/homedir", { dir });
+    setHomeDir(dir);
+    setShowFolderPicker(false);
+    setTagSearch(null);
+    // Reload file list from new dir
+    const data = await api.get("/api/files");
+    const f = data.files || [];
+    setFiles(f);
+    // Reload bookmarks and tags from new dir
+    api.get("/api/bookmarks").then((d) => {
+      const bms = d.bookmarks || [];
+      setGlobalBMs(bms);
+      globalBMsRef.current = bms;
+    }).catch(() => {});
+    api.get("/api/global-tags").then((d) => {
+      const tags = d.tags || [];
+      setGlobalTags(tags);
+      globalTagsRef.current = tags;
+    }).catch(() => {});
+    // Clear current file since it belongs to the old dir
+    setCurrentFile(null);
+    setNodes(null);
+    setPreamble("");
+    setHash("");
   }, []);
 
   // Favorites are shared workspace state (stored server-side), unlike
@@ -2108,7 +2347,47 @@ function App() {
     });
     const flat = tree.flattenVisible(data.nodes || []);
     if (flat.length > 0) focusNode(flat[0].id);
-  }, [focusNode, clearUndoHistory]);
+    if (!histNavRef.current) navDispatch({ type: "push", entry: { file: name, title: null } });
+  }, [focusNode, clearUndoHistory, navDispatch]);
+
+  const canGoBack = navState.index > 0;
+  const canGoForward = navState.index < navState.history.length - 1;
+
+  const goBackRef = useRef(null);
+  const goForwardRef = useRef(null);
+
+  const goBack = useCallback(async () => {
+    if (navState.index <= 0) return;
+    const entry = navState.history[navState.index - 1];
+    histNavRef.current = true;
+    navDispatch({ type: "back" });
+    if (entry.file !== currentFileRef.current) {
+      if (entry.title) pendingTagNavRef.current = { title: entry.title };
+      await loadFile(entry.file);
+    } else if (entry.title) {
+      const found = tree.findNodeByTitle(nodesRef.current, entry.title);
+      if (found) { setNodes((prev) => tree.uncollapseToNode(prev, found.id)); focusNode(found.id); }
+    }
+    histNavRef.current = false;
+  }, [navState, loadFile, focusNode, navDispatch]);
+
+  const goForward = useCallback(async () => {
+    if (navState.index >= navState.history.length - 1) return;
+    const entry = navState.history[navState.index + 1];
+    histNavRef.current = true;
+    navDispatch({ type: "forward" });
+    if (entry.file !== currentFileRef.current) {
+      if (entry.title) pendingTagNavRef.current = { title: entry.title };
+      await loadFile(entry.file);
+    } else if (entry.title) {
+      const found = tree.findNodeByTitle(nodesRef.current, entry.title);
+      if (found) { setNodes((prev) => tree.uncollapseToNode(prev, found.id)); focusNode(found.id); }
+    }
+    histNavRef.current = false;
+  }, [navState, loadFile, focusNode, navDispatch]);
+
+  useEffect(() => { goBackRef.current = goBack; }, [goBack]);
+  useEffect(() => { goForwardRef.current = goForward; }, [goForward]);
 
   const enterTextMode = useCallback(async () => {
     if (!nodesRef.current) return;
@@ -2306,15 +2585,26 @@ function App() {
     return () => window.removeEventListener("beforeunload", handler);
   }, []);
 
+  // Keep a stable ref to loadFile so the delegated link handler below always
+  // calls the current version without re-registering the listener on every render.
+  const loadFileRef = useRef(null);
+  useEffect(() => { loadFileRef.current = loadFile; }, [loadFile]);
+
   // Delegated handler for [[file:...]] org links rendered via dangerouslySetInnerHTML.
-  // The rendered anchor carries data-file-path; clicking it calls xdg-open server-side.
+  // Bare .org filenames (no path separators) are opened in-app; everything
+  // else is handed to xdg-open on the server.
   useEffect(() => {
     const handler = (e) => {
       const link = e.target.closest("[data-file-path]");
       if (!link) return;
       e.preventDefault();
       const path = link.getAttribute("data-file-path");
-      if (path) api.post("/api/open", { path }).catch(() => {});
+      if (!path) return;
+      if (path.endsWith(".org") && !path.includes("/") && !path.includes("\\")) {
+        loadFileRef.current?.(path);
+      } else {
+        api.post("/api/open", { path }).catch(() => {});
+      }
     };
     document.addEventListener("click", handler, true);
     return () => document.removeEventListener("click", handler, true);
@@ -2410,6 +2700,7 @@ function App() {
       return;
     }
     if (action === "set-status") { setNodes((p) => tree.updateNodeField(p, nodeId, "status", value)); markDirty(); return; }
+    if (action === "set-priority") { setNodes((p) => tree.updateNodeField(p, nodeId, "priority", value)); markDirty(); return; }
 
     if (action === "cycle-status") {
       setNodes((p) => {
@@ -2722,8 +3013,29 @@ function App() {
                   topBarColor=${topBarColor} onSetTopBarColor=${setTopBarColorPersisted}
                   tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${toggleTagPanel}
                   bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${toggleBookmarkPanel}
-                  onBack=${() => setShowPicker(true)} />
+                  onBack=${() => setShowPicker(true)}
+                  homeDir=${homeDir} onPickHomeDir=${() => setShowFolderPicker(true)}
+                  onOpenTextSearch=${() => setShowTextSearch(true)}
+                  canGoBack=${canGoBack} canGoForward=${canGoForward}
+                  onGoBack=${goBack} onGoForward=${goForward} />
       ${showHelp && html`<${HelpPanel} onClose=${() => setShowHelp(false)} />`}
+      ${showFolderPicker && html`
+        <${FolderPicker}
+          initialPath=${homeDir || "/"}
+          onSelect=${changeHomeDir}
+          onCancel=${() => setShowFolderPicker(false)} />
+      `}
+      ${showTextSearch && html`
+        <${TextSearchDialog}
+          onSearch=${runTextSearch}
+          onCancel=${() => setShowTextSearch(false)} />
+      `}
+      ${showLinkPicker && html`
+        <${FileLinkPicker}
+          files=${files}
+          onSelect=${insertFileLink}
+          onCancel=${() => setShowLinkPicker(false)} />
+      `}
       <div className="app-layout">
         ${sidebarVisible && html`
           <${Sidebar} favorites=${validFavorites} recentFiles=${validRecentFiles} currentFile=${currentFile}
@@ -2790,6 +3102,53 @@ function App() {
             </div>
           </div>
         `}
+        ${view === "todo" && html`
+          <div className="outline-pane">
+            <div className=${"outline-content" + (readingWidth ? " reading-width" : "")}>
+              <${TodoView} nodes=${nodes} onSelect=${handleAgendaSelect} searchQuery=${searchQuery} selectedTags=${selectedTags} />
+            </div>
+          </div>
+        `}
+        ${view === "search" && searchResults && html`
+          <div className="outline-pane">
+            <div className=${"outline-content" + (readingWidth ? " reading-width" : "")}>
+              <div className="tag-search-header">
+                <button className="tag-search-back" onClick=${() => setView("outline")}>← Back</button>
+                <span className="tag-search-title-label">
+                  ${searchResults.type === "tag"
+                    ? html`Tag search: <code>:${searchResults.query}:</code>`
+                    : html`Text search: <code>${searchResults.query}</code>`}
+                  ${searchResults.results !== null ? html` — ${searchResults.results.length} result${searchResults.results.length === 1 ? "" : "s"}` : ""}
+                </span>
+              </div>
+              ${searchResults.results === null ? html`
+                <div className="tag-search-loading">Searching…</div>
+              ` : searchResults.results.length === 0 ? html`
+                <div className="tag-search-empty">
+                  ${searchResults.type === "tag"
+                    ? html`No nodes tagged <code>:${searchResults.query}:</code> found in any org file.`
+                    : html`No matches for <code>${searchResults.query}</code> found in any org file.`}
+                </div>
+              ` : searchResults.results.map((r, i) => html`
+                <div key=${i}
+                     className=${"tag-search-result" + (r.inSubdir ? " tag-search-result-subdir" : "")}
+                     onClick=${r.inSubdir ? undefined : async () => {
+                       pendingTagNavRef.current = { file: r.file, title: r.title };
+                       await loadFile(r.file);
+                       setView("outline");
+                     }}>
+                  <div className="tag-search-result-file">
+                    ${r.file}
+                    ${r.inSubdir && html`<span className="tag-search-result-subdir-badge" title="In subdirectory — open manually">subfolder</span>`}
+                  </div>
+                  <div className="tag-search-result-title">${r.title}</div>
+                  ${r.context && html`<div className="tag-search-result-context">${r.context}</div>`}
+                  ${r.tags && r.tags.length > 0 && html`<div className="tag-search-result-tags">${r.tags.map((t) => html`<span key=${t} className="tag-search-result-tag">:${t}:</span>`)}</div>`}
+                </div>
+              `)}
+            </div>
+          </div>
+        `}
         ${tagPanelVisible && !textMode && html`
           <${NodeTagsPane} node=${focusedNode} dispatch=${dispatch} onAddToGlobalTags=${addToGlobalTags} />
         `}
@@ -2803,7 +3162,8 @@ function App() {
             onToggleTag=${toggleTag}
             onClearTags=${clearTags}
             width=${tagPanelWidth}
-            onWidthChange=${setTagPanelWidthPersisted} />
+            onWidthChange=${setTagPanelWidthPersisted}
+            onSearch=${searchTag} />
         `}
         <${DetailPane} ref=${detailPaneRef} key=${detailKey} node=${detailNode} isPreamble=${isPreambleFocused}
           dispatch=${dispatch} inputRefs=${inputRefs}
@@ -2840,6 +3200,47 @@ function IconSun() {
 
 function IconMoon() {
   return html`<svg ...${ICON_PROPS}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+}
+
+function navReducer(state, action) {
+  switch (action.type) {
+    case "push": {
+      // Don't duplicate if same file+title as current entry
+      const cur = state.history[state.index];
+      if (cur && cur.file === action.entry.file && !action.entry.title && !cur.title) return state;
+      const history = [...state.history.slice(0, state.index + 1), action.entry];
+      const trimmed = history.length > 100 ? history.slice(history.length - 100) : history;
+      return { history: trimmed, index: trimmed.length - 1 };
+    }
+    case "patch": {
+      if (state.index < 0) return state;
+      const history = state.history.slice();
+      history[state.index] = { ...history[state.index], title: action.title };
+      return { history, index: state.index };
+    }
+    case "back":
+      return state.index > 0 ? { ...state, index: state.index - 1 } : state;
+    case "forward":
+      return state.index < state.history.length - 1 ? { ...state, index: state.index + 1 } : state;
+    default: return state;
+  }
+}
+
+function IconNavBack() {
+  return html`<svg ...${ICON_PROPS}><polyline points="15 18 9 12 15 6"/></svg>`;
+}
+function IconNavForward() {
+  return html`<svg ...${ICON_PROPS}><polyline points="9 18 15 12 9 6"/></svg>`;
+}
+
+function IconDoc() {
+  return html`<svg width="14" height="16" viewBox="0 0 14 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 1h7l3 3v11H2V1z"/>
+    <path d="M9 1v3h3"/>
+    <line x1="4" y1="7" x2="10" y2="7"/>
+    <line x1="4" y1="10" x2="10" y2="10"/>
+    <line x1="4" y1="13" x2="7" y2="13"/>
+  </svg>`;
 }
 
 function IconUndo() {
@@ -2882,6 +3283,15 @@ function IconOutline() {
       <line x1="9" y1="12" x2="20" y2="12" />
       <circle cx="4" cy="18" r="1.3" fill="currentColor" stroke="none" />
       <line x1="9" y1="18" x2="20" y2="18" />
+    </svg>
+  `;
+}
+
+function IconTodo() {
+  return html`
+    <svg ...${ICON_PROPS}>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <polyline points="7 12 10.5 15.5 17 9" />
     </svg>
   `;
 }
@@ -2979,6 +3389,15 @@ function IconTag() {
 
 const SMALL_ICON_PROPS = { ...ICON_PROPS, width: "14", height: "14" };
 
+function IconSearch() {
+  return html`
+    <svg ...${SMALL_ICON_PROPS}>
+      <circle cx="10" cy="10" r="6" />
+      <line x1="14.9" y1="14.9" x2="20" y2="20" />
+    </svg>
+  `;
+}
+
 function IconPencil() {
   return html`
     <svg ...${SMALL_ICON_PROPS}>
@@ -3007,6 +3426,194 @@ function IconWidth() {
   `;
 }
 
+// File link picker — triggered by typing [[ in a node title or body.
+// Shows a filterable list of org files; selecting one inserts an org link.
+function FileLinkPicker({ files, onSelect, onCancel }) {
+  const [filter, setFilter] = useState("");
+  const [highlighted, setHighlighted] = useState(0);
+  const inputRef = useRef(null);
+  const listRef = useRef(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const filtered = files.filter((f) =>
+    f.name.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  useEffect(() => { setHighlighted(0); }, [filter]);
+
+  // Keep highlighted item scrolled into view.
+  useEffect(() => {
+    const el = listRef.current?.children[highlighted];
+    el?.scrollIntoView({ block: "nearest" });
+  }, [highlighted]);
+
+  const select = (name) => {
+    const title = name.replace(/\.org$/, "").replace(/[-_]/g, " ");
+    onSelect(name, title);
+  };
+
+  const onKeyDown = (e) => {
+    if (e.key === "Escape") { e.preventDefault(); onCancel(); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); setHighlighted((h) => Math.min(h + 1, filtered.length - 1)); return; }
+    if (e.key === "ArrowUp") { e.preventDefault(); setHighlighted((h) => Math.max(h - 1, 0)); return; }
+    if (e.key === "Enter") { e.preventDefault(); if (filtered[highlighted]) select(filtered[highlighted].name); return; }
+  };
+
+  return html`
+    <div className="folder-picker-overlay"
+         onMouseDown=${(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="file-link-picker">
+        <div className="text-search-header">
+          <span className="text-search-title">Link to File</span>
+          <button className="folder-picker-close" onClick=${onCancel}>×</button>
+        </div>
+        <div className="file-link-picker-body">
+          <input
+            ref=${inputRef}
+            className="text-search-input"
+            type="text"
+            placeholder="Filter org files…"
+            value=${filter}
+            onInput=${(e) => setFilter(e.target.value)}
+            onKeyDown=${onKeyDown}
+          />
+          <div className="file-link-list" ref=${listRef}>
+            ${filtered.length === 0 ? html`
+              <div className="file-link-empty">No files match "${filter}"</div>
+            ` : filtered.map((f, i) => html`
+              <div key=${f.name}
+                   className=${"file-link-item" + (i === highlighted ? " highlighted" : "")}
+                   onClick=${() => select(f.name)}
+                   onMouseEnter=${() => setHighlighted(i)}>
+                <span className="file-link-filename">${f.name.replace(/\.org$/, "")}</span>
+                <span className="file-link-ext">.org</span>
+              </div>
+            `)}
+          </div>
+          <div className="file-link-hint">↑↓ to navigate · Enter to select · Esc to dismiss</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Full-text search modal — input + syntax hint; submitting kicks off the
+// search and shows results in the main panel.
+function TextSearchDialog({ onSearch, onCancel }) {
+  const [query, setQuery] = useState("");
+  const inputRef = useRef(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const submit = () => {
+    const q = query.trim();
+    if (q) onSearch(q);
+  };
+
+  return html`
+    <div className="folder-picker-overlay" onMouseDown=${(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="text-search-dialog">
+        <div className="text-search-header">
+          <span className="text-search-title">Search All Files</span>
+          <button className="folder-picker-close" onClick=${onCancel}>×</button>
+        </div>
+        <div className="text-search-body">
+          <div className="text-search-input-row">
+            <input
+              ref=${inputRef}
+              className="text-search-input"
+              type="text"
+              placeholder="Enter search terms…"
+              value=${query}
+              onInput=${(e) => setQuery(e.target.value)}
+              onKeyDown=${(e) => {
+                if (e.key === "Enter") { e.preventDefault(); submit(); }
+                if (e.key === "Escape") onCancel();
+              }}
+            />
+            <button className="text-search-go" onClick=${submit} disabled=${!query.trim()}>
+              Search
+            </button>
+          </div>
+          <div className="text-search-hint">
+            <p>Searches headlines and notes in all org files in the home folder.</p>
+            <p>
+              <strong>word word</strong> — all words must appear (AND)<br/>
+              <strong>"exact phrase"</strong> — match phrase as written<br/>
+              <strong>word "some phrase" word</strong> — mix freely
+            </p>
+            <p>Case-insensitive. Results show the matching node and a context snippet.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Folder picker modal — allows the user to navigate the filesystem and
+// select a directory as the new home folder.
+function FolderPicker({ initialPath, onSelect, onCancel }) {
+  const [browsePath, setBrowsePath] = useState(initialPath || "/");
+  const [dirs, setDirs] = useState([]);
+  const [parent, setParent] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchDirs = useCallback(async (path) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await api.get("/api/browse?path=" + encodeURIComponent(path));
+      setBrowsePath(data.path);
+      setDirs(data.dirs || []);
+      setParent(data.parent || null);
+    } catch (e) {
+      setError("Cannot read directory.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchDirs(initialPath || "/"); }, []);
+
+  return html`
+    <div className="folder-picker-overlay" onMouseDown=${(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="folder-picker-dialog">
+        <div className="folder-picker-header">
+          <span className="folder-picker-title">Select Home Folder</span>
+          <button className="folder-picker-close" onClick=${onCancel}>×</button>
+        </div>
+        <div className="folder-picker-path">
+          ${parent !== null && html`
+            <button className="folder-picker-up" onClick=${() => fetchDirs(parent)}>↑ Up</button>
+          `}
+          <span className="folder-picker-path-text" title=${browsePath}>${browsePath}</span>
+        </div>
+        <div className="folder-picker-list">
+          ${loading && html`<div className="folder-picker-loading">Loading…</div>`}
+          ${error && html`<div className="folder-picker-error">${error}</div>`}
+          ${!loading && !error && dirs.length === 0 && html`
+            <div className="folder-picker-empty">No subdirectories</div>
+          `}
+          ${!loading && dirs.map((d) => html`
+            <div key=${d} className="folder-picker-dir" onDoubleClick=${() => fetchDirs(browsePath + "/" + d)}>
+              <span className="folder-picker-dir-icon">📁</span>
+              <span className="folder-picker-dir-name" onClick=${() => fetchDirs(browsePath + "/" + d)}>${d}</span>
+            </div>
+          `)}
+        </div>
+        <div className="folder-picker-footer">
+          <button className="folder-picker-cancel" onClick=${onCancel}>Cancel</button>
+          <button className="folder-picker-select" onClick=${() => onSelect(browsePath)}>
+            Select This Folder
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 // A general options menu, extensible as more entries get added — for now
 // just the one, toggling numbered outline bullets (Dynalist-style).
 function HamburgerMenu({
@@ -3022,6 +3629,7 @@ function HamburgerMenu({
   searchQuery, setSearchQuery, allTags, selectedTags, onToggleTag,
   theme, onToggleTheme, onHelp, syncStatus,
   topBarColor, onSetTopBarColor,
+  homeDir, onPickHomeDir,
 }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
@@ -3071,6 +3679,13 @@ function HamburgerMenu({
             </div>
           </div>
 
+          <div className="hamburger-menu-option hamburger-homefolder-row">
+            <span>Home Folder</span>
+            <button className="homefolder-path-btn" title="Click to change home folder" onClick=${onPickHomeDir}>
+              ${homeDir || "…"}
+            </button>
+          </div>
+
           ${collapsed && html`
           <div className="hamburger-mobile-only">
             <div className="hamburger-mobile-section">
@@ -3079,6 +3694,8 @@ function HamburgerMenu({
                         onClick=${() => setView("outline")}><${IconOutline} /> Outline</button>
                 <button className=${"hamburger-segmented-btn" + (view === "agenda" ? " active" : "")}
                         onClick=${() => setView("agenda")}><${IconAgenda} /> Agenda</button>
+                <button className=${"hamburger-segmented-btn" + (view === "todo" ? " active" : "")}
+                        onClick=${() => setView("todo")}><${IconTodo} /> TODO</button>
               </div>
             </div>
 
@@ -3208,7 +3825,7 @@ function TagFilterButton({ allTags, selectedTags, onToggleTag, onClearTags }) {
   `;
 }
 
-function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, textModeError, notesVisible, onToggleNotesVisible, numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo }) {
+function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, textModeError, notesVisible, onToggleNotesVisible, numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward }) {
   // Whether the toolbar/search/etc. actually fit is measured, not
   // guessed from viewport width — a long filename or a pile of tags
   // eats into the same space a phone-width media query would assume is
@@ -3261,6 +3878,31 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
       </div>
       ${currentFile && showFull && html`
         <div className="toolbar">
+          ${view === "outline" && !textMode && html`
+            <div className="view-toggle">
+              ${FOLD_LEVELS.map((lvl) => html`
+                <button key=${lvl} className="view-tab"
+                        onClick=${() => onFoldToLevel(lvl)}
+                        title=${"Fold to level " + lvl + " (Alt+" + lvl + ")"}>${lvl}</button>
+              `)}
+            </div>
+            <div className="view-toggle">
+              <button className=${"view-tab" + (notesVisible ? " active" : "")}
+                      onClick=${onToggleNotesVisible}
+                      title=${notesVisible ? "Hide notes" : "Show notes inline"}><${IconNotes} /></button>
+              <button className=${"view-tab" + (isHoisted ? " active" : "")}
+                      onClick=${onToggleHoist} disabled=${!canToggleHoist}
+                      title=${isHoisted ? "Show full outline again" : "Hoist — isolate the focused item and its children"}>
+                ${isHoisted ? html`<${IconHoistOn} />` : html`<${IconHoistOff} />`}
+              </button>
+            </div>
+          `}
+          <div className="view-toggle">
+            <button className="view-tab" onClick=${onGoBack} disabled=${!canGoBack}
+                    title="Go back (Alt+←)"><${IconNavBack} /></button>
+            <button className="view-tab" onClick=${onGoForward} disabled=${!canGoForward}
+                    title="Go forward (Alt+→)"><${IconNavForward} /></button>
+          </div>
           <div className="view-toggle">
             <button className="view-tab" onClick=${onUndo} disabled=${!canUndo || textMode}
                     title=${textMode ? "Not available in text mode" : "Undo (Ctrl+Z)"}><${IconUndo} /></button>
@@ -3272,6 +3914,8 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
                     onClick=${() => setView("outline")} title="Outline view"><${IconOutline} /></button>
             <button className=${"view-tab" + (view === "agenda" ? " active" : "")}
                     onClick=${() => setView("agenda")} title="Agenda view"><${IconAgenda} /></button>
+            <button className=${"view-tab" + (view === "todo" ? " active" : "")}
+                    onClick=${() => setView("todo")} title="TODO list"><${IconTodo} /></button>
           </div>
           ${view === "outline" && html`
             <div className="view-toggle">
@@ -3285,20 +3929,6 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
                         : "Text mode — edit the raw org text directly, including heading asterisks, tags, and properties"}><${IconTextMode} /></button>
             </div>
             ${textModeError && html`<span className="text-mode-error" title="Couldn't switch modes — see console">Error</span>`}
-            ${!textMode && html`
-              <div className="view-toggle">
-                <button className=${"view-tab" + (notesVisible ? " active" : "")}
-                        onClick=${onToggleNotesVisible}
-                        title=${notesVisible ? "Hide notes — show only the first line, with … where notes are hidden" : "Show notes inline under each item"}><${IconNotes} /></button>
-              </div>
-              <div className="view-toggle">
-                <button className=${"view-tab" + (isHoisted ? " active" : "")}
-                        onClick=${onToggleHoist} disabled=${!canToggleHoist}
-                        title=${isHoisted ? "Show full outline again" : "Hoist — isolate the focused item and its children"}>
-                  ${isHoisted ? html`<${IconHoistOn} />` : html`<${IconHoistOff} />`}
-                </button>
-              </div>
-            `}
           `}
           ${!textMode && html`
             <div className="view-toggle">
@@ -3307,15 +3937,6 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
                       title=${readingWidth ? "Showing reading width — click for full width" : "Center content in a narrower reading column"}><${IconWidth} /></button>
             </div>
           `}
-        </div>
-      `}
-      ${currentFile && showFull && view === "outline" && !textMode && html`
-        <div className="level-toggle" role="group" aria-label="Fold to level">
-          ${FOLD_LEVELS.map((lvl) => html`
-            <button key=${lvl} className="level-toggle-btn"
-                    onClick=${() => onFoldToLevel(lvl)}
-                    title=${"Fold to level " + lvl + " (Alt+" + lvl + ")"}>${lvl}</button>
-          `)}
         </div>
       `}
       ${currentFile && showFull && !textMode && html`
@@ -3339,6 +3960,9 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
             <button className="search-clear" onClick=${() => setSearchQuery("")} title="Clear (Esc)">×</button>
           `}
         </div>
+        <button className="global-search-btn" title="Search all files (Ctrl+Shift+F)" onClick=${onOpenTextSearch}>
+          <${IconSearch} />
+        </button>
       `}
       <div className="header-right">
         ${currentFile && html`
@@ -3355,7 +3979,8 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
             searchQuery=${searchQuery} setSearchQuery=${setSearchQuery}
             allTags=${allTags} selectedTags=${selectedTags} onToggleTag=${onToggleTag}
             theme=${theme} onToggleTheme=${onToggleTheme} onHelp=${onHelp} syncStatus=${syncStatus}
-            topBarColor=${topBarColor} onSetTopBarColor=${onSetTopBarColor} />
+            topBarColor=${topBarColor} onSetTopBarColor=${onSetTopBarColor}
+            homeDir=${homeDir} onPickHomeDir=${onPickHomeDir} />
         `}
         ${(!currentFile || showFull) && html`
           <${SyncIndicator} status=${syncStatus} />

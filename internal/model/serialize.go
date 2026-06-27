@@ -27,9 +27,14 @@ func (items Items) ToOrg() string {
 		}
 
 		stars := strings.Repeat("*", item.Level)
-		if item.Status != "" {
+		switch {
+		case item.Status != "" && item.Priority != "":
+			fmt.Fprintf(&b, "%s %s [#%s] %s", stars, item.Status, item.Priority, item.Title)
+		case item.Status != "":
 			fmt.Fprintf(&b, "%s %s %s", stars, item.Status, item.Title)
-		} else {
+		case item.Priority != "":
+			fmt.Fprintf(&b, "%s [#%s] %s", stars, item.Priority, item.Title)
+		default:
 			fmt.Fprintf(&b, "%s %s", stars, item.Title)
 		}
 		if len(item.Tags) > 0 {

@@ -63,6 +63,17 @@ func main() {
 		defaultFile += ".org"
 	}
 
+	// Require git — it's used for conflict detection and history snapshots.
+	if _, err := exec.LookPath("git"); err != nil {
+		fmt.Fprintln(os.Stderr, "epicorg requires git, but it was not found on your PATH.")
+		fmt.Fprintln(os.Stderr, "Install it with your package manager, e.g.:")
+		fmt.Fprintln(os.Stderr, "  Debian/Ubuntu:  sudo apt install git")
+		fmt.Fprintln(os.Stderr, "  Fedora/RHEL:    sudo dnf install git")
+		fmt.Fprintln(os.Stderr, "  Arch:           sudo pacman -S git")
+		fmt.Fprintln(os.Stderr, "  macOS:          brew install git  (or: xcode-select --install)")
+		os.Exit(1)
+	}
+
 	// Ensure directory exists
 	if info, err := os.Stat(dir); err != nil || !info.IsDir() {
 		if err := os.MkdirAll(dir, 0755); err != nil {

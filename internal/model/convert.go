@@ -20,10 +20,11 @@ func walkSections(sections []*org.Section, items *Items) {
 		}
 		h := sec.Headline
 		item := Item{
-			Level:  h.Lvl,
-			Title:  inlineNodesToText(h.Title),
-			Status: h.Status,
-			Tags:   h.Tags,
+			Level:    h.Lvl,
+			Title:    inlineNodesToText(h.Title),
+			Status:   h.Status,
+			Priority: h.Priority,
+			Tags:     h.Tags,
 		}
 		if h.Properties != nil && len(h.Properties.Properties) > 0 {
 			item.Properties = make(map[string]string, len(h.Properties.Properties))
