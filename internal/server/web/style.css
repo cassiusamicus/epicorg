@@ -573,16 +573,13 @@ header h1 {
 }
 
 .hamburger-menu-popup {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  min-width: 240px;
   background: var(--panel-bg);
   border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-  padding: 6px;
-  z-index: 50;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  padding: 8px;
+  width: min(400px, 92vw);
+  max-height: 85vh;
   overflow-y: auto;
   /* Reset variables overridden by header.header-tinted so popup always
      uses the document's own color scheme, not the tinted topbar's. */
@@ -597,6 +594,12 @@ header h1 {
   --shadow: rgba(0,0,0,0.1);
 }
 
+[data-theme="dark"] .about-dialog {
+  --text: #e6e6e6;
+  --text-dim: #8a8a8e;
+  --border: #3a3a3c;
+}
+
 [data-theme="dark"] .hamburger-menu-popup {
   --text: #e6e6e6;
   --text-dim: #8a8a8e;
@@ -608,7 +611,7 @@ header h1 {
   --bullet-active: #e6e6e6;
   background: #262628;
   border-color: #3a3a3c;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
 }
 
 .hamburger-menu-option {
@@ -708,6 +711,10 @@ header h1 {
   background: var(--panel-bg);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  /* Reset variables that header.header-tinted overrides to white */
+  --text: #222;
+  --text-dim: #888;
+  --border: #e0e0e0;
   width: min(680px, 92vw);
   max-height: 80vh;
   display: flex;
@@ -744,6 +751,14 @@ header h1 {
   margin: 0;
 }
 
+.about-body a {
+  color: #4a9eff;
+  text-decoration: underline;
+}
+.about-body a:hover {
+  color: #79baff;
+}
+
 .about-quote {
   margin: 0;
   padding: 16px 20px;
@@ -760,19 +775,25 @@ header h1 {
   color: var(--text-dim-strong);
 }
 
-.hamburger-menu-label {
-  font-size: 10px;
+.hamburger-viewmode-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 8px 4px;
+}
+
+.hamburger-viewmode-label {
+  font-size: 11px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   color: var(--text-dim);
-  padding: 4px 8px 2px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .hamburger-segmented {
   display: flex;
-  gap: 4px;
-  padding: 2px 8px 6px;
+  gap: 3px;
+  flex: 1;
 }
 
 .hamburger-segmented-btn {
@@ -782,8 +803,8 @@ header h1 {
   justify-content: center;
   gap: 5px;
   font-family: inherit;
-  font-size: 12px;
-  padding: 5px 8px;
+  font-size: 11px;
+  padding: 3px 4px;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--bg);
@@ -2508,6 +2529,31 @@ header.header-tinted {
   color: var(--bullet-active);
 }
 
+.node-tag-chips {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: 6px;
+}
+
+.node-tag-chip {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--toggle-bg);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.node-tag-chip:hover {
+  color: var(--bullet-active);
+  border-color: var(--bullet-active);
+}
+
 /* Inline body/notes — shown under a bullet instead of in the detail pane */
 .node-body-row {
   display: flex;
@@ -2951,15 +2997,6 @@ header.header-tinted {
    edge (the toolbar items that used to separate it from .header-right
    are gone), so a popup this wide anchored to the button's right edge
    would run off-screen to the left. */
-.hamburger-menu.collapsed .hamburger-menu-popup {
-  position: fixed;
-  top: 58px;
-  left: 50%;
-  right: auto;
-  transform: translateX(-50%);
-  width: min(90vw, 340px);
-  max-height: calc(100vh - 74px);
-}
 
 /* [[file:...]] org links — same appearance as http: hyperlinks. */
 a.org-file-link {

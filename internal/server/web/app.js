@@ -208,7 +208,7 @@ function NodeBody({ node, dispatch, isEditing, titleFormatMode, notesVisible, de
   `;
 }
 
-function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, numberedBullets, siblingIndex, verticalLines, bodyEditingId, bodyRefs }) {
+function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, numberedBullets, siblingIndex, verticalLines, showTagChips, onSearchTag, bodyEditingId, bodyRefs }) {
   const isFocused = focusedId === node.id;
   const hasChildren = node.children?.length > 0;
   const titleRef = useRef(null);
@@ -337,6 +337,12 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                 onClick=${() => dispatch(node.id, "edit-body")}
                 title="This item has a hidden note — click to view it">…</span>
         `}
+        ${showTagChips && node.tags?.length > 0 && html`
+          <span className="node-tag-chips">
+            ${node.tags.map((t) => html`<span key=${t} className="node-tag-chip"
+              onClick=${(e) => { e.stopPropagation(); onSearchTag?.(t); }}>${t}</span>`)}
+          </span>
+        `}
       </div>
       <${NodeBody}
         node=${node}
@@ -361,6 +367,8 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
             numberedBullets=${numberedBullets}
             siblingIndex=${i + 1}
             verticalLines=${verticalLines}
+            showTagChips=${showTagChips}
+            onSearchTag=${onSearchTag}
             bodyEditingId=${bodyEditingId}
             bodyRefs=${bodyRefs}
           />
@@ -1445,14 +1453,14 @@ function SearchResultsView({ searchResults, onBack, onNavigate }) {
       ${searchResults.type === "tag" && html`
         <button className="todo-filter-chip tag-filter-chip active-filter"
                 onClick=${onBack} title="Clear search">
-          #${searchResults.query} ✕
+          ${searchResults.query} ✕
         </button>
       `}
       ${extraTags.map((t) => html`
         <button key=${t}
                 className=${"todo-filter-chip tag-filter-chip" + (activeFilters.has(t) ? " active-filter" : "")}
                 onClick=${() => toggleFilter(t)}>
-          #${t}${activeFilters.has(t) ? " ✕" : ""}
+          ${t}${activeFilters.has(t) ? " ✕" : ""}
         </button>
       `)}
       ${activeFilters.size > 0 && html`
@@ -1976,6 +1984,17 @@ function App() {
       return next;
     });
   }, []);
+  const [showTagChips, setShowTagChips] = useState(() => {
+    try { return localStorage.getItem("epicorg.showTagChips") === "1"; } catch { return false; }
+  });
+  const toggleShowTagChips = useCallback(() => {
+    setShowTagChips((p) => {
+      const next = !p;
+      try { localStorage.setItem("epicorg.showTagChips", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  }, []);
+
   const [numberedBullets, setNumberedBullets] = useState(() => {
     try { return localStorage.getItem("epicorg.numberedBullets") === "1"; } catch { return false; }
   });
@@ -3290,6 +3309,7 @@ function App() {
                   notesVisible=${notesVisible} onToggleNotesVisible=${toggleNotesVisible}
                   numberedBullets=${numberedBullets} onToggleNumberedBullets=${toggleNumberedBullets}
                   verticalLines=${verticalLines} onToggleVerticalLines=${toggleVerticalLines}
+                  showTagChips=${showTagChips} onToggleShowTagChips=${toggleShowTagChips}
                   isHoisted=${isHoisted} canToggleHoist=${isHoisted || (focusedId && focusedId !== "preamble")} onToggleHoist=${toggleHoist}
                   readingWidth=${readingWidth} onToggleReadingWidth=${toggleReadingWidth}
                   sidebarVisible=${sidebarVisible} onToggleSidebar=${toggleSidebar}
@@ -3395,7 +3415,8 @@ function App() {
                   dispatch=${dispatch} inputRefs=${inputRefs} depth=${0}
                   titleFormatMode=${titleFormatMode} notesVisible=${notesVisible}
                   numberedBullets=${numberedBullets} siblingIndex=${i + 1}
-                  verticalLines=${verticalLines}
+                  verticalLines=${verticalLines} showTagChips=${showTagChips}
+                  onSearchTag=${searchTag}
                   bodyEditingId=${bodyEditingId} bodyRefs=${bodyRefs} />
               `)}
             </div>
@@ -3924,7 +3945,7 @@ function FolderPicker({ initialPath, onSelect, onCancel }) {
 // A general options menu, extensible as more entries get added — for now
 // just the one, toggling numbered outline bullets (Dynalist-style).
 function HamburgerMenu({
-  numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines,
+  numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips,
   // Everything below is only rendered when `collapsed` — Header measured
   // that the toolbar/search/etc. don't fit and rendered them away, so
   // their controls are reachable from here instead. On an uncollapsed
@@ -3963,19 +3984,21 @@ function HamburgerMenu({
         <${IconHamburger} />
       </button>
       ${open && html`
+        <div className="folder-picker-overlay" onMouseDown=${(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
         <div className="hamburger-menu-popup">
 
           <!-- ── Outline ── -->
-          <div className="hamburger-group-label">Outline</div>
           ${view === "outline" && html`
-            <div className="hamburger-menu-label">View mode</div>
-            <div className="hamburger-segmented">
-              <button className=${"hamburger-segmented-btn" + (!titleFormatMode && !textMode ? " active" : "")}
-                      onClick=${() => onSetViewMode("plain")}>Plain</button>
-              <button className=${"hamburger-segmented-btn" + (titleFormatMode && !textMode ? " active" : "")}
-                      onClick=${() => onSetViewMode("formatted")}>Formatted</button>
-              <button className=${"hamburger-segmented-btn" + (textMode ? " active" : "")}
-                      onClick=${() => onSetViewMode("reveal")}>Reveal Codes</button>
+            <div className="hamburger-viewmode-row">
+              <span className="hamburger-viewmode-label">View mode</span>
+              <div className="hamburger-segmented">
+                <button className=${"hamburger-segmented-btn" + (!titleFormatMode && !textMode ? " active" : "")}
+                        onClick=${() => onSetViewMode("plain")}>Plain</button>
+                <button className=${"hamburger-segmented-btn" + (titleFormatMode && !textMode ? " active" : "")}
+                        onClick=${() => onSetViewMode("formatted")}>Formatted</button>
+                <button className=${"hamburger-segmented-btn" + (textMode ? " active" : "")}
+                        onClick=${() => onSetViewMode("reveal")}>Reveal Codes</button>
+              </div>
             </div>
           `}
           <label className="hamburger-menu-option">
@@ -3994,6 +4017,10 @@ function HamburgerMenu({
             <input type="checkbox" checked=${verticalLines} onChange=${onToggleVerticalLines} disabled=${textMode} />
             <span>Vertical lines</span>
           </label>
+          <label className="hamburger-menu-option">
+            <input type="checkbox" checked=${showTagChips} onChange=${onToggleShowTagChips} disabled=${textMode} />
+            <span>Show tags as chips</span>
+          </label>
           ${view === "outline" && html`
             <div className="hamburger-fold-row">
               <span>Fold to level</span>
@@ -4008,7 +4035,6 @@ function HamburgerMenu({
 
           <!-- ── Workspace ── -->
           <div className="hamburger-section">
-            <div className="hamburger-group-label">Workspace</div>
             <div className="hamburger-menu-option hamburger-homefolder-row">
               <span>Home Folder</span>
               <button className="homefolder-path-btn" title="Click to change home folder" onClick=${onPickHomeDir}>
@@ -4019,7 +4045,6 @@ function HamburgerMenu({
 
           <!-- ── Appearance (infrequent) ── -->
           <div className="hamburger-section">
-            <div className="hamburger-group-label">Appearance</div>
             <div className="hamburger-menu-option hamburger-topbar-row">
               <span>Top Bar Color</span>
               <div className="topbar-color-chips">
@@ -4069,6 +4094,7 @@ function HamburgerMenu({
             </button>
           </div>
         </div>
+        </div>
       `}
 
       ${showAbout && html`<${AboutModal} onClose=${() => setShowAbout(false)} />`}
@@ -4097,6 +4123,7 @@ function AboutModal({ onClose }) {
             <p>For those who are unable, Herodotus, to work in detail through all that I have written about nature, or to peruse the larger books which I have composed, I have already prepared at sufficient length an epitome of the whole system, that they may keep adequately in mind at least the most general principles in each department, in order that as occasion arises they may be able to assist themselves on the most important points, in so far as they undertake the study of nature. But those also who have made considerable progress in the survey of the main principles ought to bear in mind the scheme of the whole system set forth in its essentials. For we have frequent need of the general view, but not so often of the detailed exposition.</p>
             <p>Indeed it is necessary to go back on the main principles, and constantly to fix in one's memory enough to give one the most essential comprehension of the truth. And in fact the accurate knowledge of details will be fully discovered, if the general principles in the various departments are thoroughly grasped and borne in mind; for even in the case of one fully initiated the most essential feature in all accurate knowledge is the capacity to make a rapid use of observation and mental apprehension, and this can be done if everything is summed up in elementary principles and formulae. For it is not possible for anyone to abbreviate the complete course through the whole system, if he cannot embrace in his own mind by means of short formulae all that might be set out with accuracy in detail.</p>
           </blockquote>
+          <p>For more information about Epicurean philosophy refer to <a href="https://www.epicurustoday.com" target="_blank" rel="noopener noreferrer">EpicurusToday.com</a> and <a href="https://www.epicureanfriends.com" target="_blank" rel="noopener noreferrer">EpicureanFriends.com</a>.</p>
         </div>
       </div>
     </div>
@@ -4150,7 +4177,7 @@ function TagFilterButton({ allTags, selectedTags, onToggleTag, onClearTags }) {
   `;
 }
 
-function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward }) {
+function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward }) {
   // Whether the toolbar/search/etc. actually fit is measured, not
   // guessed from viewport width — a long filename or a pile of tags
   // eats into the same space a phone-width media query would assume is
@@ -4291,6 +4318,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
         ${currentFile && html`
           <${HamburgerMenu} numberedBullets=${numberedBullets} onToggleNumberedBullets=${onToggleNumberedBullets}
             verticalLines=${verticalLines} onToggleVerticalLines=${onToggleVerticalLines}
+            showTagChips=${showTagChips} onToggleShowTagChips=${onToggleShowTagChips}
             collapsed=${collapsed}
             view=${view} setView=${setView}
             titleFormatMode=${titleFormatMode} onToggleTitleFormat=${onToggleTitleFormat}
