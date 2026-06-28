@@ -2014,6 +2014,24 @@ header.header-tinted {
 .todo-filter-chip:hover { opacity: 0.75; }
 .todo-filter-chip.active { opacity: 1; outline: 2px solid var(--bullet-active); outline-offset: 1px; }
 
+.tag-filter-chip {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--toggle-bg);
+  color: var(--text);
+  cursor: pointer;
+  opacity: 1 !important;
+  outline: none !important;
+}
+.tag-filter-chip:hover { background: var(--focused-bg); }
+.tag-filter-chip.active-filter {
+  background: var(--bullet-active);
+  color: var(--bg);
+  border-color: var(--bullet-active);
+}
+
 .todo-filter-sep {
   width: 1px;
   height: 16px;

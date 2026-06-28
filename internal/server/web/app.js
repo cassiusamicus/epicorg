@@ -309,6 +309,11 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
               placeholder=""
               onFocus=${() => dispatch(node.id, "focus")}
               onKeyDown=${(e) => {
+                if (e.key === "Escape" && titleFormatMode) {
+                  e.preventDefault();
+                  dispatch(node.id, "release-focus");
+                  return;
+                }
                 if (showOverlay && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) setIsEditing(true);
                 handleKey(e, node.id, dispatch);
               }}
@@ -1386,6 +1391,97 @@ function TodoView({ nodes, onSelect, searchQuery, selectedTags }) {
         </div>
       `)}
     </div>
+  `;
+}
+
+function SearchResultsView({ searchResults, onBack, onNavigate }) {
+  const [activeFilters, setActiveFilters] = useState(new Set());
+
+  // Reset filters when the search changes
+  const queryKey = searchResults.type + ":" + searchResults.query;
+  const prevQueryRef = useRef(queryKey);
+  if (prevQueryRef.current !== queryKey) {
+    prevQueryRef.current = queryKey;
+    setActiveFilters(new Set());
+  }
+
+  const toggleFilter = (tag) => setActiveFilters((prev) => {
+    const next = new Set(prev); next.has(tag) ? next.delete(tag) : next.add(tag); return next;
+  });
+
+  const results = searchResults.results;
+
+  // Collect additional unique tags across results (beyond the query tag)
+  const extraTags = useMemo(() => {
+    if (!results) return [];
+    const seen = new Set();
+    for (const r of results) for (const t of (r.tags || [])) seen.add(t);
+    if (searchResults.type === "tag") seen.delete(searchResults.query);
+    return [...seen].sort();
+  }, [results, searchResults.type, searchResults.query]);
+
+  const filtered = results && activeFilters.size > 0
+    ? results.filter((r) => r.tags && [...activeFilters].every((t) => r.tags.includes(t)))
+    : results;
+
+  return html`
+    <div className="tag-search-header">
+      <button className="tag-search-back" onClick=${onBack}>← Back</button>
+      <span className="tag-search-title-label">
+        ${searchResults.type === "tag"
+          ? html`Tag search:`
+          : html`Text search: <code>${searchResults.query}</code>`}
+        ${filtered !== null ? html` — ${filtered.length} result${filtered.length === 1 ? "" : "s"}` : ""}
+      </span>
+    </div>
+    <div className="todo-filter-bar">
+      <span className="todo-sort-label">Filter:</span>
+      ${searchResults.type === "tag" && html`
+        <button className="todo-filter-chip tag-filter-chip active-filter"
+                onClick=${onBack} title="Clear search">
+          #${searchResults.query} ✕
+        </button>
+      `}
+      ${extraTags.map((t) => html`
+        <button key=${t}
+                className=${"todo-filter-chip tag-filter-chip" + (activeFilters.has(t) ? " active-filter" : "")}
+                onClick=${() => toggleFilter(t)}>
+          #${t}${activeFilters.has(t) ? " ✕" : ""}
+        </button>
+      `)}
+      ${activeFilters.size > 0 && html`
+        <button className="todo-filter-clear" onClick=${() => setActiveFilters(new Set())}>✕ clear</button>
+      `}
+    </div>
+    ${results === null ? html`
+      <div className="tag-search-loading">Searching…</div>
+    ` : filtered.length === 0 ? html`
+      <div className="tag-search-empty">
+        ${activeFilters.size > 0
+          ? html`No results match the active tag filters.`
+          : searchResults.type === "tag"
+            ? html`No nodes tagged <code>:${searchResults.query}:</code> found in any org file.`
+            : html`No matches for <code>${searchResults.query}</code> found in any org file.`}
+      </div>
+    ` : filtered.map((r, i) => html`
+      <div key=${i}
+           className=${"tag-search-result" + (r.inSubdir ? " tag-search-result-subdir" : "")}
+           onClick=${r.inSubdir ? undefined : () => onNavigate(r)}>
+        <div className="tag-search-result-file">
+          ${r.file}
+          ${r.inSubdir && html`<span className="tag-search-result-subdir-badge" title="In subdirectory — open manually">subfolder</span>`}
+        </div>
+        <div className="tag-search-result-title"
+             dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(r.title) }} />
+        ${r.context && html`<div className="tag-search-result-context"
+             dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(r.context) }} />`}
+        ${r.tags && r.tags.length > 0 && html`
+          <div className="tag-search-result-tags">
+            ${r.tags.map((t) => html`<span key=${t} className="tag-search-result-tag">:${t}:</span>`)}
+          </div>
+        `}
+      </div>
+    `)}
   `;
 }
 
@@ -2820,6 +2916,8 @@ function App() {
       return;
     }
 
+    if (action === "release-focus") { setFocusedId(null); return; }
+
     if (action === "edit-title") { focusNode(nodeId); return; }
 
     if (action === "edit-body") {
@@ -3314,40 +3412,15 @@ function App() {
         ${view === "search" && searchResults && html`
           <div className="outline-pane">
             <div className=${"outline-content" + (readingWidth ? " reading-width" : "")}>
-              <div className="tag-search-header">
-                <button className="tag-search-back" onClick=${() => setView("outline")}>← Back</button>
-                <span className="tag-search-title-label">
-                  ${searchResults.type === "tag"
-                    ? html`Tag search: <code>:${searchResults.query}:</code>`
-                    : html`Text search: <code>${searchResults.query}</code>`}
-                  ${searchResults.results !== null ? html` — ${searchResults.results.length} result${searchResults.results.length === 1 ? "" : "s"}` : ""}
-                </span>
-              </div>
-              ${searchResults.results === null ? html`
-                <div className="tag-search-loading">Searching…</div>
-              ` : searchResults.results.length === 0 ? html`
-                <div className="tag-search-empty">
-                  ${searchResults.type === "tag"
-                    ? html`No nodes tagged <code>:${searchResults.query}:</code> found in any org file.`
-                    : html`No matches for <code>${searchResults.query}</code> found in any org file.`}
-                </div>
-              ` : searchResults.results.map((r, i) => html`
-                <div key=${i}
-                     className=${"tag-search-result" + (r.inSubdir ? " tag-search-result-subdir" : "")}
-                     onClick=${r.inSubdir ? undefined : async () => {
-                       pendingTagNavRef.current = { file: r.file, title: r.title };
-                       await loadFile(r.file);
-                       setView("outline");
-                     }}>
-                  <div className="tag-search-result-file">
-                    ${r.file}
-                    ${r.inSubdir && html`<span className="tag-search-result-subdir-badge" title="In subdirectory — open manually">subfolder</span>`}
-                  </div>
-                  <div className="tag-search-result-title">${r.title}</div>
-                  ${r.context && html`<div className="tag-search-result-context">${r.context}</div>`}
-                  ${r.tags && r.tags.length > 0 && html`<div className="tag-search-result-tags">${r.tags.map((t) => html`<span key=${t} className="tag-search-result-tag">:${t}:</span>`)}</div>`}
-                </div>
-              `)}
+              <${SearchResultsView}
+                searchResults=${searchResults}
+                onBack=${() => setView("outline")}
+                onNavigate=${async (r) => {
+                  pendingTagNavRef.current = { file: r.file, title: r.title };
+                  await loadFile(r.file);
+                  setView("outline");
+                }}
+              />
             </div>
           </div>
         `}
