@@ -1366,8 +1366,8 @@ function TodoView({ nodes, onSelect, searchQuery, selectedTags }) {
         <div className="agenda-empty">${isFiltering ? "No matches" : "No TODO items in this file"}</div>
       ` : items.map((item) => html`
         <div className="todo-item" key=${item.id} onClick=${() => onSelect(item.id)}>
-          <span className=${"todo-item-priority priority-chip" + (item.priority ? " has-priority priority-" + item.priority : "")}>
-            ${item.priority ? html`[#${item.priority}]` : "–"}
+          <span className=${"todo-item-priority" + (item.priority ? " priority-badge priority-" + item.priority : "")}>
+            ${item.priority || "–"}
           </span>
           <span className=${"todo-item-status status-badge status-" + item.status.toLowerCase()}>
             ${item.status}

@@ -2051,15 +2051,10 @@ header.header-tinted {
 
 .todo-item-priority {
   font-size: 11px;
-  font-weight: 700;
-  font-family: monospace;
   color: var(--text-dim);
   white-space: nowrap;
+  min-width: 24px;
 }
-.todo-item-priority.has-priority.priority-chip { color: var(--text); }
-.todo-item-priority.priority-A { color: #c0392b; }
-.todo-item-priority.priority-B { color: #d68910; }
-.todo-item-priority.priority-C { color: #1a6e9e; }
 
 .todo-item-status { flex-shrink: 0; }
 
