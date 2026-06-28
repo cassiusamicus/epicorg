@@ -2014,6 +2014,14 @@ header.header-tinted {
 .todo-filter-chip:hover { opacity: 0.75; }
 .todo-filter-chip.active { opacity: 1; outline: 2px solid var(--bullet-active); outline-offset: 1px; }
 
+.todo-filter-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
 .todo-filter-clear {
   font-size: 11px;
   padding: 2px 7px;

@@ -1298,14 +1298,17 @@ const TODO_STATUS_FILTERS = ["TODO", "NEXT", "URGENT", "WAITING"];
 function TodoView({ nodes, onSelect, searchQuery, selectedTags }) {
   const [sortBy, setSortBy] = useState("priority");
   const [statusFilter, setStatusFilter] = useState(new Set());
+  const [priorityFilter, setPriorityFilter] = useState(new Set());
 
   const toggleStatus = (s) => setStatusFilter((prev) => {
-    const next = new Set(prev);
-    next.has(s) ? next.delete(s) : next.add(s);
-    return next;
+    const next = new Set(prev); next.has(s) ? next.delete(s) : next.add(s); return next;
   });
+  const togglePriority = (p) => setPriorityFilter((prev) => {
+    const next = new Set(prev); next.has(p) ? next.delete(p) : next.add(p); return next;
+  });
+  const clearAll = () => { setStatusFilter(new Set()); setPriorityFilter(new Set()); };
 
-  const isFiltering = !!searchQuery || (selectedTags && selectedTags.length > 0) || statusFilter.size > 0;
+  const isFiltering = !!searchQuery || (selectedTags && selectedTags.length > 0) || statusFilter.size > 0 || priorityFilter.size > 0;
   let items = collectTodoItems(nodes);
   if (searchQuery) items = items.filter((item) => tree.matchesQuery(searchQuery, item.title));
   if (selectedTags && selectedTags.length > 0) {
@@ -1313,6 +1316,9 @@ function TodoView({ nodes, onSelect, searchQuery, selectedTags }) {
   }
   if (statusFilter.size > 0) {
     items = items.filter((item) => statusFilter.has(item.status));
+  }
+  if (priorityFilter.size > 0) {
+    items = items.filter((item) => priorityFilter.has(item.priority));
   }
 
   items = [...items].sort((a, b) => {
@@ -1346,8 +1352,14 @@ function TodoView({ nodes, onSelect, searchQuery, selectedTags }) {
                   className=${"todo-filter-chip status-badge status-" + s.toLowerCase() + (statusFilter.has(s) ? " active" : "")}
                   onClick=${() => toggleStatus(s)}>${s}</button>
         `)}
-        ${statusFilter.size > 0 && html`
-          <button className="todo-filter-clear" onClick=${() => setStatusFilter(new Set())}>✕ clear</button>
+        <span className="todo-filter-sep"></span>
+        ${["A", "B", "C"].map((p) => html`
+          <button key=${p}
+                  className=${"todo-filter-chip priority-badge priority-" + p + (priorityFilter.has(p) ? " active" : "")}
+                  onClick=${() => togglePriority(p)}>${p}</button>
+        `)}
+        ${(statusFilter.size > 0 || priorityFilter.size > 0) && html`
+          <button className="todo-filter-clear" onClick=${clearAll}>✕ clear</button>
         `}
       </div>
       ${items.length === 0 ? html`
