@@ -3250,7 +3250,11 @@ function App() {
           </div>
         `}
         ${view === "outline" && !textMode && html`
-          <div className="outline-pane">
+          <div className="outline-pane" onMouseDown=${(e) => {
+            if (titleFormatMode && focusedId && !e.target.closest(".node-row")) {
+              setFocusedId(null);
+            }
+          }}>
             <div className=${"outline-content" + (readingWidth ? " reading-width" : "")}>
               ${!isFiltering && !isHoisted && html`<${PreambleRow} focused=${isPreambleFocused} preamble=${preamble} dispatch=${dispatch} inputRefs=${inputRefs} />`}
               ${visibleNodes.length === 0 ? html`
