@@ -776,15 +776,23 @@ header h1 {
 
 .about-quote {
   margin: 0;
-  padding: 16px 20px;
-  border-left: 3px solid var(--bullet-active);
-  background: var(--focused-bg);
-  border-radius: 0 6px 6px 0;
+  padding: 18px 22px;
+  border-left: 4px solid #7b6a3e;
+  background: #f5f0e4;
+  border-radius: 0 8px 8px 0;
   font-style: italic;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  color: var(--text);
+  color: #3a2e1a;
+  font-size: 13.5px;
+  line-height: 1.75;
+}
+
+[data-theme="dark"] .about-quote {
+  background: #2a2318;
+  border-left-color: #a0884e;
+  color: #d4c9a8;
 }
 
 .about-quote p {
