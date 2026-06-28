@@ -1215,18 +1215,24 @@ const DetailPane = forwardRef(function DetailPane({ node, isPreamble, dispatch, 
       <div className="detail-section">
         <label className="detail-label">Priority</label>
         <div className="detail-priority-group">
-          ${["A","B","C",""].map((p) => html`
-            <button key=${p || "none"}
-                    className=${"detail-priority-btn priority-" + (p || "none") + (node?.priority === p ? " active" : "")}
+          ${[["A","#c0392b"],["B","#d68910"],["C","#1a6e9e"]].map(([p, color]) => html`
+            <button key=${p}
+                    className=${"detail-priority-btn" + (node?.priority === p ? " active" : "")}
+                    style=${node?.priority === p ? { background: color, color: "#fff", borderColor: color } : {}}
                     disabled=${!node}
-                    onClick=${() => dispatch(node.id, "set-priority", p)}>
-              ${p ? html`[#${p}]` : "NONE"}
+                    onClick=${() => dispatch(node.id, "set-priority", node?.priority === p ? "" : p)}>
+              ${p}
             </button>
           `)}
+          <button className=${"detail-priority-btn priority-none-btn" + (!node?.priority ? " active" : "")}
+                  disabled=${!node}
+                  onClick=${() => dispatch(node.id, "set-priority", "")}>
+            None
+          </button>
         </div>
       </div>
       <div className="detail-section">
-        <label className="detail-label">Due date</label>
+        <label className="detail-label">Deadline</label>
         <input type="date" className="detail-date"
           value=${node ? tree.parseOrgDate(node.properties?.DEADLINE) : ""}
           disabled=${!node}
@@ -1501,7 +1507,7 @@ function AgendaView({ nodes, onSelect, searchQuery, selectedTags }) {
   });
 
   if (items.length === 0) {
-    return html`<div className="agenda-empty">${isFiltering ? "No matches" : "No items scheduled or with due dates"}</div>`;
+    return html`<div className="agenda-empty">${isFiltering ? "No matches" : "No items scheduled or with deadlines"}</div>`;
   }
 
   const groups = [];
@@ -1526,7 +1532,7 @@ function AgendaView({ nodes, onSelect, searchQuery, selectedTags }) {
                 ${item.time && html`<span className="agenda-item-time">${item.time}</span>`}
                 <span className="agenda-item-title"
                       dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(item.title || "Untitled") }} />
-                <span className=${"agenda-item-kind " + item.kind}>${item.kind === "scheduled" ? "sched" : "due"}</span>
+                <span className=${"agenda-item-kind " + item.kind}>${item.kind === "scheduled" ? "sched" : "deadline"}</span>
               </div>
               ${item.ancestors.length > 0 && html`
                 <span className="agenda-item-path"
