@@ -1366,8 +1366,8 @@ function TodoView({ nodes, onSelect, searchQuery, selectedTags }) {
         <div className="agenda-empty">${isFiltering ? "No matches" : "No TODO items in this file"}</div>
       ` : items.map((item) => html`
         <div className="todo-item" key=${item.id} onClick=${() => onSelect(item.id)}>
-          <span className=${"todo-item-priority" + (item.priority ? " priority-badge priority-" + item.priority : "")}>
-            ${item.priority || "–"}
+          <span className=${"todo-item-priority" + (item.priority ? " priority-badge priority-" + item.priority : " priority-badge priority-none")}>
+            ${item.priority || ""}
           </span>
           <span className=${"todo-item-status status-badge status-" + item.status.toLowerCase()}>
             ${item.status}
@@ -1380,7 +1380,8 @@ function TodoView({ nodes, onSelect, searchQuery, selectedTags }) {
             </span>
           `}
           ${item.ancestors.length > 0 && html`
-            <span className="todo-item-path">${item.ancestors.join(" › ")}</span>
+            <span className="todo-item-path"
+                  dangerouslySetInnerHTML=${{ __html: item.ancestors.map((a) => tree.renderOrgInline(a)).join(" › ") }} />
           `}
         </div>
       `)}
@@ -1427,11 +1428,13 @@ function AgendaView({ nodes, onSelect, searchQuery, selectedTags }) {
             <div className="agenda-item" key=${item.id + "-" + item.kind} onClick=${() => onSelect(item.id)}>
               <div className="agenda-item-top">
                 ${item.time && html`<span className="agenda-item-time">${item.time}</span>`}
-                <span className="agenda-item-title">${item.title || "Untitled"}</span>
+                <span className="agenda-item-title"
+                      dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(item.title || "Untitled") }} />
                 <span className=${"agenda-item-kind " + item.kind}>${item.kind === "scheduled" ? "sched" : "due"}</span>
               </div>
               ${item.ancestors.length > 0 && html`
-                <span className="agenda-item-path">${item.ancestors.join(" \u203A ")}</span>
+                <span className="agenda-item-path"
+                      dangerouslySetInnerHTML=${{ __html: item.ancestors.map((a) => tree.renderOrgInline(a)).join(" \u203A ") }} />
               `}
             </div>
           `)}
@@ -2783,7 +2786,14 @@ function App() {
   const handleAgendaSelect = useCallback((itemId) => {
     setView("outline");
     setNodes((prev) => tree.uncollapseToNode(prev, itemId));
-    requestAnimationFrame(() => focusNode(itemId));
+    requestAnimationFrame(() => {
+      focusNode(itemId);
+      // Scroll selected item to top of pane after focus so it isn't buried at the bottom edge.
+      requestAnimationFrame(() => {
+        const row = document.querySelector(`.node-row[data-node-id="${itemId}"]`);
+        row?.scrollIntoView({ block: "start", behavior: "smooth" });
+      });
+    });
   }, [focusNode]);
 
   // Dispatch: all operations are local state mutations

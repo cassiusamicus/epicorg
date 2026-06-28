@@ -2397,6 +2397,14 @@ header.header-tinted {
 .priority-badge.priority-A { background: #c0392b; color: #fff; }
 .priority-badge.priority-B { background: #d68910; color: #fff; }
 .priority-badge.priority-C { background: #1a6e9e; color: #fff; }
+.priority-badge.priority-none {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: transparent;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+}
 
 .node-row:hover .status-none {
   opacity: 0.5;
