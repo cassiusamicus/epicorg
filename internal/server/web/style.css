@@ -56,7 +56,7 @@
   --todo-text: #856404;
   --done-bg: #d4edda;
   --done-text: #155724;
-  --overlay: rgba(0, 0, 0, 0.15);
+  --overlay: rgba(0, 0, 0, 0.45);
   --shadow: rgba(0, 0, 0, 0.1);
   --panel-bg: #ffffff;
 }
@@ -637,6 +637,12 @@ header h1 {
   background: var(--focused-bg);
 }
 
+.hamburger-menu-option-indented {
+  padding-left: 24px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
 .hamburger-menu-option input {
   cursor: pointer;
   accent-color: var(--bullet-active);
@@ -1166,6 +1172,8 @@ header.header-tinted {
   position: fixed;
   inset: 0;
   background: var(--overlay);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2576,6 +2584,17 @@ header.header-tinted {
 .node-tag-chip:hover {
   color: var(--bullet-active);
   border-color: var(--bullet-active);
+}
+
+.node-tag-chips-inline {
+  display: inline;
+  margin-left: 6px;
+}
+
+.node-tag-chips-inline .inline-chip {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 3px;
 }
 
 /* Inline body/notes — shown under a bullet instead of in the detail pane */

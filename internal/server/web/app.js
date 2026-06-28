@@ -208,7 +208,11 @@ function NodeBody({ node, dispatch, isEditing, titleFormatMode, notesVisible, de
   `;
 }
 
-function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, numberedBullets, siblingIndex, verticalLines, showTagChips, onSearchTag, bodyEditingId, bodyRefs }) {
+function inlineTagChipsHtml(tags) {
+  return tags.map((t) => `<span class="node-tag-chip inline-chip" data-tag="${t}">${t}</span>`).join(" ");
+}
+
+function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, numberedBullets, siblingIndex, verticalLines, showTagChips, tagsOnRight, onSearchTag, bodyEditingId, bodyRefs }) {
   const isFocused = focusedId === node.id;
   const hasChildren = node.children?.length > 0;
   const titleRef = useRef(null);
@@ -281,19 +285,22 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
         ${node.priority && html`
           <span className=${"priority-badge priority-" + node.priority}
                 onClick=${(e) => { e.stopPropagation(); dispatch(node.id, "set-priority", node.priority === "A" ? "B" : node.priority === "B" ? "C" : "A"); }}
-                title="Click to cycle priority">[#${node.priority}]</span>
+                title="Click to cycle priority">${node.priority}</span>
         `}
         ${showFormatted
           ? html`
             <div className=${"node-title node-title-preview" + (node.status === "DONE" || node.status === "CANCELLED" ? " done" : "")}
                  onClick=${(e) => {
+                   const tagEl = e.target.closest("[data-tag]");
+                   if (tagEl) { e.stopPropagation(); onSearchTag?.(tagEl.dataset.tag); return; }
                    if (e.target.closest(".node-has-notes-indicator")) { dispatch(node.id, "edit-body"); return; }
                    pendingEditRef.current = true;
                    dispatch(node.id, "edit-title");
                  }}
                  dangerouslySetInnerHTML=${{
                    __html: tree.renderOrgInline(node.title) +
-                     (hasHiddenNote ? ' <span class="node-has-notes-indicator" title="This item has a hidden note — click to view it">…</span>' : ""),
+                     (hasHiddenNote ? ' <span class="node-has-notes-indicator" title="This item has a hidden note — click to view it">…</span>' : "") +
+                     (showTagChips && !tagsOnRight && node.tags?.length > 0 ? ' <span class="node-tag-chips-inline">' + inlineTagChipsHtml(node.tags) + "</span>" : ""),
                  }} />
           `
           : html`
@@ -323,13 +330,16 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
         ${showOverlay && html`
           <div className=${"node-title node-title-preview" + (node.status === "DONE" || node.status === "CANCELLED" ? " done" : "")}
                onClick=${(e) => {
+                 const tagEl = e.target.closest("[data-tag]");
+                 if (tagEl) { e.stopPropagation(); onSearchTag?.(tagEl.dataset.tag); return; }
                  if (e.target.closest(".node-has-notes-indicator")) { dispatch(node.id, "edit-body"); return; }
                  setIsEditing(true);
                  setTimeout(() => titleRef.current?.focus(), 0);
                }}
                dangerouslySetInnerHTML=${{
                  __html: tree.renderOrgInline(node.title) +
-                   (hasHiddenNote ? ' <span class="node-has-notes-indicator" title="This item has a hidden note — click to view it">…</span>' : ""),
+                   (hasHiddenNote ? ' <span class="node-has-notes-indicator" title="This item has a hidden note — click to view it">…</span>' : "") +
+                   (showTagChips && !tagsOnRight && node.tags?.length > 0 ? ' <span class="node-tag-chips-inline">' + inlineTagChipsHtml(node.tags) + "</span>" : ""),
                }} />
         `}
         ${!showFormatted && !showOverlay && hasHiddenNote && html`
@@ -337,7 +347,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                 onClick=${() => dispatch(node.id, "edit-body")}
                 title="This item has a hidden note — click to view it">…</span>
         `}
-        ${showTagChips && node.tags?.length > 0 && html`
+        ${showTagChips && node.tags?.length > 0 && (tagsOnRight || (!showFormatted && !showOverlay)) && html`
           <span className="node-tag-chips">
             ${node.tags.map((t) => html`<span key=${t} className="node-tag-chip"
               onClick=${(e) => { e.stopPropagation(); onSearchTag?.(t); }}>${t}</span>`)}
@@ -368,6 +378,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
             siblingIndex=${i + 1}
             verticalLines=${verticalLines}
             showTagChips=${showTagChips}
+            tagsOnRight=${tagsOnRight}
             onSearchTag=${onSearchTag}
             bodyEditingId=${bodyEditingId}
             bodyRefs=${bodyRefs}
@@ -1408,8 +1419,9 @@ function TodoView({ nodes, onSelect, searchQuery, selectedTags }) {
   `;
 }
 
-function SearchResultsView({ searchResults, onBack, onNavigate }) {
+function SearchResultsView({ searchResults, currentFile, onBack, onNavigate }) {
   const [activeFilters, setActiveFilters] = useState(new Set());
+  const [currentFileOnly, setCurrentFileOnly] = useState(false);
 
   // Reset filters when the search changes
   const queryKey = searchResults.type + ":" + searchResults.query;
@@ -1417,6 +1429,7 @@ function SearchResultsView({ searchResults, onBack, onNavigate }) {
   if (prevQueryRef.current !== queryKey) {
     prevQueryRef.current = queryKey;
     setActiveFilters(new Set());
+    setCurrentFileOnly(false);
   }
 
   const toggleFilter = (tag) => setActiveFilters((prev) => {
@@ -1434,9 +1447,13 @@ function SearchResultsView({ searchResults, onBack, onNavigate }) {
     return [...seen].sort();
   }, [results, searchResults.type, searchResults.query]);
 
-  const filtered = results && activeFilters.size > 0
-    ? results.filter((r) => r.tags && [...activeFilters].every((t) => r.tags.includes(t)))
-    : results;
+  const filtered = useMemo(() => {
+    if (!results) return results;
+    let out = results;
+    if (currentFileOnly && currentFile) out = out.filter((r) => r.file === currentFile);
+    if (activeFilters.size > 0) out = out.filter((r) => r.tags && [...activeFilters].every((t) => r.tags.includes(t)));
+    return out;
+  }, [results, activeFilters, currentFileOnly, currentFile]);
 
   return html`
     <div className="tag-search-header">
@@ -1456,6 +1473,13 @@ function SearchResultsView({ searchResults, onBack, onNavigate }) {
           ${searchResults.query} ✕
         </button>
       `}
+      ${currentFile && html`
+        <button className=${"todo-filter-chip tag-filter-chip" + (currentFileOnly ? " active-filter" : "")}
+                onClick=${() => setCurrentFileOnly((v) => !v)}
+                title="Show results from current file only">
+          Current file${currentFileOnly ? " ✕" : ""}
+        </button>
+      `}
       ${extraTags.map((t) => html`
         <button key=${t}
                 className=${"todo-filter-chip tag-filter-chip" + (activeFilters.has(t) ? " active-filter" : "")}
@@ -1463,8 +1487,8 @@ function SearchResultsView({ searchResults, onBack, onNavigate }) {
           ${t}${activeFilters.has(t) ? " ✕" : ""}
         </button>
       `)}
-      ${activeFilters.size > 0 && html`
-        <button className="todo-filter-clear" onClick=${() => setActiveFilters(new Set())}>✕ clear</button>
+      ${(activeFilters.size > 0 || currentFileOnly) && html`
+        <button className="todo-filter-clear" onClick=${() => { setActiveFilters(new Set()); setCurrentFileOnly(false); }}>✕ clear all</button>
       `}
     </div>
     ${results === null ? html`
@@ -1991,6 +2015,16 @@ function App() {
     setShowTagChips((p) => {
       const next = !p;
       try { localStorage.setItem("epicorg.showTagChips", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  }, []);
+  const [tagsOnRight, setTagsOnRight] = useState(() => {
+    try { return localStorage.getItem("epicorg.tagsOnRight") !== "0"; } catch { return true; }
+  });
+  const toggleTagsOnRight = useCallback(() => {
+    setTagsOnRight((p) => {
+      const next = !p;
+      try { localStorage.setItem("epicorg.tagsOnRight", next ? "1" : "0"); } catch {}
       return next;
     });
   }, []);
@@ -3310,6 +3344,7 @@ function App() {
                   numberedBullets=${numberedBullets} onToggleNumberedBullets=${toggleNumberedBullets}
                   verticalLines=${verticalLines} onToggleVerticalLines=${toggleVerticalLines}
                   showTagChips=${showTagChips} onToggleShowTagChips=${toggleShowTagChips}
+                  tagsOnRight=${tagsOnRight} onToggleTagsOnRight=${toggleTagsOnRight}
                   isHoisted=${isHoisted} canToggleHoist=${isHoisted || (focusedId && focusedId !== "preamble")} onToggleHoist=${toggleHoist}
                   readingWidth=${readingWidth} onToggleReadingWidth=${toggleReadingWidth}
                   sidebarVisible=${sidebarVisible} onToggleSidebar=${toggleSidebar}
@@ -3416,7 +3451,7 @@ function App() {
                   titleFormatMode=${titleFormatMode} notesVisible=${notesVisible}
                   numberedBullets=${numberedBullets} siblingIndex=${i + 1}
                   verticalLines=${verticalLines} showTagChips=${showTagChips}
-                  onSearchTag=${searchTag}
+                  tagsOnRight=${tagsOnRight} onSearchTag=${searchTag}
                   bodyEditingId=${bodyEditingId} bodyRefs=${bodyRefs} />
               `)}
             </div>
@@ -3441,6 +3476,7 @@ function App() {
             <div className=${"outline-content" + (readingWidth ? " reading-width" : "")}>
               <${SearchResultsView}
                 searchResults=${searchResults}
+                currentFile=${currentFile}
                 onBack=${() => setView("outline")}
                 onNavigate=${async (r) => {
                   pendingTagNavRef.current = { file: r.file, title: r.title };
@@ -3945,7 +3981,7 @@ function FolderPicker({ initialPath, onSelect, onCancel }) {
 // A general options menu, extensible as more entries get added — for now
 // just the one, toggling numbered outline bullets (Dynalist-style).
 function HamburgerMenu({
-  numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips,
+  numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight,
   // Everything below is only rendered when `collapsed` — Header measured
   // that the toolbar/search/etc. don't fit and rendered them away, so
   // their controls are reachable from here instead. On an uncollapsed
@@ -4021,6 +4057,12 @@ function HamburgerMenu({
             <input type="checkbox" checked=${showTagChips} onChange=${onToggleShowTagChips} disabled=${textMode} />
             <span>Show tags as chips</span>
           </label>
+          ${showTagChips && html`
+            <label className="hamburger-menu-option hamburger-menu-option-indented">
+              <input type="checkbox" checked=${tagsOnRight} onChange=${onToggleTagsOnRight} disabled=${textMode} />
+              <span>Show chips on right</span>
+            </label>
+          `}
           ${view === "outline" && html`
             <div className="hamburger-fold-row">
               <span>Fold to level</span>
@@ -4181,7 +4223,7 @@ function TagFilterButton({ allTags, selectedTags, onToggleTag, onClearTags }) {
   `;
 }
 
-function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward }) {
+function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward }) {
   // Whether the toolbar/search/etc. actually fit is measured, not
   // guessed from viewport width — a long filename or a pile of tags
   // eats into the same space a phone-width media query would assume is
@@ -4323,6 +4365,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
           <${HamburgerMenu} numberedBullets=${numberedBullets} onToggleNumberedBullets=${onToggleNumberedBullets}
             verticalLines=${verticalLines} onToggleVerticalLines=${onToggleVerticalLines}
             showTagChips=${showTagChips} onToggleShowTagChips=${onToggleShowTagChips}
+            tagsOnRight=${tagsOnRight} onToggleTagsOnRight=${onToggleTagsOnRight}
             collapsed=${collapsed}
             view=${view} setView=${setView}
             titleFormatMode=${titleFormatMode} onToggleTitleFormat=${onToggleTitleFormat}
