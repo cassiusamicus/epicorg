@@ -2053,7 +2053,8 @@ header.header-tinted {
   font-size: 11px;
   color: var(--text-dim);
   white-space: nowrap;
-  min-width: 24px;
+  justify-self: start;
+  align-self: center;
 }
 
 .todo-item-status { flex-shrink: 0; }
@@ -2071,6 +2072,11 @@ header.header-tinted {
   font-size: 11px;
   color: var(--text-dim);
   padding-left: 2px;
+}
+
+.todo-item .agenda-item-tags {
+  grid-column: 1 / -1;
+  margin-left: 2px;
 }
 
 /* Tags in agenda/todo rows */

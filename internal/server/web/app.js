@@ -1372,7 +1372,8 @@ function TodoView({ nodes, onSelect, searchQuery, selectedTags }) {
           <span className=${"todo-item-status status-badge status-" + item.status.toLowerCase()}>
             ${item.status}
           </span>
-          <span className="todo-item-title">${item.title || "Untitled"}</span>
+          <span className="todo-item-title"
+                dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(item.title || "Untitled") }} />
           ${item.tags.length > 0 && html`
             <span className="agenda-item-tags">
               ${item.tags.map((t) => html`<span key=${t} className="agenda-item-tag">:${t}:</span>`)}
