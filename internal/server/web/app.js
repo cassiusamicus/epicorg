@@ -219,7 +219,7 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
             className="node-body-textarea"
             value=${node.body || ""}
             placeholder="Add notes..."
-            onChange=${(e) => { dispatch(node.id, "change-body", e.target.value); triggerLinkPicker(e.target); }}
+            onChange=${(e) => { dispatch(node.id, "change-body", tree.orgifyPaths(e.target.value)); triggerLinkPicker(e.target); }}
             onBlur=${() => dispatch(node.id, "stop-edit-body")}
             onKeyDown=${(e) => {
               const marker = formatMarkerForKey(e);
@@ -351,7 +351,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                 if (showOverlay && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) setIsEditing(true);
                 handleKey(e, node.id, dispatch);
               }}
-              onChange=${(e) => { setIsEditing(true); dispatch(node.id, "change", e.target.value); triggerLinkPicker(e.target); }}
+              onChange=${(e) => { setIsEditing(true); dispatch(node.id, "change", tree.orgifyPaths(e.target.value)); triggerLinkPicker(e.target); }}
             />
           `}
         ${showOverlay && html`

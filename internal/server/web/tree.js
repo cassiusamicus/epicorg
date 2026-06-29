@@ -331,6 +331,20 @@ const LINK_RE = /\[\[([^\]]+)\]\[([^\]]*)\]\]|\[\[([^\]]+)\]\]/g;
 // MARKUP_RE so italic's "/" doesn't chop the path into pieces.
 const BARE_PATH_RE = /(?<![a-zA-Z0-9])(\/(?:[^\s/\n]+\/)+[^\n/]*\.[a-zA-Z0-9]{1,10})(?=\s|$|[,;!?"])/g;
 
+// Same pattern but for raw (unescaped) text, used when auto-converting bare
+// paths to org [[file:...][label]] format in the editor.  The extra ":"
+// in the lookbehind prevents re-converting paths already inside org links
+// (e.g. [[file:/path...]] where "/" is preceded by ":").
+const BARE_PATH_ORG_RE = /(?<![a-zA-Z0-9:])(\/(?:[^\s/\n]+\/)+[^\n/]*\.[a-zA-Z0-9]{1,10})(?=[\s,;!?"]|$)/g;
+
+export function orgifyPaths(text) {
+  if (!text) return text;
+  return text.replace(BARE_PATH_ORG_RE, (_, path) => {
+    const filename = path.split("/").pop();
+    return `[[file:${path}][${filename}]]`;
+  });
+}
+
 // Single combined pass: scanning left-to-right for whichever marker comes
 // first avoids re-scanning HTML tags already emitted for an earlier match
 // (e.g. italic's "/" matching inside a just-inserted "</strong>").
