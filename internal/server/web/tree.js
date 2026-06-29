@@ -360,6 +360,14 @@ export function renderOrgInline(text) {
     return LINK_PLACEHOLDER + links.length + LINK_PLACEHOLDER;
   });
 
+  // Footnote references: [fn:label] → clickable superscript
+  result = result.replace(/\[fn:([^\]]+)\]/g, (match, label) => {
+    const safe = label.replace(/"/g, "&quot;");
+    const html = `<sup class="org-fn-ref" data-fn="${safe}">[${safe}]</sup>`;
+    links.push(html);
+    return LINK_PLACEHOLDER + links.length + LINK_PLACEHOLDER;
+  });
+
   result = result.replace(MARKUP_RE, (match, bold, italic, underline, code) => {
     if (bold !== undefined) return `<strong>${bold}</strong>`;
     if (italic !== undefined) return `<em>${italic}</em>`;
@@ -371,6 +379,44 @@ export function renderOrgInline(text) {
   result = result.replace(placeholderRe, (_, i) => links[Number(i) - 1]);
 
   return result;
+}
+
+// Build footnote navigation index. Returns:
+//   defs: { label → { text, nodeId } } — which node's body defines this label
+//   refs: { label → [nodeId, ...] }    — which nodes reference this label
+export function buildFootnoteIndex(nodes) {
+  const defs = {};
+  const refs = {};
+
+  function addRef(label, nodeId) {
+    if (!refs[label]) refs[label] = [];
+    if (!refs[label].includes(nodeId)) refs[label].push(nodeId);
+  }
+
+  function scanBody(body, nodeId) {
+    // Definitions start a line: "[fn:label] definition text"
+    // Inline references are mid-line: "...text [fn:label] more text..."
+    for (const line of body.split("\n")) {
+      const m = /^\[fn:([^\]]+)\]\s+(.+)/.exec(line.trim());
+      if (m) {
+        const label = m[1].trim();
+        const text = m[2].trim().replace(/\s+/g, " ");
+        if (label && text && !defs[label]) defs[label] = { text, nodeId };
+      }
+    }
+    const re = /\[fn:([^\]]+)\]/g;
+    let m;
+    while ((m = re.exec(body)) !== null) addRef(m[1].trim(), nodeId);
+  }
+
+  function scan(list) {
+    for (const n of list) {
+      if (n.body) scanBody(n.body, n.id);
+      if (n.children?.length > 0) scan(n.children);
+    }
+  }
+  scan(nodes || []);
+  return { defs, refs };
 }
 
 // Filter the tree into a sparse view: a node is kept only if its own title

@@ -2626,6 +2626,24 @@ header.header-tinted {
   color: var(--text-dim);
 }
 
+.body-fn-btn {
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 1px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: monospace;
+  color: var(--link, #1a6e9e);
+  background: none;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0.5;
+  line-height: 1.4;
+}
+.body-fn-btn:hover { opacity: 1; background: var(--focused-bg); }
+
 .node-body-preview {
   flex: 1;
   min-width: 0;
@@ -3040,6 +3058,198 @@ header.header-tinted {
    edge (the toolbar items that used to separate it from .header-right
    are gone), so a popup this wide anchored to the button's right edge
    would run off-screen to the left. */
+
+/* --- Org footnote references [fn:label] --- */
+.org-fn-ref {
+  font-size: 0.72em;
+  font-weight: 600;
+  color: var(--link, #1a6e9e);
+  cursor: pointer;
+  border-bottom: 1px dotted currentColor;
+  vertical-align: super;
+  line-height: 1;
+  padding: 0 1px;
+  user-select: none;
+}
+.org-fn-ref:hover {
+  background: var(--focused-bg);
+  border-radius: 2px;
+}
+
+/* Flash highlight when navigating to a footnote definition or back */
+@keyframes fn-jump-pulse {
+  0%   { background: rgba(255, 200, 0, 0.45); }
+  70%  { background: rgba(255, 200, 0, 0.15); }
+  100% { background: transparent; }
+}
+.fn-jump-flash {
+  animation: fn-jump-pulse 1.2s ease-out forwards;
+  border-radius: 3px;
+}
+
+/* Footnote popup card */
+.fn-popup {
+  position: fixed;
+  z-index: 400;
+  background: var(--panel-bg, #fff);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.22);
+  padding: 10px 12px 10px;
+  pointer-events: auto;
+  --text: #222; --text-dim: #888; --border: #e0e0e0;
+  --focused-bg: #f5f5f5; --panel-bg: #fff; --link: #1a6e9e;
+}
+[data-theme="dark"] .fn-popup {
+  --text: #e6e6e6; --text-dim: #8a8a8e; --border: #3a3a3c;
+  --focused-bg: #2c2c2e; --panel-bg: #1c1c1e; --link: #4da3d4;
+}
+.fn-popup-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 7px;
+}
+.fn-popup-label {
+  font-size: 11px;
+  color: var(--link);
+  font-family: monospace;
+  flex: 0 0 auto;
+}
+.fn-popup-notfound {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+  flex: 1;
+}
+.fn-popup-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  margin-left: auto;
+}
+.fn-popup-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--focused-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 6px 8px;
+  resize: vertical;
+  outline: none;
+  display: block;
+}
+.fn-popup-textarea:focus { border-color: var(--link); }
+.fn-popup-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.fn-popup-hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  flex: 1;
+}
+.fn-popup-cancel {
+  padding: 4px 10px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.fn-popup-save {
+  padding: 4px 12px;
+  font-size: 12px;
+  border: none;
+  border-radius: 4px;
+  background: var(--link);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+.fn-popup-save:disabled { opacity: 0.4; cursor: default; }
+
+/* Footnote insert dialog */
+.fn-insert-dialog {
+  background: var(--panel-bg, #fff);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.22);
+  padding: 16px 18px 14px;
+  width: min(420px, 92vw);
+  --text: #222; --text-dim: #888; --border: #e0e0e0;
+  --focused-bg: #f5f5f5; --panel-bg: #fff; --bg: #fff;
+}
+[data-theme="dark"] .fn-insert-dialog {
+  --text: #e6e6e6; --text-dim: #8a8a8e; --border: #3a3a3c;
+  --focused-bg: #2c2c2e; --panel-bg: #1c1c1e; --bg: #1c1c1e;
+}
+.fn-insert-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+.fn-insert-hint {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+.fn-insert-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--focused-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 8px 10px;
+  resize: vertical;
+  outline: none;
+}
+.fn-insert-textarea:focus { border-color: var(--link, #1a6e9e); }
+.fn-insert-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.fn-insert-cancel {
+  padding: 6px 14px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.fn-insert-confirm {
+  padding: 6px 16px;
+  font-size: 13px;
+  border: none;
+  border-radius: 4px;
+  background: var(--link, #1a6e9e);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+.fn-insert-confirm:hover { opacity: 0.9; }
 
 /* [[file:...]] org links — same appearance as http: hyperlinks. */
 a.org-file-link {

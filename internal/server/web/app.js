@@ -140,6 +140,28 @@ function adjustTextareaHeight(ta) {
   ta.style.height = ta.scrollHeight + "px";
 }
 
+// Lowest unused integer footnote label across the whole document.
+function nextFootnoteLabel(nodes) {
+  const used = new Set();
+  const RE = /\[fn:(\d+)\]/g;
+  function scan(list) {
+    for (const n of list) {
+      let m;
+      RE.lastIndex = 0; while ((m = RE.exec(n.title || "")) !== null) used.add(Number(m[1]));
+      RE.lastIndex = 0; while ((m = RE.exec(n.body  || "")) !== null) used.add(Number(m[1]));
+      if (n.children?.length > 0) scan(n.children);
+    }
+  }
+  scan(nodes || []);
+  let n = 1; while (used.has(n)) n++;
+  return String(n);
+}
+
+// Fire from anywhere in the tree without prop-drilling.
+function triggerInsertFootnote() {
+  document.body.dispatchEvent(new CustomEvent("epicInsertFootnote"));
+}
+
 // Fire a custom event so the App can show the file-link picker without
 // prop-drilling a callback through the entire OutlineNode tree.
 function triggerLinkPicker(textarea) {
@@ -154,7 +176,7 @@ function triggerLinkPicker(textarea) {
 // being edited, so empty items don't clutter the outline. Mirrors the
 // title's formatted-preview/edit-textarea split, governed by the same
 // titleFormatMode toggle.
-function NodeBody({ node, dispatch, isEditing, titleFormatMode, notesVisible, depth, bodyRefs }) {
+function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notesVisible, depth, bodyRefs }) {
   const localRef = useRef(null);
 
   useEffect(() => {
@@ -172,9 +194,9 @@ function NodeBody({ node, dispatch, isEditing, titleFormatMode, notesVisible, de
   // The global notes toggle hides this row — unless the user explicitly
   // drilled into this specific item's note (Shift+Enter or clicking the
   // "…" marker), which overrides the collapse for just that one item.
-  if (!isEditing && (!notesVisible || !node.body)) return null;
+  if (!isEditing && !isPreview && (!notesVisible || !node.body)) return null;
 
-  const showFormatted = titleFormatMode && !isEditing;
+  const showFormatted = !isEditing;
 
   return html`
     <div className="node-body-row">
@@ -182,6 +204,7 @@ function NodeBody({ node, dispatch, isEditing, titleFormatMode, notesVisible, de
       ${showFormatted
         ? html`
           <div className="node-body-preview"
+               data-node-id=${node.id}
                onClick=${() => dispatch(node.id, "edit-body")}
                dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(node.body) }} />
         `
@@ -203,6 +226,8 @@ function NodeBody({ node, dispatch, isEditing, titleFormatMode, notesVisible, de
               if (e.key === "Escape") { e.preventDefault(); dispatch(node.id, "focus-outline"); }
             }}
           />
+          <button className="body-fn-btn" title="Insert footnote reference [fn:N]"
+                  onMouseDown=${(e) => { e.preventDefault(); localRef.current?.focus(); triggerInsertFootnote(); }}>fn</button>
         `}
     </div>
   `;
@@ -212,7 +237,7 @@ function inlineTagChipsHtml(tags) {
   return tags.map((t) => `<span class="node-tag-chip inline-chip" data-tag="${t}">${t}</span>`).join(" ");
 }
 
-function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, numberedBullets, siblingIndex, verticalLines, showTagChips, tagsOnRight, onSearchTag, bodyEditingId, bodyRefs }) {
+function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, numberedBullets, siblingIndex, verticalLines, showTagChips, tagsOnRight, onSearchTag, bodyEditingId, bodyPreviewId, bodyRefs }) {
   const isFocused = focusedId === node.id;
   const hasChildren = node.children?.length > 0;
   const titleRef = useRef(null);
@@ -223,7 +248,8 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
   // Skip overlay for empty titles — there's nothing to render and no way for the user to click into it.
   const showOverlay = titleFormatMode && isFocused && !isEditing && node.title !== "";
   const bodyEditing = bodyEditingId === node.id;
-  const hasHiddenNote = !notesVisible && !!node.body && !bodyEditing;
+  const bodyPreview = bodyPreviewId === node.id;
+  const hasHiddenNote = !notesVisible && !!node.body && !bodyEditing && !bodyPreview;
 
   // Reset to view mode when losing focus; enter edit immediately when a mouse
   // click set pendingEditRef before the dispatch that changed focusedId.
@@ -293,7 +319,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                  onClick=${(e) => {
                    const tagEl = e.target.closest("[data-tag]");
                    if (tagEl) { e.stopPropagation(); onSearchTag?.(tagEl.dataset.tag); return; }
-                   if (e.target.closest(".node-has-notes-indicator")) { dispatch(node.id, "edit-body"); return; }
+                   if (e.target.closest(".node-has-notes-indicator")) { dispatch(node.id, "preview-body"); return; }
                    pendingEditRef.current = true;
                    dispatch(node.id, "edit-title");
                  }}
@@ -332,7 +358,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                onClick=${(e) => {
                  const tagEl = e.target.closest("[data-tag]");
                  if (tagEl) { e.stopPropagation(); onSearchTag?.(tagEl.dataset.tag); return; }
-                 if (e.target.closest(".node-has-notes-indicator")) { dispatch(node.id, "edit-body"); return; }
+                 if (e.target.closest(".node-has-notes-indicator")) { dispatch(node.id, "preview-body"); return; }
                  setIsEditing(true);
                  setTimeout(() => titleRef.current?.focus(), 0);
                }}
@@ -344,7 +370,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
         `}
         ${!showFormatted && !showOverlay && hasHiddenNote && html`
           <span className="node-has-notes-indicator"
-                onClick=${() => dispatch(node.id, "edit-body")}
+                onClick=${() => dispatch(node.id, "preview-body")}
                 title="This item has a hidden note — click to view it">…</span>
         `}
         ${showTagChips && node.tags?.length > 0 && (tagsOnRight || (!showFormatted && !showOverlay)) && html`
@@ -358,6 +384,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
         node=${node}
         dispatch=${dispatch}
         isEditing=${bodyEditing}
+        isPreview=${bodyPreview}
         titleFormatMode=${titleFormatMode}
         notesVisible=${notesVisible}
         depth=${depth}
@@ -381,6 +408,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
             tagsOnRight=${tagsOnRight}
             onSearchTag=${onSearchTag}
             bodyEditingId=${bodyEditingId}
+            bodyPreviewId=${bodyPreviewId}
             bodyRefs=${bodyRefs}
           />
         `
@@ -1939,6 +1967,106 @@ const UNDOABLE_ACTIONS = new Set([
 const COALESCE_UNDO_ACTIONS = new Set(["change", "change-body", "change-preamble"]);
 const UNDO_COALESCE_MS = 800;
 
+function FootnotePopup({ popup, onClose, onSave }) {
+  const [text, setText] = useState(popup.text || "");
+  const [dirty, setDirty] = useState(false);
+  const taRef = useRef(null);
+
+  useEffect(() => { taRef.current?.focus(); }, []);
+
+  const save = useCallback(() => {
+    if (dirty && text.trim()) onSave(popup.label, text.trim());
+    onClose();
+  }, [dirty, text, popup.label, onSave, onClose]);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") { e.stopPropagation(); onClose(); }
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); }
+    };
+    const onDown = (e) => { if (!e.target.closest(".fn-popup")) onClose(); };
+    document.addEventListener("keydown", onKey, true);
+    document.addEventListener("mousedown", onDown);
+    return () => {
+      document.removeEventListener("keydown", onKey, true);
+      document.removeEventListener("mousedown", onDown);
+    };
+  }, [save, onClose]);
+
+  const margin = 12, popW = 360;
+  const x = Math.max(margin, Math.min(popup.x - popW / 2, window.innerWidth - popW - margin));
+  const estH = 170;
+  const y = popup.y + 16 + estH > window.innerHeight ? popup.y - estH - 8 : popup.y + 16;
+
+  return html`
+    <div className="fn-popup" style=${{ left: x, top: y, width: popW + "px" }}>
+      <div className="fn-popup-header">
+        <code className="fn-popup-label">[fn:${popup.label}]</code>
+        ${popup.notFound && html`<span className="fn-popup-notfound">not yet defined</span>`}
+        <button className="fn-popup-close" onClick=${onClose}>×</button>
+      </div>
+      <textarea
+        ref=${taRef}
+        className="fn-popup-textarea"
+        value=${text}
+        rows=${3}
+        placeholder="Enter footnote definition…"
+        onInput=${(e) => { setText(e.target.value); setDirty(true); }}
+      />
+      <div className="fn-popup-footer">
+        <span className="fn-popup-hint">Ctrl+Enter to save</span>
+        <button className="fn-popup-cancel" onClick=${onClose}>Cancel</button>
+        <button className="fn-popup-save" onClick=${save} disabled=${!dirty || !text.trim()}>Save</button>
+      </div>
+    </div>
+  `;
+}
+
+function FootnoteInsertPopup({ popup, onInsert, onClose }) {
+  const [def, setDef] = useState("");
+  const inputRef = useRef(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const confirm = useCallback(() => onInsert(def), [def, onInsert]);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") { e.stopPropagation(); onClose(); }
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); confirm(); }
+    };
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, [confirm, onClose]);
+
+  return html`
+    <div className="folder-picker-overlay" onMouseDown=${(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="fn-insert-dialog">
+        <div className="fn-insert-header">
+          <span>Insert Footnote <code className="fn-popup-label">[fn:${popup.label}]</code></span>
+          <button className="folder-picker-close" onClick=${onClose}>×</button>
+        </div>
+        <p className="fn-insert-hint">
+          The reference <code>[fn:${popup.label}]</code> will be inserted at your cursor.
+          Type a citation or stub below — it will be appended to the same note.
+        </p>
+        <textarea
+          ref=${inputRef}
+          className="fn-insert-textarea"
+          placeholder="e.g. Diogenes Laertius, 10.3 (leave blank for a placeholder)"
+          value=${def}
+          rows=${3}
+          onInput=${(e) => setDef(e.target.value)}
+        />
+        <div className="fn-insert-footer">
+          <button className="fn-insert-cancel" onClick=${onClose}>Cancel</button>
+          <button className="fn-insert-confirm" onClick=${confirm}>Insert</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function App() {
   const [files, setFiles] = useState(null);
   const [favorites, setFavorites] = useState([]);
@@ -1961,6 +2089,10 @@ function App() {
   // still-intact document instead of having to reload it.
   const [showPicker, setShowPicker] = useState(false);
   const [nodes, setNodes] = useState(null);
+  const fnNavIndex = useMemo(() => tree.buildFootnoteIndex(nodes || []), [nodes]);
+  const fnNavIndexRef = useRef(fnNavIndex);
+  useEffect(() => { fnNavIndexRef.current = fnNavIndex; }, [fnNavIndex]);
+  const [fnPopup, setFnPopup] = useState(null);
   const [preamble, setPreamble] = useState("");
   const [hash, setHash] = useState("");
   const [focusedId, setFocusedId] = useState(null);
@@ -2070,6 +2202,64 @@ function App() {
     document.documentElement.setAttribute("data-theme", theme);
     try { localStorage.setItem("epicorg.theme", theme); } catch {}
   }, [theme]);
+
+  // Insert footnote: capture cursor position, then show popup for definition stub.
+  const [fnInsertPopup, setFnInsertPopup] = useState(null);
+
+  const insertFootnote = useCallback(() => {
+    const el = document.activeElement;
+    if (!el || el.tagName !== "TEXTAREA") return;
+    const label = nextFootnoteLabel(nodesRef.current);
+    setFnInsertPopup({ label, el, cursorPos: el.selectionStart });
+  }, []);
+
+  const confirmInsertFootnote = useCallback((defText) => {
+    if (!fnInsertPopup) return;
+    const { label, el, cursorPos } = fnInsertPopup;
+    const ref = `[fn:${label}]`;
+    let val = el.value;
+    // Insert ref at saved cursor position
+    val = val.slice(0, cursorPos) + ref + val.slice(cursorPos);
+    // Append definition at end (stub or empty placeholder)
+    const stub = defText.trim() || "…";
+    const sep = val.endsWith("\n\n") ? "" : val.endsWith("\n") ? "\n" : "\n\n";
+    val = val + sep + `[fn:${label}] ${stub}`;
+    const nativeSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set;
+    nativeSetter.call(el, val);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(cursorPos + ref.length, cursorPos + ref.length); });
+    setFnInsertPopup(null);
+  }, [fnInsertPopup]);
+
+  const insertFootnoteRef = useRef(insertFootnote);
+  useEffect(() => { insertFootnoteRef.current = insertFootnote; }, [insertFootnote]);
+  useEffect(() => {
+    const handler = () => insertFootnoteRef.current();
+    document.body.addEventListener("epicInsertFootnote", handler);
+    return () => document.body.removeEventListener("epicInsertFootnote", handler);
+  }, []);
+
+  // Footnote reference clicks — [fn:label] spans rendered by renderOrgInline.
+  // Uses capture so the click is intercepted before node edit handlers fire.
+  useEffect(() => {
+    const onFnClick = (e) => {
+      const fnEl = e.target.closest(".org-fn-ref");
+      if (!fnEl) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const label = fnEl.dataset.fn;
+      const defInfo = fnNavIndexRef.current.defs[label];
+      setFnPopup({
+        label,
+        text: defInfo ? defInfo.text : "",
+        notFound: !defInfo,
+        x: e.clientX,
+        y: e.clientY,
+      });
+    };
+    document.addEventListener("click", onFnClick, true);
+    return () => document.removeEventListener("click", onFnClick, true);
+  }, []);
 
   // Handle file drag-and-drop from the OS file manager.
   // Using native document listeners (not React synthetic onDrop) because React's
@@ -2212,6 +2402,7 @@ function App() {
   // Which node's inline body/notes textarea is currently open for editing —
   // body text now lives under each bullet rather than in the detail pane.
   const [bodyEditingId, setBodyEditingId] = useState(null);
+  const [bodyPreviewId, setBodyPreviewId] = useState(null);
   const detailPaneRef = useRef(null);
   const dirtyRef = useRef(false);
   const nodesRef = useRef(null);
@@ -2402,6 +2593,27 @@ function App() {
     markDirty();
   }, [markDirty]);
 
+  // Save an edited footnote definition back into the node body that contains it.
+  const saveFootnoteDef = useCallback((label, newText) => {
+    const defInfo = fnNavIndexRef.current.defs[label];
+    if (!defInfo) return;
+    setNodes((prev) => {
+      const node = tree.findNode(prev, defInfo.nodeId);
+      if (!node || !node.body) return prev;
+      const lines = node.body.split("\n");
+      let replaced = false;
+      const updated = lines.map((line) => {
+        if (replaced) return line;
+        const m = /^\[fn:([^\]]+)\]\s+.+/.exec(line.trim());
+        if (m && m[1].trim() === label) { replaced = true; return `[fn:${label}] ${newText}`; }
+        return line;
+      });
+      if (!replaced) updated.push(`[fn:${label}] ${newText}`);
+      return tree.updateNodeField(prev, defInfo.nodeId, "body", updated.join("\n"));
+    });
+    markDirty();
+  }, [markDirty]);
+
   // Global keyboard shortcuts
   useEffect(() => {
     const handler = (e) => {
@@ -2434,6 +2646,7 @@ function App() {
         if (key === "z" && e.shiftKey) { e.preventDefault(); redo(); return; }
         if (key === "z") { e.preventDefault(); undo(); return; }
         if (key === "y") { e.preventDefault(); redo(); return; }
+        if (key === "n" && e.shiftKey) { e.preventDefault(); insertFootnoteRef.current(); return; }
       }
     };
     document.addEventListener("keydown", handler);
@@ -2616,6 +2829,7 @@ function App() {
     setShowPicker(false);
     setTextMode(false);
     setHoistedId(null);
+    setBodyPreviewId(null);
     setCurrentFile(name);
     setNodes(data.nodes || []);
     setPreamble(data.preamble || "");
@@ -2979,7 +3193,13 @@ function App() {
 
     if (action === "edit-title") { focusNode(nodeId); return; }
 
+    if (action === "preview-body") {
+      setBodyPreviewId(nodeId);
+      return;
+    }
+
     if (action === "edit-body") {
+      setBodyPreviewId(null);
       setBodyEditingId(nodeId);
       requestAnimationFrame(() => { bodyRefs.current[nodeId]?.focus(); });
       return;
@@ -3374,7 +3594,7 @@ function App() {
           foldToLevel,
           setView, view,
           setShowPicker, setShowTextSearch, setShowFolderPicker,
-          setShowHelp,
+          setShowHelp, insertFootnote,
         })} onClose=${() => setShowHelp(false)} />`}
       ${showFolderPicker && html`
         <${FolderPicker}
@@ -3452,7 +3672,7 @@ function App() {
                   numberedBullets=${numberedBullets} siblingIndex=${i + 1}
                   verticalLines=${verticalLines} showTagChips=${showTagChips}
                   tagsOnRight=${tagsOnRight} onSearchTag=${searchTag}
-                  bodyEditingId=${bodyEditingId} bodyRefs=${bodyRefs} />
+                  bodyEditingId=${bodyEditingId} bodyPreviewId=${bodyPreviewId} bodyRefs=${bodyRefs} />
               `)}
             </div>
           </div>
@@ -3512,6 +3732,8 @@ function App() {
           globalTags=${globalTags} />
       </div>
     </div>
+    ${fnPopup && html`<${FootnotePopup} popup=${fnPopup} onClose=${() => setFnPopup(null)} onSave=${saveFootnoteDef} />`}
+    ${fnInsertPopup && html`<${FootnoteInsertPopup} popup=${fnInsertPopup} onInsert=${confirmInsertFootnote} onClose=${() => setFnInsertPopup(null)} />`}
   `;
 }
 
@@ -4435,6 +4657,7 @@ function buildCommands(ctx) {
     foldToLevel,
     setView, view,
     setShowPicker, setShowTextSearch, setShowFolderPicker, setShowHelp,
+    insertFootnote,
   } = ctx;
 
   return [
@@ -4467,6 +4690,7 @@ function buildCommands(ctx) {
     { category: "Edit", label: "Italic selection",        desc: "Wrap selection in /italic/",     keys: "Ctrl+I",        action: () => applyMarkerToFocused("/") },
     { category: "Edit", label: "Underline selection",     desc: "Wrap selection in _underline_",  keys: "Ctrl+U",        action: () => applyMarkerToFocused("_") },
     { category: "Edit", label: "Strikethrough selection", desc: "Wrap selection in +strike+",     keys: "Ctrl+S",        action: () => applyMarkerToFocused("+") },
+    { category: "Edit", label: "Insert Footnote",         desc: "Add [fn:N] at cursor in notes",  keys: "Ctrl+Shift+N",  action: insertFootnote },
     { category: "Edit", label: "Hoist / Unhoist",         desc: isHoisted ? "Unhoist — show full tree" : "Hoist focused item", keys: "", action: toggleHoist },
     // Search
     { category: "Search", label: "Full-text Search…",    desc: "Search across all org files",    keys: "Ctrl+Shift+F",  action: () => setShowTextSearch(true) },

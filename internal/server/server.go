@@ -22,6 +22,11 @@ func RegisterStatic(mux *http.ServeMux) {
 			f, err := sub.Open(strings.TrimPrefix(r.URL.Path, "/"))
 			if err == nil {
 				f.Close()
+				// Prevent stale JS/CSS after a binary rebuild.
+				ext := r.URL.Path[strings.LastIndex(r.URL.Path, ".")+1:]
+				if ext == "js" || ext == "css" {
+					w.Header().Set("Cache-Control", "no-store")
+				}
 				fileServer.ServeHTTP(w, r)
 				return
 			}
