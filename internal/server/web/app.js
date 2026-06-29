@@ -3153,6 +3153,7 @@ function App() {
       const link = e.target.closest("[data-file-path]");
       if (!link) return;
       e.preventDefault();
+      e.stopPropagation();
       const path = link.getAttribute("data-file-path");
       if (!path) return;
       if (path.endsWith(".org") && !path.includes("/") && !path.includes("\\")) {
