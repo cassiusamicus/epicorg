@@ -87,40 +87,47 @@ function buildNavHtml(nodes) {
   return out;
 }
 
+function extractOrgTitle(preamble) {
+  if (!preamble) return null;
+  const m = preamble.match(/^#\+TITLE:\s*(.+)/im);
+  return m ? m[1].trim() : null;
+}
+
 export function generateExportHtml(nodes, preamble, filename, theme, topBarColor) {
   const accentBg = topBarColor ? TOPBAR_COLORS[topBarColor] : null;
   const allTags = collectAllTags(nodes);
   const contentHtml = renderNodesHtml(nodes, 1);
   const navHtml = buildNavHtml(nodes);
-  const title = (filename || "Document").replace(/\.org$/, "");
+  const fileTitle = (filename || "Document").replace(/\.org$/, "");
+  const orgTitle = extractOrgTitle(preamble) || fileTitle;
   const isDark = theme === "dark";
-  const hasTags = allTags.length > 0;
 
   const tbBgL = accentBg || "#ebebeb";
   const tbBgD = accentBg || "#2a2a2c";
   const tbFgL = accentBg ? "#fff" : "#1a1a1a";
   const tbFgD = accentBg ? "#fff" : "#e0e0e0";
 
-  const tagPanelHtml = hasTags ? `
+  const tagPanelHtml = `
   <aside id="tag-panel" hidden>
     <div class="ph">Tags</div>
     <div id="tlist">
       <button class="tbtn active" onclick="setTag('')">All items</button>
       ${allTags.map(t => `<button class="tbtn" onclick="setTag('${esc(t)}')" data-tag="${esc(t)}">${esc(t)}</button>`).join("\n      ")}
+      ${allTags.length === 0 ? `<span class="no-tags">No tags in document</span>` : ""}
     </div>
-  </aside>` : "";
+  </aside>`;
 
-  const tagToggleBtn = hasTags ? `
+  const tagToggleBtn = `
   <button class="tb-btn" id="btn-tags" onclick="toggleTags()" title="Tag panel">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-  </button>` : "";
+  </button>`;
 
   return `<!DOCTYPE html>
 <html data-theme="${isDark ? "dark" : "light"}" lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(title)}</title>
+<title>${esc(orgTitle)}</title>
 <style>
 ${exportCss(tbBgL, tbBgD, tbFgL, tbFgD)}
 </style>
@@ -130,7 +137,8 @@ ${exportCss(tbBgL, tbBgD, tbFgL, tbFgD)}
   <button class="tb-btn" id="btn-nav" onclick="toggleNav()" title="Toggle navigation panel">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
   </button>
-  <span class="tb-title">${esc(title)}</span>
+  <span class="tb-title">${esc(orgTitle)}</span>
+  <span class="tb-spacer"></span>
   <div class="lvl-row" title="Show outline to this depth">
     <span class="lvl-label">Depth</span>
     <button class="lb active" data-lvl="0" onclick="lvl(0)">All</button>
@@ -154,7 +162,6 @@ ${exportCss(tbBgL, tbBgD, tbFgL, tbFgD)}
     <div id="nav-body">${navHtml || "<span class='nav-empty'>No headings</span>"}</div>
   </nav>
   <main id="content">
-    ${preamble ? `<div class="preamble">${esc(preamble)}</div>` : ""}
     <div id="outline">${contentHtml}</div>
   </main>
   ${tagPanelHtml}
@@ -197,10 +204,11 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
 
 /* TOPBAR */
-#tb{display:flex;align-items:center;gap:8px;padding:0 12px;height:46px;background:var(--tbg);color:var(--tfg);flex-shrink:0;border-bottom:1px solid rgba(0,0,0,.12);z-index:10}
+#tb{display:flex;align-items:center;gap:8px;padding:0 12px;height:52px;background:var(--tbg);color:var(--tfg);flex-shrink:0;border-bottom:1px solid rgba(0,0,0,.12);z-index:10;position:relative}
 .tb-btn{background:none;border:none;color:var(--tfg);cursor:pointer;padding:5px 7px;border-radius:5px;display:flex;align-items:center;opacity:.8}
 .tb-btn:hover{opacity:1;background:rgba(128,128,128,.2)}
-.tb-title{font-weight:600;font-size:15px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tb-title{position:absolute;left:50%;transform:translateX(-50%);font-weight:700;font-size:18px;pointer-events:none;max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;letter-spacing:-.01em;opacity:.95}
+.tb-spacer{flex:1}
 .lvl-row{display:flex;align-items:center;gap:3px;flex-shrink:0}
 .lvl-label{font-size:11px;opacity:.65;margin-right:2px}
 .lb{background:rgba(128,128,128,.2);border:none;color:var(--tfg);cursor:pointer;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:500}
@@ -211,7 +219,7 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #srch::placeholder{color:var(--tfg);opacity:.55}
 
 /* LAYOUT */
-#layout{display:flex;height:calc(100vh - 46px);overflow:hidden}
+#layout{display:flex;height:calc(100vh - 52px);overflow:hidden}
 
 /* NAV PANEL */
 #nav-panel{width:260px;flex-shrink:0;background:var(--nav-bg);border-right:1px solid var(--border);display:flex;flex-direction:column}
@@ -243,8 +251,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tbtn:hover{background:var(--surface)}
 .tbtn.active{background:var(--link);color:#fff}
 
-/* PREAMBLE */
-.preamble{white-space:pre-wrap;font-size:13px;color:var(--dim);padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--border)}
+/* PREAMBLE (unused but kept for compatibility) */
+.preamble{display:none}
+.no-tags{display:block;padding:6px 10px;color:var(--dim);font-size:12px;font-style:italic}
 
 /* NODE STRUCTURE */
 .ns{display:block}
