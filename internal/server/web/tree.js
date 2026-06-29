@@ -326,6 +326,11 @@ function fileUrlToPath(url) {
 
 const LINK_RE = /\[\[([^\]]+)\]\[([^\]]*)\]\]|\[\[([^\]]+)\]\]/g;
 
+// Bare absolute file paths: /dir/subdir/file.ext — must have at least one
+// slash-terminated segment and end with a file extension.  Captured before
+// MARKUP_RE so italic's "/" doesn't chop the path into pieces.
+const BARE_PATH_RE = /(?<![a-zA-Z0-9])(\/(?:[^\s/\n]+\/)+[^\n/]*\.[a-zA-Z0-9]{1,10})(?=\s|$|[,;!?"])/g;
+
 // Single combined pass: scanning left-to-right for whichever marker comes
 // first avoids re-scanning HTML tags already emitted for an earlier match
 // (e.g. italic's "/" matching inside a just-inserted "</strong>").
@@ -364,6 +369,16 @@ export function renderOrgInline(text) {
   result = result.replace(/\[fn:([^\]]+)\]/g, (match, label) => {
     const safe = label.replace(/"/g, "&quot;");
     const html = `<sup class="org-fn-ref" data-fn="${safe}">[${safe}]</sup>`;
+    links.push(html);
+    return LINK_PLACEHOLDER + links.length + LINK_PLACEHOLDER;
+  });
+
+  // Bare absolute paths: /dir/.../file.ext → file link (also prevents italic
+  // markup from splitting the path at its "/" separators).
+  result = result.replace(BARE_PATH_RE, (match, path) => {
+    const safe = path.replace(/"/g, "&quot;");
+    const label = path.split("/").pop();
+    const html = `<a href="#" class="org-file-link" data-file-path="${safe}" title="${safe}">${label}</a>`;
     links.push(html);
     return LINK_PLACEHOLDER + links.length + LINK_PLACEHOLDER;
   });
