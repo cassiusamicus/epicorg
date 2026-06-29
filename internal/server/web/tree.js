@@ -357,7 +357,13 @@ export function renderOrgInline(text) {
       html = `<a href="${url}" target="_blank" rel="noopener noreferrer">${label}</a>`;
     } else if (isFileUrl(url)) {
       const path = fileUrlToPath(url);
-      html = `<a href="#" class="org-file-link" data-file-path="${path}">${label}</a>`;
+      if (path.endsWith(".org") && !path.includes("/") && !path.includes("\\")) {
+        // Bare .org filename → load in-app
+        html = `<a href="#" class="org-file-link" data-file-path="${escapeHtml(path)}">${label}</a>`;
+      } else {
+        // All other file:// links → real href, browser opens on client machine
+        html = `<a href="${url}" class="org-file-link" title="${escapeHtml(path)}" target="_blank" rel="noopener">${label}</a>`;
+      }
     } else {
       html = match;
     }
@@ -375,10 +381,12 @@ export function renderOrgInline(text) {
 
   // Bare absolute paths: /dir/.../file.ext → file link (also prevents italic
   // markup from splitting the path at its "/" separators).
+  // Use a real file:// href so the browser opens the file on the client machine,
+  // matching the behavior of http:// links.
   result = result.replace(BARE_PATH_RE, (match, path) => {
     const safe = path.replace(/"/g, "&quot;");
     const label = path.split("/").pop();
-    const html = `<a href="#" class="org-file-link" data-file-path="${safe}" title="${safe}">${label}</a>`;
+    const html = `<a href="file://${safe}" class="org-file-link" title="${safe}" target="_blank" rel="noopener">${label}</a>`;
     links.push(html);
     return LINK_PLACEHOLDER + links.length + LINK_PLACEHOLDER;
   });

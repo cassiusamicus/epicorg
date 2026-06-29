@@ -3156,10 +3156,11 @@ function App() {
       e.stopPropagation();
       const path = link.getAttribute("data-file-path");
       if (!path) return;
+      // Bare .org filenames (no separators) are loaded in-app.
+      // All other file links use a real file:// href and are handled
+      // natively by the browser on the client machine — no server call.
       if (path.endsWith(".org") && !path.includes("/") && !path.includes("\\")) {
         loadFileRef.current?.(path);
-      } else {
-        api.post("/api/open", { path }).catch(() => {});
       }
     };
     document.addEventListener("click", handler, true);
