@@ -2,6 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMe
 import { createRoot } from "react-dom/client";
 import htm from "htm";
 import * as tree from "./tree.js";
+import { generateExportHtml } from "./export.js";
 
 const html = htm.bind(React.createElement);
 
@@ -2860,6 +2861,18 @@ function App() {
     if (!histNavRef.current) navDispatch({ type: "push", entry: { file: name, title: null } });
   }, [focusNode, clearUndoHistory, navDispatch]);
 
+  const exportToHtml = useCallback(() => {
+    if (!currentFile) return;
+    const html = generateExportHtml(nodes, preamble, currentFile, theme, topBarColor);
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = currentFile.replace(/\.org$/, "") + ".html";
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [nodes, preamble, currentFile, theme, topBarColor]);
+
   const canGoBack = navState.index > 0;
   const canGoForward = navState.index < navState.history.length - 1;
 
@@ -3595,6 +3608,7 @@ function App() {
           setView, view,
           setShowPicker, setShowTextSearch, setShowFolderPicker,
           setShowHelp, insertFootnote,
+          exportToHtml, currentFile,
         })} onClose=${() => setShowHelp(false)} />`}
       ${showFolderPicker && html`
         <${FolderPicker}
@@ -4658,6 +4672,7 @@ function buildCommands(ctx) {
     setView, view,
     setShowPicker, setShowTextSearch, setShowFolderPicker, setShowHelp,
     insertFootnote,
+    exportToHtml, currentFile,
   } = ctx;
 
   return [
@@ -4698,6 +4713,8 @@ function buildCommands(ctx) {
     { category: "Settings", label: "Toggle Dark/Light Theme", desc: "Switch colour theme",       keys: "",              action: toggleTheme },
     { category: "Settings", label: "Cycle View Mode",       desc: textMode ? "Reveal codes → Plain" : titleFormatMode ? "Formatted → Reveal codes" : "Plain → Formatted titles", keys: "", action: cycleViewMode },
     { category: "Settings", label: "Change Home Folder…", desc: "Pick a new home org folder",    keys: "",              action: () => setShowFolderPicker(true) },
+    // Export
+    { category: "Export", label: "Export to HTML",        desc: "Save standalone HTML file of this document", keys: "", action: exportToHtml, disabled: !currentFile },
     // Help
     { category: "Help", label: "Keyboard Shortcuts",      desc: "Show this command palette",      keys: "Ctrl+H",        action: () => setShowHelp(true) },
   ].filter((c) => !c.disabled);
