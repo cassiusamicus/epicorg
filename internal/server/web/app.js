@@ -3150,18 +3150,17 @@ function App() {
   // else is handed to xdg-open on the server.
   useEffect(() => {
     const handler = (e) => {
-      const link = e.target.closest("[data-file-path]");
+      const link = e.target.closest(".org-file-link");
       if (!link) return;
-      e.preventDefault();
       e.stopPropagation();
       const path = link.getAttribute("data-file-path");
-      if (!path) return;
-      // Bare .org filenames (no separators) are loaded in-app.
-      // All other file links use a real file:// href and are handled
-      // natively by the browser on the client machine — no server call.
-      if (path.endsWith(".org") && !path.includes("/") && !path.includes("\\")) {
+      if (path && path.endsWith(".org") && !path.includes("/") && !path.includes("\\")) {
+        // Bare .org filename: load in-app instead of following the href.
+        e.preventDefault();
         loadFileRef.current?.(path);
       }
+      // All other .org-file-link elements have a real file:// href —
+      // don't preventDefault so the browser navigates natively.
     };
     document.addEventListener("click", handler, true);
     return () => document.removeEventListener("click", handler, true);
