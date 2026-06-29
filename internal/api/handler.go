@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"epicorg/internal/model"
 	"epicorg/internal/orgfile"
@@ -281,6 +282,14 @@ func openWithSystem(path string) {
 		cmd = exec.Command("xdg-open", path)
 	}
 	cmd.Start()
+	// After xdg-open launches the app, give it a moment to create its window
+	// then raise it to the foreground so it doesn't stay hidden behind the browser.
+	if runtime.GOOS != "darwin" && runtime.GOOS != "windows" {
+		go func() {
+			time.Sleep(800 * time.Millisecond)
+			exec.Command("wmctrl", "-a", filepath.Base(path)).Run()
+		}()
+	}
 }
 
 func (h *handlers) getGlobalBookmarks(w http.ResponseWriter, r *http.Request) {
