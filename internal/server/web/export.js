@@ -415,7 +415,7 @@ function navClick(e,a){
       if(node.nodeType===3)txt=node.textContent+txt;
       node=node.previousSibling;
     }
-    return txt.split('\n').pop().trim()==='';
+    return txt.split('\\n').pop().trim()==='';
   }
   var refCounts={};
   document.querySelectorAll('.nbody .org-fn-ref').forEach(function(el){
