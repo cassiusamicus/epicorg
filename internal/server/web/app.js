@@ -3218,6 +3218,7 @@ function App() {
     if (action === "edit-body") {
       setBodyPreviewId(null);
       setBodyEditingId(nodeId);
+      pendingFocusRef.current = null; // Prevent focus effect from refocusing title textarea
       requestAnimationFrame(() => { bodyRefs.current[nodeId]?.focus(); });
       return;
     }
@@ -3246,6 +3247,7 @@ function App() {
         requestAnimationFrame(() => { detailPaneRef.current?.focusBody(); });
         return;
       }
+      pendingFocusRef.current = null; // Prevent focus effect from refocusing title textarea
       setBodyEditingId(nodeId);
       requestAnimationFrame(() => { bodyRefs.current[nodeId]?.focus(); });
       return;
