@@ -113,6 +113,13 @@ function isToday(dateStr) {
   return dateStr === new Date().toISOString().slice(0, 10);
 }
 
+function formatJournalDate(dateStr) {
+  try {
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  } catch { return dateStr; }
+}
+
 // --- Components ---
 
 function PreambleRow({ focused, preamble, dispatch, inputRefs }) {
@@ -1097,7 +1104,7 @@ const DETAIL_MAX_WIDTH_RATIO = 0.70;
 // handles reopening it, so no need to reserve a sliver for a gripper too.
 const DETAIL_CLOSED_WIDTH = 0;
 
-const DetailPane = forwardRef(function DetailPane({ node, isPreamble, dispatch, inputRefs, width, visible, onWidthChange, onOpen, titleFormatMode, globalTags }, ref) {
+const DetailPane = forwardRef(function DetailPane({ node, isPreamble, dispatch, inputRefs, width, visible, onWidthChange, onOpen, onClose, titleFormatMode, globalTags, tagPanelVisible, onToggleTagPanel, textMode, selectedTags }, ref) {
   // Only preamble's content still lives here — it has no bulleted row of
   // its own to display notes inline under. Every regular node's body now
   // shows inline in the outline, so the pane is properties-only for those.
@@ -1344,7 +1351,21 @@ const DetailPane = forwardRef(function DetailPane({ node, isPreamble, dispatch, 
   return html`
     <div className=${"detail-pane" + (visible ? "" : " closed")} style=${{ width: effectiveWidth + "px" }}>
       ${gripper}
-      <div className="detail-content">${inner}</div>
+      <div className="detail-content">
+        ${visible && html`
+          <div className="panel-icon-strip">
+            <button className="panel-toggle-btn active" onClick=${onClose}
+                    title="Close details pane"><${IconInfo} /></button>
+            <button className=${"panel-toggle-btn" + (tagPanelVisible && !textMode ? " active" : "") + ((selectedTags && selectedTags.length > 0) ? " has-filter" : "")}
+                    onClick=${onToggleTagPanel} disabled=${textMode}
+                    title=${textMode ? "Not available in reveal codes mode" : "Tag panel"}>
+              <${IconTag} />
+              ${selectedTags && selectedTags.length > 0 && html`<span className="tag-filter-count">${selectedTags.length}</span>`}
+            </button>
+          </div>
+        `}
+        ${inner}
+      </div>
     </div>
   `;
 });
@@ -1605,6 +1626,108 @@ function AgendaView({ nodes, onSelect, searchQuery, selectedTags }) {
             </div>
           `)}
         </div>
+      `)}
+    </div>
+  `;
+}
+
+function JournalDayCard({ filename, onOpen, onOpenDetail }) {
+  const [content, setContent] = useState(null); // null=not loaded, false=error, {nodes,preamble}=ok
+  const hasStarted = useRef(false);
+  const cardRef = useRef(null);
+
+  const doLoad = useCallback(() => {
+    if (hasStarted.current) return;
+    hasStarted.current = true;
+    api.get("/api/doc/" + encodeURIComponent(filename))
+      .then((d) => setContent({ nodes: d.nodes || [], preamble: d.preamble || "" }))
+      .catch(() => setContent(false));
+  }, [filename]);
+
+  useEffect(() => {
+    if (!cardRef.current || typeof IntersectionObserver === "undefined") {
+      doLoad();
+      return;
+    }
+    const io = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) { io.disconnect(); doLoad(); }
+    }, { rootMargin: "300px" });
+    io.observe(cardRef.current);
+    return () => io.disconnect();
+  }, [doLoad]);
+
+  const dateStr = filename.replace("journal/", "").replace(".org", "");
+  const dateDisplay = formatJournalDate(dateStr);
+  const today = isToday(dateStr);
+
+  return html`
+    <div className=${"journal-day-card" + (today ? " journal-today" : "")} ref=${cardRef}>
+      <div className="journal-day-header">
+        <button className="journal-day-date" onClick=${onOpen}>
+          ${dateDisplay}
+          ${today && html`<span className="journal-today-badge">today</span>`}
+        </button>
+        <button className="journal-day-detail-btn" onClick=${onOpenDetail} title="Open with detail pane">⋯</button>
+      </div>
+      <div className="journal-day-content" onClick=${onOpen}>
+        ${content === null && html`<div className="journal-loading">Loading…</div>`}
+        ${content === false && html`<div className="journal-error">Could not load</div>`}
+        ${content && content.nodes.length === 0 && html`
+          <div className="journal-day-empty">No entries yet — click to add</div>
+        `}
+        ${content && content.nodes.length > 0 && html`
+          ${content.nodes.slice(0, 6).map((node, i) => html`
+            <div key=${i} className="journal-node-preview">
+              <span className="journal-node-bullet">•</span>
+              <span dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(node.title || "") }} />
+              ${node.children && node.children.length > 0 && html`
+                <span className="journal-node-child-count"> +${node.children.length}</span>
+              `}
+            </div>
+          `)}
+          ${content.nodes.length > 6 && html`
+            <div className="journal-more">+${content.nodes.length - 6} more…</div>
+          `}
+        `}
+      </div>
+    </div>
+  `;
+}
+
+function JournalView({ onOpenFile, onOpenFileWithDetail }) {
+  const [journalFiles, setJournalFiles] = useState(null); // null=loading, []+ =loaded
+
+  useEffect(() => {
+    api.get("/api/journal")
+      .then((d) => setJournalFiles(d.files || []))
+      .catch(() => setJournalFiles([]));
+  }, []);
+
+  const openToday = useCallback(async () => {
+    try {
+      const d = await api.post("/api/journal", {});
+      onOpenFile(d.filename);
+    } catch {}
+  }, [onOpenFile]);
+
+  return html`
+    <div className="journal-view">
+      <div className="journal-toolbar">
+        <button className="journal-today-btn" onClick=${openToday}>Today's Journal</button>
+      </div>
+      ${journalFiles === null && html`
+        <div className="agenda-empty">Loading journal files…</div>
+      `}
+      ${journalFiles !== null && journalFiles.length === 0 && html`
+        <div className="agenda-empty">No journal entries yet — click "Today's Journal" to create one.</div>
+      `}
+      ${journalFiles !== null && journalFiles.map((f) => html`
+        <${JournalDayCard}
+          key=${f.name}
+          filename=${f.name}
+          onOpen=${() => onOpenFile(f.name)}
+          onOpenDetail=${() => onOpenFileWithDetail(f.name)}
+        />
       `)}
     </div>
   `;
@@ -1897,11 +2020,18 @@ function SidebarFileRow({ name, active, isFavorite, onSelect, onToggleFavorite }
   `;
 }
 
-function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavorite, bookmarks, onNavigateToBookmark, onDeleteBookmark, onReorderBookmarks }) {
+function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavorite, bookmarks, onNavigateToBookmark, onDeleteBookmark, onReorderBookmarks, bookmarkPanelVisible, onToggleBookmarkPanel, textMode, onToggleSidebar }) {
   const dragIndexRef = useRef(null);
 
   return html`
     <div className="sidebar">
+      <div className="panel-icon-strip">
+        <button className="panel-toggle-btn active" onClick=${onToggleSidebar}
+                title="Close sidebar"><${IconDoc} /></button>
+        <button className=${"panel-toggle-btn" + (bookmarkPanelVisible && !textMode ? " active" : "")}
+                onClick=${onToggleBookmarkPanel} disabled=${textMode}
+                title=${textMode ? "Not available in reveal codes mode" : "Bookmark panel"}><${IconBookmark} /></button>
+      </div>
       ${bookmarks.length > 0 && html`
         <div className="sidebar-section">
           <div className="sidebar-section-header">
@@ -2195,6 +2325,16 @@ function App() {
       return next;
     });
   }, []);
+  const [undoRedoVisible, setUndoRedoVisible] = useState(() => {
+    try { return localStorage.getItem("epicorg.undoRedoVisible") !== "0"; } catch { return true; }
+  });
+  const toggleUndoRedoVisible = useCallback(() => {
+    setUndoRedoVisible((p) => {
+      const next = !p;
+      try { localStorage.setItem("epicorg.undoRedoVisible", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  }, []);
   const [theme, setTheme] = useState(() => {
     try {
       const stored = localStorage.getItem("epicorg.theme");
@@ -2342,6 +2482,16 @@ function App() {
   }, []);
 
   const toggleTheme = useCallback(() => setTheme((t) => (t === "dark" ? "light" : "dark")), []);
+  const [homeFile, setHomeFile] = useState(() => {
+    try { return localStorage.getItem("epicorg.homeFile") || null; } catch { return null; }
+  });
+  const setHomeFilePersisted = useCallback((f) => {
+    setHomeFile(f);
+    try {
+      if (f) localStorage.setItem("epicorg.homeFile", f);
+      else localStorage.removeItem("epicorg.homeFile");
+    } catch {}
+  }, []);
   const [topBarColor, setTopBarColor] = useState(() => {
     try { return localStorage.getItem("epicorg.topBarColor") || null; } catch { return null; }
   });
@@ -3596,7 +3746,10 @@ function App() {
                   homeDir=${homeDir} onPickHomeDir=${() => setShowFolderPicker(true)}
                   onOpenTextSearch=${() => setShowTextSearch(true)}
                   canGoBack=${canGoBack} canGoForward=${canGoForward}
-                  onGoBack=${goBack} onGoForward=${goForward} />
+                  onGoBack=${goBack} onGoForward=${goForward}
+                  homeFile=${homeFile} onGoHome=${() => { if (homeFile) { loadFile(homeFile); setView("outline"); } }}
+                  onSetHomeFile=${setHomeFilePersisted}
+                  undoRedoVisible=${undoRedoVisible} onToggleUndoRedoVisible=${toggleUndoRedoVisible} />
       ${showHelp && html`<${CommandPalette} commands=${buildCommands({
           undo, redo, canUndo, canRedo,
           goBack, goForward, canGoBack, canGoForward,
@@ -3640,7 +3793,9 @@ function App() {
             bookmarks=${fileOnlyBookmarks}
             onNavigateToBookmark=${navigateToBookmark}
             onDeleteBookmark=${deleteBookmark}
-            onReorderBookmarks=${updateBookmarkOrder} />
+            onReorderBookmarks=${updateBookmarkOrder}
+            bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${toggleBookmarkPanel}
+            textMode=${textMode} onToggleSidebar=${toggleSidebar} />
         `}
         ${bookmarkPanelVisible && !textMode && html`
           <${BookmarkPanel} globalBMs=${globalBMs}
@@ -3711,6 +3866,16 @@ function App() {
             </div>
           </div>
         `}
+        ${view === "journal" && html`
+          <div className="outline-pane">
+            <div className=${"outline-content" + (readingWidth ? " reading-width" : "")}>
+              <${JournalView}
+                onOpenFile=${(filename) => { loadFile(filename); setView("outline"); }}
+                onOpenFileWithDetail=${(filename) => { loadFile(filename); setView("outline"); setDetailVisiblePersisted(true); }}
+              />
+            </div>
+          </div>
+        `}
         ${view === "search" && searchResults && html`
           <div className="outline-pane">
             <div className=${"outline-content" + (readingWidth ? " reading-width" : "")}>
@@ -3748,8 +3913,11 @@ function App() {
           width=${detailWidth} visible=${detailVisible}
           onWidthChange=${setDetailWidthPersisted}
           onOpen=${() => setDetailVisiblePersisted(true)}
+          onClose=${() => setDetailVisiblePersisted(false)}
           titleFormatMode=${titleFormatMode}
-          globalTags=${globalTags} />
+          globalTags=${globalTags}
+          tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${toggleTagPanel}
+          textMode=${textMode} selectedTags=${selectedTags} />
       </div>
     </div>
     ${fnPopup && html`<${FootnotePopup} popup=${fnPopup} onClose=${() => setFnPopup(null)} onSave=${saveFootnoteDef} />`}
@@ -3808,10 +3976,10 @@ function navReducer(state, action) {
 }
 
 function IconNavBack() {
-  return html`<svg ...${ICON_PROPS}><polyline points="15 18 9 12 15 6"/></svg>`;
+  return html`<svg ...${ICON_PROPS} strokeWidth="2.75"><polyline points="15 18 9 12 15 6"/></svg>`;
 }
 function IconNavForward() {
-  return html`<svg ...${ICON_PROPS}><polyline points="9 18 15 12 9 6"/></svg>`;
+  return html`<svg ...${ICON_PROPS} strokeWidth="2.75"><polyline points="9 18 15 12 9 6"/></svg>`;
 }
 
 function IconDoc() {
@@ -3826,7 +3994,7 @@ function IconDoc() {
 
 function IconUndo() {
   return html`
-    <svg ...${ICON_PROPS}>
+    <svg ...${ICON_PROPS} strokeWidth="2.5">
       <path d="M9 14L4 9l5-5" />
       <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
     </svg>
@@ -3835,7 +4003,7 @@ function IconUndo() {
 
 function IconRedo() {
   return html`
-    <svg ...${ICON_PROPS}>
+    <svg ...${ICON_PROPS} strokeWidth="2.5">
       <path d="M15 14l5-5-5-5" />
       <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
     </svg>
@@ -3893,6 +4061,27 @@ function IconDetails() {
     <svg ...${ICON_PROPS}>
       <rect x="3" y="4" width="18" height="16" rx="2" />
       <line x1="15" y1="4" x2="15" y2="20" />
+    </svg>
+  `;
+}
+
+function IconHome() {
+  return html`
+    <svg ...${ICON_PROPS}>
+      <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>
+      <polyline points="9 21 9 13 15 13 15 21"/>
+    </svg>
+  `;
+}
+
+function IconJournal() {
+  return html`
+    <svg ...${ICON_PROPS}>
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+      <line x1="7" y1="15" x2="13" y2="15" />
     </svg>
   `;
 }
@@ -3991,6 +4180,16 @@ function IconSearch() {
     <svg ...${SMALL_ICON_PROPS}>
       <circle cx="10" cy="10" r="6" />
       <line x1="14.9" y1="14.9" x2="20" y2="20" />
+    </svg>
+  `;
+}
+
+function IconInfo() {
+  return html`
+    <svg ...${ICON_PROPS}>
+      <circle cx="12" cy="12" r="9"/>
+      <line x1="12" y1="16" x2="12" y2="12"/>
+      <line x1="12" y1="8" x2="12.01" y2="8" strokeWidth="3.5"/>
     </svg>
   `;
 }
@@ -4220,6 +4419,71 @@ function FolderPicker({ initialPath, onSelect, onCancel }) {
   `;
 }
 
+function LeftPanelLauncher({ sidebarVisible, onToggleSidebar, bookmarkPanelVisible, onToggleBookmarkPanel, textMode }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  const anyActive = sidebarVisible || (bookmarkPanelVisible && !textMode);
+  return html`
+    <div className="panel-launcher" ref=${ref}>
+      <button className=${"panel-toggle-btn" + (anyActive ? " active" : "")}
+              onClick=${() => setOpen((o) => !o)}
+              title="Left panels"><${IconSidebar} /></button>
+      ${open && html`
+        <div className="panel-launcher-popup">
+          <button className=${"panel-toggle-btn" + (sidebarVisible ? " active" : "")}
+                  onClick=${onToggleSidebar}
+                  title="File / Favorites / Recent"><${IconDoc} /></button>
+          <button className=${"panel-toggle-btn" + (bookmarkPanelVisible && !textMode ? " active" : "")}
+                  onClick=${onToggleBookmarkPanel} disabled=${textMode}
+                  title=${textMode ? "Not available in reveal codes mode" : "Bookmark panel"}><${IconBookmark} /></button>
+        </div>
+      `}
+    </div>
+  `;
+}
+
+function RightPanelLauncher({ tagPanelVisible, onToggleTagPanel, detailVisible, onToggleDetails, textMode, selectedTags }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  const anyActive = detailVisible || (tagPanelVisible && !textMode);
+  return html`
+    <div className="panel-launcher panel-launcher-right" ref=${ref}>
+      <button className=${"panel-toggle-btn" + (anyActive ? " active" : "")}
+              onClick=${() => setOpen((o) => !o)}
+              title="Right panels"><${IconDetails} /></button>
+      ${open && html`
+        <div className="panel-launcher-popup">
+          <button className=${"panel-toggle-btn" + (detailVisible ? " active" : "")}
+                  onClick=${onToggleDetails}
+                  title="Details pane"><${IconDetails} /></button>
+          <button className=${"panel-toggle-btn" + (tagPanelVisible && !textMode ? " active" : "") + (selectedTags.length > 0 ? " has-filter" : "")}
+                  onClick=${onToggleTagPanel} disabled=${textMode}
+                  title=${textMode ? "Not available in reveal codes mode" : "Tag panel"}>
+            <${IconTag} />
+            ${selectedTags.length > 0 && html`<span className="tag-filter-count">${selectedTags.length}</span>`}
+          </button>
+        </div>
+      `}
+    </div>
+  `;
+}
+
 // A general options menu, extensible as more entries get added — for now
 // just the one, toggling numbered outline bullets (Dynalist-style).
 function HamburgerMenu({
@@ -4237,10 +4501,31 @@ function HamburgerMenu({
   topBarColor, onSetTopBarColor,
   homeDir, onPickHomeDir,
   onSetViewMode,
+  tagPanelVisible, onToggleTagPanel,
+  bookmarkPanelVisible, onToggleBookmarkPanel,
+  homeFile, currentFile, onSetHomeFile,
+  openToSection, onSectionOpened,
+  undoRedoVisible, onToggleUndoRedoVisible,
 }) {
   const [open, setOpen] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [highlightSection, setHighlightSection] = useState(null);
   const containerRef = useRef(null);
+  const homeFileRowRef = useRef(null);
+
+  useEffect(() => {
+    if (!openToSection) return;
+    setOpen(true);
+    setHighlightSection(openToSection);
+    onSectionOpened?.();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        homeFileRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    });
+    const t = setTimeout(() => setHighlightSection(null), 2000);
+    return () => clearTimeout(t);
+  }, [openToSection]);
 
   useEffect(() => {
     if (!open) return;
@@ -4264,6 +4549,18 @@ function HamburgerMenu({
       ${open && html`
         <div className="folder-picker-overlay" onMouseDown=${(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
         <div className="hamburger-menu-popup">
+
+          <!-- ── Status / theme ── -->
+          <div className="hamburger-status-row">
+            <div className="hamburger-status-left">
+              <${SyncIndicator} status=${syncStatus} />
+              <span className="hamburger-sync-label">${SYNC_LABELS[syncStatus] || ""}</span>
+            </div>
+            <button className="hamburger-theme-btn" onClick=${onToggleTheme}
+                    title=${theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
+              ${theme === "dark" ? html`<${IconSun}/>` : html`<${IconMoon}/>`}
+            </button>
+          </div>
 
           <!-- ── Outline ── -->
           ${view === "outline" && html`
@@ -4325,6 +4622,24 @@ function HamburgerMenu({
                 ${homeDir || "…"}
               </button>
             </div>
+            <div className=${"hamburger-menu-option hamburger-homefile-row" + (highlightSection === "homeFile" ? " hamburger-section-highlight" : "")}
+                 ref=${homeFileRowRef}>
+              <span>Home File</span>
+              <div className="homefile-controls">
+                <span className=${"homefile-name" + (homeFile ? "" : " homefile-name-empty")}>
+                  ${homeFile || "not set"}
+                </span>
+                <button className="homefile-set-btn"
+                        disabled=${!currentFile}
+                        onClick=${() => onSetHomeFile(currentFile)}
+                        title=${currentFile ? "Set \"" + currentFile + "\" as home file" : "Open a file first"}>
+                  Set current
+                </button>
+                ${homeFile && html`
+                  <button className="homefile-clear-btn" onClick=${() => onSetHomeFile(null)} title="Clear home file">×</button>
+                `}
+              </div>
+            </div>
           </div>
 
           <!-- ── Appearance (infrequent) ── -->
@@ -4348,21 +4663,31 @@ function HamburgerMenu({
               <span>Reading width</span>
             </label>
             <label className="hamburger-menu-option">
-              <input type="checkbox" checked=${theme === "dark"} onChange=${onToggleTheme} />
-              <span>Dark mode</span>
+              <input type="checkbox" checked=${undoRedoVisible} onChange=${onToggleUndoRedoVisible} />
+              <span>Show undo/redo buttons</span>
             </label>
           </div>
 
-          <!-- ── Mobile-only: view switcher + status ── -->
+          <!-- ── Mobile-only: view switcher + panels + status ── -->
           ${collapsed && html`
             <div className="hamburger-section hamburger-mobile-only">
               <div className="hamburger-segmented">
                 <button className=${"hamburger-segmented-btn" + (view === "outline" ? " active" : "")}
-                        onClick=${() => setView("outline")}><${IconOutline} /> Outline</button>
+                        onClick=${() => { setView("outline"); setOpen(false); }}><${IconOutline} /> Outline</button>
                 <button className=${"hamburger-segmented-btn" + (view === "agenda" ? " active" : "")}
-                        onClick=${() => setView("agenda")}><${IconAgenda} /> Agenda</button>
+                        onClick=${() => { setView("agenda"); setOpen(false); }}><${IconAgenda} /> Agenda</button>
                 <button className=${"hamburger-segmented-btn" + (view === "todo" ? " active" : "")}
-                        onClick=${() => setView("todo")}><${IconTodo} /> TODO</button>
+                        onClick=${() => { setView("todo"); setOpen(false); }}><${IconTodo} /> TODO</button>
+                <button className=${"hamburger-segmented-btn" + (view === "journal" ? " active" : "")}
+                        onClick=${() => { setView("journal"); setOpen(false); }}><${IconJournal} /> Journal</button>
+              </div>
+              <div className="hamburger-mobile-panels">
+                <button className=${"hamburger-panel-btn" + (tagPanelVisible ? " active" : "")}
+                        onClick=${() => { onToggleTagPanel(); setOpen(false); }}
+                        disabled=${textMode}><${IconTag} /> Tag Panel</button>
+                <button className=${"hamburger-panel-btn" + (bookmarkPanelVisible ? " active" : "")}
+                        onClick=${() => { onToggleBookmarkPanel(); setOpen(false); }}
+                        disabled=${textMode}><${IconBookmark} /> Bookmark Panel</button>
               </div>
               <div className="hamburger-mobile-row">
                 <span>${SYNC_LABELS[syncStatus] || syncStatus}</span>
@@ -4465,7 +4790,7 @@ function TagFilterButton({ allTags, selectedTags, onToggleTag, onClearTags }) {
   `;
 }
 
-function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward }) {
+function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, undoRedoVisible, onToggleUndoRedoVisible }) {
   // Whether the toolbar/search/etc. actually fit is measured, not
   // guessed from viewport width — a long filename or a pile of tags
   // eats into the same space a phone-width media query would assume is
@@ -4476,6 +4801,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
   // (window resize, filename edited, tag added, etc.) — no fixed
   // breakpoint anywhere.
   const [collapsed, setCollapsed] = useState(false);
+  const [openHamburgerSection, setOpenHamburgerSection] = useState(null);
   const headerRef = useRef(null);
   const probeRef = useRef(null);
 
@@ -4498,12 +4824,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
         <div className="header-left-icons">
           <button className=${"panel-toggle-btn" + (sidebarVisible ? " active" : "")}
                   onClick=${onToggleSidebar}
-                  title="Toggle Favorites / Recent Files sidebar"><${IconSidebar} /></button>
-          <button className=${"panel-toggle-btn" + (bookmarkPanelVisible && !textMode ? " active" : "")}
-                  onClick=${onToggleBookmarkPanel} disabled=${textMode}
-                  title=${textMode ? "Not available in reveal codes mode" : bookmarkPanelVisible ? "Close bookmark panel" : "Open bookmark panel"}>
-            <${IconBookmark} />
-          </button>
+                  title="Toggle sidebar"><${IconSidebar} /></button>
         </div>
       `}
       <div className="header-left">
@@ -4515,7 +4836,13 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
         `}
       </div>
       ${currentFile && showFull && html`
+        <div className="toolbar-and-search">
         <div className="toolbar">
+          <div className="view-toggle">
+            <button className=${"view-tab" + (homeFile && currentFile === homeFile ? " active" : "") + (!homeFile ? " toolbar-home-unset" : "")}
+                    onClick=${() => homeFile ? onGoHome() : setOpenHamburgerSection("homeFile")}
+                    title=${homeFile ? "Go home: " + homeFile : "No home file set — click to configure"}><${IconHome} /></button>
+          </div>
           ${view === "outline" && html`
             <div className="view-toggle">
               ${FOLD_LEVELS.map((lvl) => html`
@@ -4543,12 +4870,14 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
             <button className="view-tab" onClick=${onGoForward} disabled=${!canGoForward}
                     title="Go forward (Alt+→)"><${IconNavForward} /></button>
           </div>
-          <div className="view-toggle">
-            <button className="view-tab" onClick=${onUndo} disabled=${!canUndo || textMode}
-                    title=${textMode ? "Not available in text mode" : "Undo (Ctrl+Z)"}><${IconUndo} /></button>
-            <button className="view-tab" onClick=${onRedo} disabled=${!canRedo || textMode}
-                    title=${textMode ? "Not available in text mode" : "Redo (Ctrl+Shift+Z)"}><${IconRedo} /></button>
-          </div>
+          ${undoRedoVisible && html`
+            <div className="view-toggle">
+              <button className="view-tab" onClick=${onUndo} disabled=${!canUndo || textMode}
+                      title=${textMode ? "Not available in text mode" : "Undo (Ctrl+Z)"}><${IconUndo} /></button>
+              <button className="view-tab" onClick=${onRedo} disabled=${!canRedo || textMode}
+                      title=${textMode ? "Not available in text mode" : "Redo (Ctrl+Shift+Z)"}><${IconRedo} /></button>
+            </div>
+          `}
           <div className="view-toggle">
             <button className=${"view-tab" + (view === "outline" ? " active" : "")}
                     onClick=${() => setView("outline")} title="Outline view"><${IconOutline} /></button>
@@ -4556,6 +4885,8 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
                     onClick=${() => setView("agenda")} title="Agenda view"><${IconAgenda} /></button>
             <button className=${"view-tab" + (view === "todo" ? " active" : "")}
                     onClick=${() => setView("todo")} title="TODO list"><${IconTodo} /></button>
+            <button className=${"view-tab" + (view === "journal" ? " active" : "")}
+                    onClick=${() => setView("journal")} title="Daily journal"><${IconJournal} /></button>
           </div>
           ${view === "outline" && html`
             <div className="view-toggle">
@@ -4566,18 +4897,40 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
                         : titleFormatMode
                           ? "Formatted titles — click for reveal codes"
                           : "Plain mode — click for formatted titles"}>
-                ${textMode
-                  ? html`<${IconModeReveal} />`
-                  : titleFormatMode
-                    ? html`<${IconModeFormatted} />`
-                    : html`<${IconModePlain} />`}
+                <${IconModeReveal} />
               </button>
             </div>
             ${textModeError && html`<span className="text-mode-error" title="Couldn't switch modes — see console">Error</span>`}
           `}
+          <${HamburgerMenu} numberedBullets=${numberedBullets} onToggleNumberedBullets=${onToggleNumberedBullets}
+            verticalLines=${verticalLines} onToggleVerticalLines=${onToggleVerticalLines}
+            showTagChips=${showTagChips} onToggleShowTagChips=${onToggleShowTagChips}
+            tagsOnRight=${tagsOnRight} onToggleTagsOnRight=${onToggleTagsOnRight}
+            collapsed=${collapsed}
+            view=${view} setView=${setView}
+            titleFormatMode=${titleFormatMode} onToggleTitleFormat=${onToggleTitleFormat}
+            textMode=${textMode} onToggleTextMode=${onToggleTextMode} onCycleViewMode=${onCycleViewMode} onSetViewMode=${onSetViewMode}
+            notesVisible=${notesVisible} onToggleNotesVisible=${onToggleNotesVisible}
+            isHoisted=${isHoisted} canToggleHoist=${canToggleHoist} onToggleHoist=${onToggleHoist}
+            readingWidth=${readingWidth} onToggleReadingWidth=${onToggleReadingWidth}
+            onFoldToLevel=${onFoldToLevel}
+            searchQuery=${searchQuery} setSearchQuery=${setSearchQuery}
+            allTags=${allTags} selectedTags=${selectedTags} onToggleTag=${onToggleTag}
+            theme=${theme} onToggleTheme=${onToggleTheme} onHelp=${onHelp} syncStatus=${syncStatus}
+            topBarColor=${topBarColor} onSetTopBarColor=${onSetTopBarColor}
+            homeDir=${homeDir} onPickHomeDir=${onPickHomeDir}
+            tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${onToggleTagPanel}
+            bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${onToggleBookmarkPanel}
+            homeFile=${homeFile} currentFile=${currentFile} onSetHomeFile=${onSetHomeFile}
+            openToSection=${openHamburgerSection} onSectionOpened=${() => setOpenHamburgerSection(null)}
+            undoRedoVisible=${undoRedoVisible} onToggleUndoRedoVisible=${onToggleUndoRedoVisible} />
+          <button className="panel-toggle-btn" onClick=${onHelp} title="Command palette — search and run any command (Ctrl+H)"><${IconCommandPalette} /></button>
         </div>
-      `}
-      ${currentFile && showFull && html`
+        <div className="view-toggle" style=${{ opacity: textMode ? 0.4 : 1, pointerEvents: textMode ? "none" : "auto" }}>
+          <button className="view-tab" title="Search all files (Ctrl+Shift+F)" onClick=${onOpenTextSearch}>
+            <${IconSearch} />
+          </button>
+        </div>
         <div className="search-box" style=${{ opacity: textMode ? 0.4 : 1, pointerEvents: textMode ? "none" : "auto" }}>
           <input
             ref=${expanded ? null : searchInputRef}
@@ -4598,12 +4951,10 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
             <button className="search-clear" onClick=${() => setSearchQuery("")} title="Clear (Esc)">×</button>
           `}
         </div>
-        <button className="global-search-btn" title="Search all files (Ctrl+Shift+F)" onClick=${onOpenTextSearch}>
-          <${IconSearch} />
-        </button>
+        </div>
       `}
       <div className="header-right">
-        ${currentFile && html`
+        ${!(currentFile && showFull) && html`
           <${HamburgerMenu} numberedBullets=${numberedBullets} onToggleNumberedBullets=${onToggleNumberedBullets}
             verticalLines=${verticalLines} onToggleVerticalLines=${onToggleVerticalLines}
             showTagChips=${showTagChips} onToggleShowTagChips=${onToggleShowTagChips}
@@ -4620,26 +4971,18 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
             allTags=${allTags} selectedTags=${selectedTags} onToggleTag=${onToggleTag}
             theme=${theme} onToggleTheme=${onToggleTheme} onHelp=${onHelp} syncStatus=${syncStatus}
             topBarColor=${topBarColor} onSetTopBarColor=${onSetTopBarColor}
-            homeDir=${homeDir} onPickHomeDir=${onPickHomeDir} />
+            homeDir=${homeDir} onPickHomeDir=${onPickHomeDir}
+            tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${onToggleTagPanel}
+            bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${onToggleBookmarkPanel}
+            homeFile=${homeFile} currentFile=${currentFile} onSetHomeFile=${onSetHomeFile}
+            openToSection=${openHamburgerSection} onSectionOpened=${() => setOpenHamburgerSection(null)}
+            undoRedoVisible=${undoRedoVisible} onToggleUndoRedoVisible=${onToggleUndoRedoVisible} />
         `}
-        ${(!currentFile || showFull) && html`
-          <${SyncIndicator} status=${syncStatus} />
-          <button className="theme-toggle-btn" onClick=${onToggleTheme}
-                  title=${theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
-            ${theme === "dark" ? html`<${IconSun}/>` : html`<${IconMoon}/>`}
-          </button>
-          <button className="help-btn" onClick=${onHelp} title="Command palette — search and run any command (Ctrl+H)"><${IconCommandPalette} /></button>
-        `}
-        ${currentFile && html`
-          <button className=${"panel-toggle-btn" + (tagPanelVisible && !textMode ? " active" : "") + (selectedTags.length > 0 ? " has-filter" : "")}
-                  onClick=${onToggleTagPanel} disabled=${textMode}
-                  title=${textMode ? "Not available in reveal codes mode" : tagPanelVisible ? "Close tag panel" : "Open tag panel"}>
-            <${IconTag} />
-            ${selectedTags.length > 0 && html`<span className="tag-filter-count">${selectedTags.length}</span>`}
-          </button>
+        ${!currentFile && html`
+          <button className="panel-toggle-btn" onClick=${onHelp} title="Command palette (Ctrl+H)"><${IconCommandPalette} /></button>
         `}
         ${currentFile && html`
-          <button className=${"detail-toggle-btn" + (detailVisible ? " active" : "")}
+          <button className=${"panel-toggle-btn" + (detailVisible ? " active" : "")}
                   onClick=${onToggleDetails}
                   title="Toggle details pane"><${IconDetails} /></button>
         `}

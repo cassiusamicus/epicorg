@@ -397,6 +397,69 @@ func (s *Store) CommitCurrent(message string) error {
 	return git.CommitFile(s.dir, name, message)
 }
 
+// ListJournalFiles returns file info for all .org files in the journal/ subdirectory,
+// sorted in reverse chronological order (newest first).
+func (s *Store) ListJournalFiles() ([]FileInfo, error) {
+	s.mu.RLock()
+	dir := s.dir
+	s.mu.RUnlock()
+
+	journalDir := filepath.Join(dir, "journal")
+	entries, err := os.ReadDir(journalDir)
+	if os.IsNotExist(err) {
+		return []FileInfo{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var files []FileInfo
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".org") {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		files = append(files, FileInfo{
+			Name:    "journal/" + e.Name(),
+			Size:    info.Size(),
+			ModTime: info.ModTime(),
+		})
+	}
+	// Reverse chronological (newest first)
+	sort.Slice(files, func(i, j int) bool { return files[i].Name > files[j].Name })
+	return files, nil
+}
+
+// CreateJournalFile creates a daily journal file at journal/YYYY-MM-DD.org with
+// standard org-agenda format. Does nothing if the file already exists.
+func (s *Store) CreateJournalFile(name string) error {
+	s.mu.RLock()
+	dir := s.dir
+	s.mu.RUnlock()
+
+	if err := os.MkdirAll(filepath.Join(dir, "journal"), 0755); err != nil {
+		return err
+	}
+	path := filepath.Join(dir, name)
+	if _, err := os.Stat(path); err == nil {
+		return nil // already exists
+	}
+	base := filepath.Base(name)
+	dateStr := strings.TrimSuffix(base, ".org")
+	t, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		return fmt.Errorf("invalid date in journal filename: %w", err)
+	}
+	content := fmt.Sprintf("#+TITLE: %s\n#+DATE: [%s %s]\n\n",
+		t.Format("2006-01-02"),
+		t.Format("2006-01-02"),
+		t.Format("Mon"),
+	)
+	return os.WriteFile(path, []byte(content), 0644)
+}
+
 // --- helpers ---
 
 func contentHash(content string) string {

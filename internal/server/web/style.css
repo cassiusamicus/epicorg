@@ -701,6 +701,71 @@ header h1 {
   cursor: default;
 }
 
+/* Status row at the top of the hamburger popup (sync indicator + theme toggle) */
+.hamburger-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+  gap: 8px;
+}
+.hamburger-status-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+.hamburger-sync-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hamburger-theme-btn {
+  background: none;
+  border: 1px solid transparent;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.hamburger-theme-btn:hover {
+  background: var(--focused-bg);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+/* Panel launcher buttons (left and right) */
+.panel-launcher {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.panel-launcher-popup {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px var(--shadow);
+  z-index: 200;
+}
+.panel-launcher-right .panel-launcher-popup {
+  left: auto;
+  right: 0;
+}
+
 .hamburger-about-btn {
   display: block;
   width: 100%;
@@ -965,10 +1030,37 @@ header h1 {
 }
 
 /* View toggle */
+.toolbar-and-search {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .toolbar {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+.toolbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+.toolbar-home-unset {
+  opacity: 0.45;
+}
+.toolbar-home-unset:hover {
+  opacity: 1;
+}
+
+@keyframes hamburger-highlight-pulse {
+  0%   { background: var(--focused-bg); }
+  50%  { background: color-mix(in srgb, var(--bullet) 25%, var(--focused-bg)); }
+  100% { background: var(--focused-bg); }
+}
+.hamburger-section-highlight {
+  border-radius: 5px;
+  animation: hamburger-highlight-pulse 0.7s ease-in-out 2;
 }
 
 .view-toggle {
@@ -1165,6 +1257,80 @@ header.header-tinted {
 .homefolder-path-btn:hover {
   border-color: var(--bullet);
   color: var(--link);
+}
+
+.hamburger-homefile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.homefile-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.homefile-name {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--text);
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.homefile-name-empty {
+  color: var(--text-dim);
+  font-style: italic;
+  font-family: inherit;
+}
+
+.homefile-set-btn {
+  font-family: inherit;
+  font-size: 11px;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.homefile-set-btn:hover:not(:disabled) {
+  background: var(--focused-bg);
+  border-color: var(--bullet);
+}
+
+.homefile-set-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.homefile-clear-btn {
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.homefile-clear-btn:hover {
+  color: var(--danger);
+  border-color: var(--danger);
 }
 
 /* Folder picker modal */
@@ -1507,6 +1673,16 @@ header.header-tinted {
   border-right: 1px solid var(--border);
 }
 
+.panel-icon-strip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 4px 6px 0;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
 .sidebar-section {
   margin-bottom: 20px;
 }
@@ -1801,6 +1977,11 @@ header.header-tinted {
   padding-left: 20px;
   overflow-y: auto;
   overflow-x: hidden;
+}
+.detail-content .panel-icon-strip {
+  margin-left: -20px;
+  padding-left: 8px;
+  margin-bottom: 10px;
 }
 
 .detail-empty {
@@ -3676,27 +3857,6 @@ a.org-file-link {
 
 /* --- Global search button (magnifying glass after filter box) --- */
 
-.global-search-btn {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  color: var(--text-dim);
-  cursor: pointer;
-  transition: background 0.12s, color 0.12s;
-  margin-left: 2px;
-}
-.global-search-btn:hover {
-  background: var(--focused-bg);
-  color: var(--text);
-}
-.global-search-btn svg { display: block; }
 
 /* --- Text search dialog --- */
 
@@ -3846,4 +4006,197 @@ a.org-file-link {
   color: var(--text-dim);
   text-align: center;
   padding-top: 2px;
+}
+
+/* ── Journal view ── */
+
+.journal-view {
+  padding-bottom: 48px;
+}
+
+.journal-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.journal-today-btn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.journal-today-btn:hover {
+  background: var(--focused-bg);
+  border-color: var(--bullet-active);
+}
+
+.journal-day-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.journal-day-card.journal-today {
+  border-color: var(--success);
+}
+
+.journal-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.journal-today .journal-day-header {
+  background: var(--success-bg);
+}
+
+.journal-day-date {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.journal-day-date:hover {
+  color: var(--link);
+}
+
+.journal-today-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid var(--success);
+}
+
+.journal-day-detail-btn {
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text-dim);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.journal-day-detail-btn:hover {
+  background: var(--focused-bg);
+  color: var(--text);
+  border-color: var(--bullet-active);
+}
+
+.journal-day-content {
+  padding: 10px 14px;
+  cursor: pointer;
+  min-height: 40px;
+}
+
+.journal-day-content:hover {
+  background: var(--focused-bg);
+}
+
+.journal-loading,
+.journal-error {
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 4px 0;
+}
+
+.journal-error {
+  color: var(--danger);
+}
+
+.journal-day-empty {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.journal-node-preview {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  padding: 2px 0;
+  color: var(--text);
+}
+
+.journal-node-bullet {
+  color: var(--bullet);
+  flex-shrink: 0;
+  font-size: 10px;
+}
+
+.journal-node-child-count {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.journal-more {
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 4px 0 0;
+  font-style: italic;
+}
+
+/* Mobile hamburger panel buttons */
+.hamburger-mobile-panels {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.hamburger-panel-btn {
+  flex: 1;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.hamburger-panel-btn.active {
+  background: var(--focused-bg);
+  border-color: var(--bullet-active);
+  color: var(--text);
+}
+
+.hamburger-panel-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }

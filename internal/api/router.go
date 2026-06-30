@@ -170,4 +170,16 @@ func Register(mux *http.ServeMux, store *orgfile.Store, onSave func(), defaultFi
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
+
+	// Daily journal files — stored in journal/ subdirectory in org-agenda format.
+	mux.HandleFunc("/api/journal", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			h.listJournalFiles(w, r)
+		case http.MethodPost:
+			h.createTodayJournal(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
 }

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"epicorg/internal/model"
 	"epicorg/internal/orgfile"
@@ -58,6 +59,36 @@ func validFilename(name string) bool {
 		return false
 	}
 	return strings.HasSuffix(name, ".org")
+}
+
+// validJournalPath accepts only journal/YYYY-MM-DD.org paths.
+func validJournalPath(name string) bool {
+	parts := strings.SplitN(name, "/", 2)
+	if len(parts) != 2 || parts[0] != "journal" {
+		return false
+	}
+	dateStr := strings.TrimSuffix(parts[1], ".org")
+	_, err := time.Parse("2006-01-02", dateStr)
+	return err == nil
+}
+
+func (h *handlers) listJournalFiles(w http.ResponseWriter, r *http.Request) {
+	files, err := h.store.ListJournalFiles()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]interface{}{"files": files})
+}
+
+func (h *handlers) createTodayJournal(w http.ResponseWriter, r *http.Request) {
+	today := time.Now().Format("2006-01-02")
+	name := "journal/" + today + ".org"
+	if err := h.store.CreateJournalFile(name); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]string{"filename": name})
 }
 
 func (h *handlers) deleteFile(w http.ResponseWriter, r *http.Request) {
