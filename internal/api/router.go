@@ -133,6 +133,28 @@ func Register(mux *http.ServeMux, store *orgfile.Store, onSave func(), defaultFi
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
+	// Journal directory — independent of home folder, persists globally.
+	mux.HandleFunc("/api/journaldir", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			h.getJournalDir(w, r)
+		case http.MethodPost:
+			h.setJournalDir(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	// Tag list file — the specific .org file used as the tag list, persists globally.
+	mux.HandleFunc("/api/taglistfile", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			h.getTagListFile(w, r)
+		case http.MethodPost:
+			h.setTagListFile(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
 	mux.HandleFunc("/api/browse", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)

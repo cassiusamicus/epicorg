@@ -56,6 +56,26 @@ func SaveGlobalTags(dir string, tags []GlobalTag) error {
 	return os.WriteFile(filepath.Join(dir, TagListFilename), []byte(buf.String()), 0644)
 }
 
+// LoadGlobalTagsFromFile reads global tags from an explicit file path.
+// Returns empty list if the file does not exist.
+func LoadGlobalTagsFromFile(filePath string) ([]GlobalTag, error) {
+	data, err := os.ReadFile(filePath)
+	if os.IsNotExist(err) {
+		return []GlobalTag{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return parseTagsOrg(string(data)), nil
+}
+
+// SaveGlobalTagsToFile writes tags to an explicit file path.
+func SaveGlobalTagsToFile(filePath string, tags []GlobalTag) error {
+	var buf strings.Builder
+	writeTagsOrg(&buf, tags, 1)
+	return os.WriteFile(filePath, []byte(buf.String()), 0644)
+}
+
 func writeTagsOrg(buf *strings.Builder, tags []GlobalTag, level int) {
 	prefix := strings.Repeat("*", level) + " "
 	for _, tag := range tags {

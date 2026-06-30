@@ -82,8 +82,20 @@ func (h *handlers) listJournalFiles(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) createTodayJournal(w http.ResponseWriter, r *http.Request) {
-	today := time.Now().Format("2006-01-02")
-	name := "journal/" + today + ".org"
+	var body struct {
+		Date string `json:"date"`
+	}
+	json.NewDecoder(r.Body).Decode(&body)
+
+	date := body.Date
+	if date == "" {
+		date = time.Now().Format("2006-01-02")
+	} else if _, err := time.Parse("2006-01-02", date); err != nil {
+		http.Error(w, "invalid date: must be YYYY-MM-DD", http.StatusBadRequest)
+		return
+	}
+
+	name := "journal/" + date + ".org"
 	if err := h.store.CreateJournalFile(name); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -369,7 +381,13 @@ func (h *handlers) putOrgBookmarks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) getGlobalTags(w http.ResponseWriter, r *http.Request) {
-	tags, err := orgfile.LoadGlobalTags(h.store.Dir())
+	var tags []orgfile.GlobalTag
+	var err error
+	if f := h.store.GetTagListFile(); f != "" {
+		tags, err = orgfile.LoadGlobalTagsFromFile(f)
+	} else {
+		tags, err = orgfile.LoadGlobalTags(h.store.Dir())
+	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -388,11 +406,36 @@ func (h *handlers) putGlobalTags(w http.ResponseWriter, r *http.Request) {
 	if req.Tags == nil {
 		req.Tags = []orgfile.GlobalTag{}
 	}
-	if err := orgfile.SaveGlobalTags(h.store.Dir(), req.Tags); err != nil {
+	var err error
+	if f := h.store.GetTagListFile(); f != "" {
+		err = orgfile.SaveGlobalTagsToFile(f, req.Tags)
+	} else {
+		err = orgfile.SaveGlobalTags(h.store.Dir(), req.Tags)
+	}
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	writeJSON(w, map[string]bool{"ok": true})
+}
+
+func (h *handlers) getTagListFile(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]string{"file": h.store.GetTagListFile()})
+}
+
+func (h *handlers) setTagListFile(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		File string `json:"file"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	if err := h.store.SetTagListFile(req.File); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, map[string]string{"file": req.File})
 }
 
 func (h *handlers) getHomeDir(w http.ResponseWriter, r *http.Request) {
@@ -408,6 +451,26 @@ func (h *handlers) setHomeDir(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.SetDir(req.Dir); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, map[string]string{"dir": req.Dir})
+}
+
+func (h *handlers) getJournalDir(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]string{"dir": h.store.GetJournalDir()})
+}
+
+func (h *handlers) setJournalDir(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Dir string `json:"dir"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	// Empty string = revert to default (journal/ under home folder)
+	if err := h.store.SetJournalDir(req.Dir); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -430,12 +493,17 @@ func (h *handlers) browseDir(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	var dirs []string
+	ext := r.URL.Query().Get("ext") // e.g. ".org" to also list matching files
+	var dirs, files []string
 	for _, e := range entries {
-		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+		if strings.HasPrefix(e.Name(), ".") {
 			continue
 		}
-		dirs = append(dirs, e.Name())
+		if e.IsDir() {
+			dirs = append(dirs, e.Name())
+		} else if ext != "" && strings.HasSuffix(e.Name(), ext) {
+			files = append(files, e.Name())
+		}
 	}
 	parent := filepath.Dir(path)
 	if parent == path {
@@ -445,6 +513,7 @@ func (h *handlers) browseDir(w http.ResponseWriter, r *http.Request) {
 		"path":   path,
 		"parent": parent,
 		"dirs":   dirs,
+		"files":  files,
 	})
 }
 

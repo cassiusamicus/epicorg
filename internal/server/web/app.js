@@ -864,7 +864,8 @@ function TagList({ tags, onUpdate, depth, selectedTags, onToggleTag, onAddTagToI
   `;
 }
 
-function TagPanel({ globalTags, onUpdateTags, onNestTag, onAddTagToItem, selectedTags, onToggleTag, onClearTags, onEditTagFile, width, onWidthChange, onSearch }) {
+function TagPanel({ globalTags, onUpdateTags, onNestTag, onAddTagToItem, selectedTags, onToggleTag, onClearTags, onEditTagFile, onPickTagListFile, tagListFile, width, onWidthChange, onSearch }) {
+  const tagListLabel = tagListFile ? pathBasename(tagListFile) : "TagList.org";
   const onGripperMouseDown = (e) => {
     e.preventDefault();
     const startX = e.clientX;
@@ -907,7 +908,10 @@ function TagPanel({ globalTags, onUpdateTags, onNestTag, onAddTagToItem, selecte
             <div className="tag-panel-empty">No tags yet.<br/>Open org files with tags to populate this list.</div>
           `}
         </div>
-        <button className="tag-edit-file-btn" onClick=${onEditTagFile}>Edit TagList.org</button>
+        <div className="tag-panel-footer">
+          <button className="tag-edit-file-btn" onClick=${onEditTagFile}>Edit ${tagListLabel}</button>
+          <button className="tag-edit-file-btn" onClick=${onPickTagListFile} title="Switch to a different tag list file">Change</button>
+        </div>
       </div>
     </div>
   `;
@@ -1445,6 +1449,11 @@ function TodoView({ nodes, onSelect, searchQuery, selectedTags }) {
           <button className="todo-filter-clear" onClick=${clearAll}>✕ clear</button>
         `}
       </div>
+      ${searchQuery && html`
+        <div className="agenda-filter-badge">
+          Text filter: ${searchQuery} — ${items.length} result${items.length === 1 ? "" : "s"}
+        </div>
+      `}
       ${items.length === 0 ? html`
         <div className="agenda-empty">${isFiltering ? "No matches" : "No TODO items in this file"}</div>
       ` : items.map((item) => html`
@@ -1576,10 +1585,13 @@ function SearchResultsView({ searchResults, currentFile, onBack, onNavigate }) {
   `;
 }
 
-function AgendaView({ nodes, onSelect, searchQuery, selectedTags }) {
+function AgendaView({ nodes, onSelect, searchQuery, selectedTags, onGoToDate, onNewAppointment }) {
   const isFiltering = !!searchQuery || (selectedTags && selectedTags.length > 0);
   let items = collectDatedItems(nodes);
-  if (searchQuery) items = items.filter((item) => tree.matchesQuery(searchQuery, item.title));
+  if (searchQuery) items = items.filter((item) =>
+    tree.matchesQuery(searchQuery, item.title) ||
+    (item.ancestors || []).some((a) => tree.matchesQuery(searchQuery, a))
+  );
   if (selectedTags && selectedTags.length > 0) {
     items = items.filter((item) => (item.tags || []).some((t) => selectedTags.includes(t)));
   }
@@ -1602,8 +1614,30 @@ function AgendaView({ nodes, onSelect, searchQuery, selectedTags }) {
     cur.items.push(item);
   }
 
+  const agendaDatePickerRef = useRef(null);
+  const openAgendaDatePicker = useCallback(() => {
+    const el = agendaDatePickerRef.current;
+    if (!el) return;
+    try { el.showPicker(); } catch { el.click(); }
+  }, []);
+
   return html`
     <div className="agenda-view">
+      <div className="journal-toolbar agenda-toolbar">
+        <input type="date" ref=${agendaDatePickerRef} className="hidden-date-input"
+               onChange=${(e) => { if (e.target.value) onGoToDate(e.target.value); e.target.value = ""; }} />
+        <button className="journal-icon-btn" onClick=${openAgendaDatePicker}
+                title="Go to a specific date in the journal">
+          <${IconAgenda} /> Go to date…
+        </button>
+        <button className="journal-icon-btn journal-add-appt-btn" onClick=${onNewAppointment}
+                title="Add appointment to a journal date">+ Appointment</button>
+      </div>
+      ${isFiltering && html`
+        <div className="agenda-filter-badge">
+          Filtering: ${[searchQuery, ...(selectedTags||[])].filter(Boolean).join(", ")} — ${items.length} result${items.length === 1 ? "" : "s"}
+        </div>
+      `}
       ${groups.map((g) => html`
         <div className="agenda-group" key=${g.date}>
           <div className=${"agenda-date" + (isOverdue(g.date) ? " overdue" : "") + (isToday(g.date) ? " today" : "")}>
@@ -1631,7 +1665,7 @@ function AgendaView({ nodes, onSelect, searchQuery, selectedTags }) {
   `;
 }
 
-function JournalDayCard({ filename, onOpen, onOpenDetail }) {
+function JournalDayCard({ filename, onOpen, onOpenDetail, searchQuery }) {
   const [content, setContent] = useState(null); // null=not loaded, false=error, {nodes,preamble}=ok
   const hasStarted = useRef(false);
   const cardRef = useRef(null);
@@ -1660,6 +1694,17 @@ function JournalDayCard({ filename, onOpen, onOpenDetail }) {
   const dateDisplay = formatJournalDate(dateStr);
   const today = isToday(dateStr);
 
+  // When filtering: hide card if content is loaded and nothing matches
+  const dateMatches = !searchQuery || tree.matchesQuery(searchQuery, dateStr) || tree.matchesQuery(searchQuery, dateDisplay);
+  const allNodes = content && content.nodes ? content.nodes : [];
+  const matchingNodes = searchQuery
+    ? allNodes.filter((n) => tree.matchesQuery(searchQuery, n.title))
+    : allNodes;
+  // If content is loaded and neither the date nor any nodes match, hide the card entirely
+  if (searchQuery && content && !dateMatches && matchingNodes.length === 0) return null;
+
+  const displayNodes = searchQuery ? matchingNodes : allNodes;
+
   return html`
     <div className=${"journal-day-card" + (today ? " journal-today" : "")} ref=${cardRef}>
       <div className="journal-day-header">
@@ -1672,11 +1717,11 @@ function JournalDayCard({ filename, onOpen, onOpenDetail }) {
       <div className="journal-day-content" onClick=${onOpen}>
         ${content === null && html`<div className="journal-loading">Loading…</div>`}
         ${content === false && html`<div className="journal-error">Could not load</div>`}
-        ${content && content.nodes.length === 0 && html`
+        ${content && displayNodes.length === 0 && !searchQuery && html`
           <div className="journal-day-empty">No entries yet — click to add</div>
         `}
-        ${content && content.nodes.length > 0 && html`
-          ${content.nodes.slice(0, 6).map((node, i) => html`
+        ${content && displayNodes.length > 0 && html`
+          ${displayNodes.slice(0, 6).map((node, i) => html`
             <div key=${i} className="journal-node-preview">
               <span className="journal-node-bullet">•</span>
               <span dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(node.title || "") }} />
@@ -1685,8 +1730,8 @@ function JournalDayCard({ filename, onOpen, onOpenDetail }) {
               `}
             </div>
           `)}
-          ${content.nodes.length > 6 && html`
-            <div className="journal-more">+${content.nodes.length - 6} more…</div>
+          ${displayNodes.length > 6 && html`
+            <div className="journal-more">+${displayNodes.length - 6} more…</div>
           `}
         `}
       </div>
@@ -1694,8 +1739,91 @@ function JournalDayCard({ filename, onOpen, onOpenDetail }) {
   `;
 }
 
-function JournalView({ onOpenFile, onOpenFileWithDetail }) {
+function pathBasename(p) { if (!p) return ""; const i = p.lastIndexOf("/"); return i >= 0 ? p.slice(i + 1) : p; }
+function pathDirname(p) { if (!p) return "/"; const i = p.lastIndexOf("/"); return i > 0 ? p.slice(0, i) : "/"; }
+
+function todayDateStr() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+function AppointmentDialog({ defaultDate, onConfirm, onCancel }) {
+  const [title, setTitle] = useState("");
+  const [date, setDate] = useState(defaultDate || todayDateStr());
+  const [time, setTime] = useState("09:00");
+  const titleRef = useRef(null);
+  const dateInputRef = useRef(null);
+  const timeInputRef = useRef(null);
+
+  useEffect(() => { titleRef.current?.focus(); }, []);
+
+  const submit = useCallback(() => {
+    if (!title.trim()) return;
+    onConfirm({ title: title.trim(), date, time });
+  }, [title, date, time, onConfirm]);
+
+  const openDatePicker = useCallback(() => {
+    const el = dateInputRef.current;
+    if (!el) return;
+    try { el.showPicker(); } catch { el.click(); }
+  }, []);
+
+  const openTimePicker = useCallback(() => {
+    const el = timeInputRef.current;
+    if (!el) return;
+    try { el.showPicker(); } catch { el.click(); }
+  }, []);
+
+  return html`
+    <div className="folder-picker-overlay"
+         onMouseDown=${(e) => e.target === e.currentTarget && onCancel()}>
+      <div className="appointment-dialog">
+        <h3 className="appt-dialog-title">New Appointment</h3>
+        <div className="appt-field">
+          <label className="appt-label">Title</label>
+          <input ref=${titleRef} type="text" className="appt-input"
+                 value=${title}
+                 onChange=${(e) => setTitle(e.target.value)}
+                 onKeyDown=${(e) => { if (e.key === "Enter") submit(); if (e.key === "Escape") onCancel(); }}
+                 placeholder="e.g. Dentist appointment" />
+        </div>
+        <div className="appt-field">
+          <label className="appt-label">Date</label>
+          <div className="appt-input-row">
+            <input ref=${dateInputRef} type="date" className="appt-input appt-datetime"
+                   value=${date} onChange=${(e) => setDate(e.target.value)} />
+            <button className="appt-picker-btn" onClick=${openDatePicker} title="Open calendar">
+              <${IconAgenda} />
+            </button>
+          </div>
+        </div>
+        <div className="appt-field">
+          <label className="appt-label">Time</label>
+          <div className="appt-input-row">
+            <input ref=${timeInputRef} type="time" className="appt-input appt-datetime"
+                   value=${time} onChange=${(e) => setTime(e.target.value)} />
+            <button className="appt-picker-btn" onClick=${openTimePicker} title="Open time picker">
+              <${IconClock} />
+            </button>
+          </div>
+        </div>
+        <div className="appt-dialog-buttons">
+          <button className="appt-btn-cancel" onClick=${onCancel}>Cancel</button>
+          <button className="appt-btn-confirm" onClick=${submit}
+                  disabled=${!title.trim()}>Add to Journal</button>
+        </div>
+        <p className="appt-dialog-hint">
+          Adds a <strong>TODO</strong> heading with a <strong>SCHEDULED</strong> timestamp
+          to the journal file for that date.
+        </p>
+      </div>
+    </div>
+  `;
+}
+
+function JournalView({ onOpenFile, onOpenFileWithDetail, onGoToDate, onNewAppointment, searchQuery }) {
   const [journalFiles, setJournalFiles] = useState(null); // null=loading, []+ =loaded
+  const datePickerRef = useRef(null);
 
   useEffect(() => {
     api.get("/api/journal")
@@ -1710,10 +1838,23 @@ function JournalView({ onOpenFile, onOpenFileWithDetail }) {
     } catch {}
   }, [onOpenFile]);
 
+  const openDatePicker = useCallback(() => {
+    const el = datePickerRef.current;
+    if (!el) return;
+    try { el.showPicker(); } catch { el.click(); }
+  }, []);
+
   return html`
     <div className="journal-view">
       <div className="journal-toolbar">
         <button className="journal-today-btn" onClick=${openToday}>Today's Journal</button>
+        <input type="date" ref=${datePickerRef} className="hidden-date-input"
+               onChange=${(e) => { if (e.target.value) onGoToDate(e.target.value); e.target.value = ""; }} />
+        <button className="journal-icon-btn" onClick=${openDatePicker} title="Go to a specific date">
+          <${IconAgenda} />
+        </button>
+        <button className="journal-icon-btn journal-add-appt-btn" onClick=${onNewAppointment}
+                title="Add appointment to a journal date">+ Appointment</button>
       </div>
       ${journalFiles === null && html`
         <div className="agenda-empty">Loading journal files…</div>
@@ -1721,12 +1862,16 @@ function JournalView({ onOpenFile, onOpenFileWithDetail }) {
       ${journalFiles !== null && journalFiles.length === 0 && html`
         <div className="agenda-empty">No journal entries yet — click "Today's Journal" to create one.</div>
       `}
+      ${journalFiles !== null && journalFiles.length > 0 && searchQuery && html`
+        <div className="agenda-filter-badge">Filtering: ${searchQuery}</div>
+      `}
       ${journalFiles !== null && journalFiles.map((f) => html`
         <${JournalDayCard}
           key=${f.name}
           filename=${f.name}
           onOpen=${() => onOpenFile(f.name)}
           onOpenDetail=${() => onOpenFileWithDetail(f.name)}
+          searchQuery=${searchQuery}
         />
       `)}
     </div>
@@ -2239,7 +2384,11 @@ function App() {
   const [tagSearch, setTagSearch] = useState(null); // { tag, results } | null
   const pendingTagNavRef = useRef(null); // { file, title } to navigate to after load
   const [homeDir, setHomeDir] = useState(null);
+  const [journalDir, setJournalDir] = useState(null); // null = not yet loaded; "" = default
+  const [tagListFile, setTagListFile] = useState(null); // null = not yet loaded; "" = default
   const [showFolderPicker, setShowFolderPicker] = useState(false);
+  const [showJournalFolderPicker, setShowJournalFolderPicker] = useState(false);
+  const [showTagListFilePicker, setShowTagListFilePicker] = useState(false);
   const [showTextSearch, setShowTextSearch] = useState(false);
   // Unified search results: { type: "tag"|"text", query, results } | null
   const [searchResults, setSearchResults] = useState(null);
@@ -2683,6 +2832,8 @@ function App() {
     setSyncStatus(SYNC_DIRTY);
   }, []);
 
+  const [apptDialog, setApptDialog] = useState(null); // null or { defaultDate: "YYYY-MM-DD" }
+
   const clearUndoHistory = useCallback(() => {
     undoStackRef.current = [];
     redoStackRef.current = [];
@@ -2933,6 +3084,8 @@ function App() {
   // Fetch and track home directory.
   useEffect(() => {
     api.get("/api/homedir").then((d) => setHomeDir(d.dir)).catch(() => {});
+    api.get("/api/journaldir").then((d) => setJournalDir(d.dir)).catch(() => {});
+    api.get("/api/taglistfile").then((d) => setTagListFile(d.file)).catch(() => {});
   }, []);
 
   const changeHomeDir = useCallback(async (dir) => {
@@ -2961,6 +3114,38 @@ function App() {
     setPreamble("");
     setHash("");
   }, []);
+
+  const changeJournalDir = useCallback(async (dir) => {
+    await api.post("/api/journaldir", { dir });
+    setJournalDir(dir);
+    setShowJournalFolderPicker(false);
+  }, []);
+
+  const clearJournalDir = useCallback(async () => {
+    await api.post("/api/journaldir", { dir: "" });
+    setJournalDir("");
+  }, []);
+
+  const reloadGlobalTags = useCallback(() => {
+    api.get("/api/global-tags").then((d) => {
+      const tags = d.tags || [];
+      setGlobalTags(tags);
+      globalTagsRef.current = tags;
+    }).catch(() => {});
+  }, []);
+
+  const changeTagListFile = useCallback(async (file) => {
+    await api.post("/api/taglistfile", { file });
+    setTagListFile(file);
+    setShowTagListFilePicker(false);
+    reloadGlobalTags();
+  }, [reloadGlobalTags]);
+
+  const clearTagListFile = useCallback(async () => {
+    await api.post("/api/taglistfile", { file: "" });
+    setTagListFile("");
+    reloadGlobalTags();
+  }, [reloadGlobalTags]);
 
   // Favorites are shared workspace state (stored server-side), unlike
   // Recent Files which is local browsing history.
@@ -3013,6 +3198,36 @@ function App() {
     if (flat.length > 0) focusNode(flat[0].id);
     if (!histNavRef.current) navDispatch({ type: "push", entry: { file: name, title: null } });
   }, [focusNode, clearUndoHistory, navDispatch]);
+
+  const goToJournalDate = useCallback(async (dateStr) => {
+    if (!dateStr) return;
+    try {
+      const d = await api.post("/api/journal", { date: dateStr });
+      loadFile(d.filename);
+      setView("outline");
+    } catch {}
+  }, [loadFile, setView]);
+
+  const openApptDialog = useCallback(() => {
+    const m = currentFile?.match(/journal\/(\d{4}-\d{2}-\d{2})\.org/);
+    setApptDialog({ defaultDate: m ? m[1] : todayDateStr() });
+  }, [currentFile]);
+
+  const confirmAddAppointment = useCallback(async ({ title, date, time }) => {
+    setApptDialog(null);
+    try {
+      const d = await api.post("/api/journal", { date });
+      await loadFile(d.filename);
+      setView("outline");
+      const nn = tree.newNode(title);
+      nn.status = "TODO";
+      const dayAbbr = new Date(date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short" });
+      nn.body = `SCHEDULED: <${date} ${dayAbbr}${time ? " " + time : ""}>`;
+      setNodes((prev) => [...(prev || []), nn]);
+      markDirty();
+      requestAnimationFrame(() => focusNode(nn.id));
+    } catch {}
+  }, [loadFile, setView, setNodes, markDirty, focusNode]);
 
   const exportToHtml = useCallback(() => {
     if (!currentFile) return;
@@ -3643,8 +3858,12 @@ function App() {
   }, [currentFile]);
 
   const openTagFile = useCallback(() => {
-    setCurrentFile("TagList.org");
-  }, []);
+    if (tagListFile && homeDir && tagListFile.startsWith(homeDir + "/")) {
+      setCurrentFile(tagListFile.slice(homeDir.length + 1));
+    } else {
+      setCurrentFile("TagList.org");
+    }
+  }, [tagListFile, homeDir]);
 
   const setTagPanelWidthPersisted = useCallback((w) => {
     setTagPanelWidth(w);
@@ -3744,6 +3963,10 @@ function App() {
                   bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${toggleBookmarkPanel}
                   onBack=${() => setShowPicker(true)}
                   homeDir=${homeDir} onPickHomeDir=${() => setShowFolderPicker(true)}
+                  journalDir=${journalDir} onPickJournalDir=${() => setShowJournalFolderPicker(true)}
+                  onClearJournalDir=${clearJournalDir}
+                  tagListFile=${tagListFile} onPickTagListFile=${() => setShowTagListFilePicker(true)}
+                  onClearTagListFile=${clearTagListFile}
                   onOpenTextSearch=${() => setShowTextSearch(true)}
                   canGoBack=${canGoBack} canGoForward=${canGoForward}
                   onGoBack=${goBack} onGoForward=${goForward}
@@ -3769,11 +3992,29 @@ function App() {
           setShowHelp, insertFootnote,
           exportToHtml, currentFile,
         })} onClose=${() => setShowHelp(false)} />`}
+      ${apptDialog && html`
+        <${AppointmentDialog}
+          defaultDate=${apptDialog.defaultDate}
+          onConfirm=${confirmAddAppointment}
+          onCancel=${() => setApptDialog(null)} />
+      `}
       ${showFolderPicker && html`
         <${FolderPicker}
           initialPath=${homeDir || "/"}
           onSelect=${changeHomeDir}
           onCancel=${() => setShowFolderPicker(false)} />
+      `}
+      ${showJournalFolderPicker && html`
+        <${FolderPicker}
+          initialPath=${journalDir || homeDir || "/"}
+          onSelect=${changeJournalDir}
+          onCancel=${() => setShowJournalFolderPicker(false)} />
+      `}
+      ${showTagListFilePicker && html`
+        <${OrgFilePicker}
+          initialPath=${tagListFile ? pathDirname(tagListFile) : (homeDir || "/")}
+          onSelect=${changeTagListFile}
+          onCancel=${() => setShowTagListFilePicker(false)} />
       `}
       ${showTextSearch && html`
         <${TextSearchDialog}
@@ -3855,7 +4096,8 @@ function App() {
         ${view === "agenda" && html`
           <div className="outline-pane">
             <div className=${"outline-content" + (readingWidth ? " reading-width" : "")}>
-              <${AgendaView} nodes=${nodes} onSelect=${handleAgendaSelect} searchQuery=${searchQuery} selectedTags=${selectedTags} />
+              <${AgendaView} nodes=${nodes} onSelect=${handleAgendaSelect} searchQuery=${searchQuery} selectedTags=${selectedTags}
+                onGoToDate=${goToJournalDate} onNewAppointment=${openApptDialog} />
             </div>
           </div>
         `}
@@ -3872,6 +4114,9 @@ function App() {
               <${JournalView}
                 onOpenFile=${(filename) => { loadFile(filename); setView("outline"); }}
                 onOpenFileWithDetail=${(filename) => { loadFile(filename); setView("outline"); setDetailVisiblePersisted(true); }}
+                onGoToDate=${goToJournalDate}
+                onNewAppointment=${openApptDialog}
+                searchQuery=${searchQuery}
               />
             </div>
           </div>
@@ -3901,6 +4146,8 @@ function App() {
             onNestTag=${nestTag}
             onAddTagToItem=${addTagToItem}
             onEditTagFile=${openTagFile}
+            onPickTagListFile=${() => setShowTagListFilePicker(true)}
+            tagListFile=${tagListFile}
             selectedTags=${selectedTags}
             onToggleTag=${toggleTag}
             onClearTags=${clearTags}
@@ -4041,6 +4288,15 @@ function IconTodo() {
     <svg ...${ICON_PROPS}>
       <rect x="3" y="3" width="18" height="18" rx="2" />
       <polyline points="7 12 10.5 15.5 17 9" />
+    </svg>
+  `;
+}
+
+function IconClock() {
+  return html`
+    <svg ...${ICON_PROPS}>
+      <circle cx="12" cy="12" r="9" />
+      <polyline points="12 7 12 12 15.5 14.5" />
     </svg>
   `;
 }
@@ -4358,6 +4614,113 @@ function TextSearchDialog({ onSearch, onCancel }) {
 
 // Folder picker modal — allows the user to navigate the filesystem and
 // select a directory as the new home folder.
+// OrgFilePicker — browses the filesystem and lets the user select or create a .org file.
+function OrgFilePicker({ initialPath, onSelect, onCancel }) {
+  const [browsePath, setBrowsePath] = useState(initialPath || "/");
+  const [dirs, setDirs] = useState([]);
+  const [files, setFiles] = useState([]);
+  const [parent, setParent] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("TagList.org");
+  const newNameRef = useRef(null);
+
+  const fetchEntries = useCallback(async (path) => {
+    setLoading(true);
+    setError(null);
+    setCreating(false);
+    try {
+      const data = await api.get("/api/browse?ext=.org&path=" + encodeURIComponent(path));
+      setBrowsePath(data.path);
+      setDirs(data.dirs || []);
+      setFiles(data.files || []);
+      setParent(data.parent || null);
+    } catch (e) {
+      setError("Cannot read directory.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchEntries(initialPath || "/"); }, []);
+
+  useEffect(() => {
+    if (creating && newNameRef.current) {
+      newNameRef.current.focus();
+      newNameRef.current.select();
+    }
+  }, [creating]);
+
+  const confirmCreate = useCallback(() => {
+    let name = newName.trim();
+    if (!name) return;
+    if (!name.endsWith(".org")) name += ".org";
+    onSelect(browsePath + "/" + name);
+  }, [newName, browsePath, onSelect]);
+
+  return html`
+    <div className="folder-picker-overlay" onMouseDown=${(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="folder-picker-dialog">
+        <div className="folder-picker-header">
+          <span className="folder-picker-title">Select Tag List File</span>
+          <button className="folder-picker-close" onClick=${onCancel}>×</button>
+        </div>
+        <div className="folder-picker-path">
+          ${parent !== null && html`
+            <button className="folder-picker-up" onClick=${() => fetchEntries(parent)}>↑ Up</button>
+          `}
+          <span className="folder-picker-path-text" title=${browsePath}>${browsePath}</span>
+        </div>
+        <div className="folder-picker-list">
+          ${loading && html`<div className="folder-picker-loading">Loading…</div>`}
+          ${error && html`<div className="folder-picker-error">${error}</div>`}
+          ${!loading && !error && dirs.length === 0 && files.length === 0 && html`
+            <div className="folder-picker-empty">No subdirectories or .org files here</div>
+          `}
+          ${!loading && dirs.map((d) => html`
+            <div key=${"d:" + d} className="folder-picker-dir" onDoubleClick=${() => fetchEntries(browsePath + "/" + d)}>
+              <span className="folder-picker-dir-icon">📁</span>
+              <span className="folder-picker-dir-name" onClick=${() => fetchEntries(browsePath + "/" + d)}>${d}</span>
+            </div>
+          `)}
+          ${!loading && files.map((f) => html`
+            <div key=${"f:" + f} className="folder-picker-dir file-picker-file" onClick=${() => onSelect(browsePath + "/" + f)}>
+              <span className="folder-picker-dir-icon">📄</span>
+              <span className="folder-picker-dir-name">${f}</span>
+            </div>
+          `)}
+        </div>
+        ${creating && html`
+          <div className="org-file-picker-create">
+            <input
+              ref=${newNameRef}
+              className="org-file-picker-create-input"
+              type="text"
+              value=${newName}
+              onInput=${(e) => setNewName(e.target.value)}
+              onKeyDown=${(e) => {
+                if (e.key === "Enter") { e.preventDefault(); confirmCreate(); }
+                if (e.key === "Escape") { e.preventDefault(); setCreating(false); }
+              }}
+              placeholder="TagList.org"
+            />
+            <button className="folder-picker-select" onClick=${confirmCreate}
+                    disabled=${!newName.trim()}>Create</button>
+            <button className="folder-picker-cancel" onClick=${() => setCreating(false)}>Cancel</button>
+          </div>
+        `}
+        <div className="folder-picker-footer">
+          ${!creating && html`
+            <button className="folder-picker-cancel" onClick=${() => setCreating(true)}>+ New Tag List</button>
+          `}
+          <button className="folder-picker-cancel" onClick=${onCancel}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function FolderPicker({ initialPath, onSelect, onCancel }) {
   const [browsePath, setBrowsePath] = useState(initialPath || "/");
   const [dirs, setDirs] = useState([]);
@@ -4500,6 +4863,8 @@ function HamburgerMenu({
   theme, onToggleTheme, onHelp, syncStatus,
   topBarColor, onSetTopBarColor,
   homeDir, onPickHomeDir,
+  journalDir, onPickJournalDir, onClearJournalDir,
+  tagListFile, onPickTagListFile, onClearTagListFile,
   onSetViewMode,
   tagPanelVisible, onToggleTagPanel,
   bookmarkPanelVisible, onToggleBookmarkPanel,
@@ -4637,6 +5002,28 @@ function HamburgerMenu({
                 </button>
                 ${homeFile && html`
                   <button className="homefile-clear-btn" onClick=${() => onSetHomeFile(null)} title="Clear home file">×</button>
+                `}
+              </div>
+            </div>
+            <div className="hamburger-menu-option hamburger-homefolder-row">
+              <span>Journal Folder</span>
+              <div className="homefile-controls">
+                <button className="homefolder-path-btn" title="Click to set a custom journal folder" onClick=${onPickJournalDir}>
+                  ${journalDir || "(same as Home Folder)"}
+                </button>
+                ${journalDir && html`
+                  <button className="homefile-clear-btn" onClick=${onClearJournalDir} title="Reset to default (journal/ inside Home Folder)">×</button>
+                `}
+              </div>
+            </div>
+            <div className="hamburger-menu-option hamburger-homefolder-row">
+              <span>Tag List</span>
+              <div className="homefile-controls">
+                <button className="homefolder-path-btn" title="Click to choose a tag list .org file" onClick=${onPickTagListFile}>
+                  ${tagListFile ? pathBasename(tagListFile) : "TagList.org (default)"}
+                </button>
+                ${tagListFile && html`
+                  <button className="homefile-clear-btn" onClick=${onClearTagListFile} title="Reset to default (TagList.org in Home Folder)">×</button>
                 `}
               </div>
             </div>
@@ -4790,7 +5177,7 @@ function TagFilterButton({ allTags, selectedTags, onToggleTag, onClearTags }) {
   `;
 }
 
-function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, undoRedoVisible, onToggleUndoRedoVisible }) {
+function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, undoRedoVisible, onToggleUndoRedoVisible }) {
   // Whether the toolbar/search/etc. actually fit is measured, not
   // guessed from viewport width — a long filename or a pile of tags
   // eats into the same space a phone-width media query would assume is
@@ -4902,29 +5289,6 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
             </div>
             ${textModeError && html`<span className="text-mode-error" title="Couldn't switch modes — see console">Error</span>`}
           `}
-          <${HamburgerMenu} numberedBullets=${numberedBullets} onToggleNumberedBullets=${onToggleNumberedBullets}
-            verticalLines=${verticalLines} onToggleVerticalLines=${onToggleVerticalLines}
-            showTagChips=${showTagChips} onToggleShowTagChips=${onToggleShowTagChips}
-            tagsOnRight=${tagsOnRight} onToggleTagsOnRight=${onToggleTagsOnRight}
-            collapsed=${collapsed}
-            view=${view} setView=${setView}
-            titleFormatMode=${titleFormatMode} onToggleTitleFormat=${onToggleTitleFormat}
-            textMode=${textMode} onToggleTextMode=${onToggleTextMode} onCycleViewMode=${onCycleViewMode} onSetViewMode=${onSetViewMode}
-            notesVisible=${notesVisible} onToggleNotesVisible=${onToggleNotesVisible}
-            isHoisted=${isHoisted} canToggleHoist=${canToggleHoist} onToggleHoist=${onToggleHoist}
-            readingWidth=${readingWidth} onToggleReadingWidth=${onToggleReadingWidth}
-            onFoldToLevel=${onFoldToLevel}
-            searchQuery=${searchQuery} setSearchQuery=${setSearchQuery}
-            allTags=${allTags} selectedTags=${selectedTags} onToggleTag=${onToggleTag}
-            theme=${theme} onToggleTheme=${onToggleTheme} onHelp=${onHelp} syncStatus=${syncStatus}
-            topBarColor=${topBarColor} onSetTopBarColor=${onSetTopBarColor}
-            homeDir=${homeDir} onPickHomeDir=${onPickHomeDir}
-            tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${onToggleTagPanel}
-            bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${onToggleBookmarkPanel}
-            homeFile=${homeFile} currentFile=${currentFile} onSetHomeFile=${onSetHomeFile}
-            openToSection=${openHamburgerSection} onSectionOpened=${() => setOpenHamburgerSection(null)}
-            undoRedoVisible=${undoRedoVisible} onToggleUndoRedoVisible=${onToggleUndoRedoVisible} />
-          <button className="panel-toggle-btn" onClick=${onHelp} title="Command palette — search and run any command (Ctrl+H)"><${IconCommandPalette} /></button>
         </div>
         <div className="view-toggle" style=${{ opacity: textMode ? 0.4 : 1, pointerEvents: textMode ? "none" : "auto" }}>
           <button className="view-tab" title="Search all files (Ctrl+Shift+F)" onClick=${onOpenTextSearch}>
@@ -4954,34 +5318,38 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
         </div>
       `}
       <div className="header-right">
-        ${!(currentFile && showFull) && html`
-          <${HamburgerMenu} numberedBullets=${numberedBullets} onToggleNumberedBullets=${onToggleNumberedBullets}
-            verticalLines=${verticalLines} onToggleVerticalLines=${onToggleVerticalLines}
-            showTagChips=${showTagChips} onToggleShowTagChips=${onToggleShowTagChips}
-            tagsOnRight=${tagsOnRight} onToggleTagsOnRight=${onToggleTagsOnRight}
-            collapsed=${collapsed}
-            view=${view} setView=${setView}
-            titleFormatMode=${titleFormatMode} onToggleTitleFormat=${onToggleTitleFormat}
-            textMode=${textMode} onToggleTextMode=${onToggleTextMode} onCycleViewMode=${onCycleViewMode} onSetViewMode=${onSetViewMode}
-            notesVisible=${notesVisible} onToggleNotesVisible=${onToggleNotesVisible}
-            isHoisted=${isHoisted} canToggleHoist=${canToggleHoist} onToggleHoist=${onToggleHoist}
-            readingWidth=${readingWidth} onToggleReadingWidth=${onToggleReadingWidth}
-            onFoldToLevel=${onFoldToLevel}
-            searchQuery=${searchQuery} setSearchQuery=${setSearchQuery}
-            allTags=${allTags} selectedTags=${selectedTags} onToggleTag=${onToggleTag}
-            theme=${theme} onToggleTheme=${onToggleTheme} onHelp=${onHelp} syncStatus=${syncStatus}
-            topBarColor=${topBarColor} onSetTopBarColor=${onSetTopBarColor}
-            homeDir=${homeDir} onPickHomeDir=${onPickHomeDir}
-            tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${onToggleTagPanel}
-            bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${onToggleBookmarkPanel}
-            homeFile=${homeFile} currentFile=${currentFile} onSetHomeFile=${onSetHomeFile}
-            openToSection=${openHamburgerSection} onSectionOpened=${() => setOpenHamburgerSection(null)}
-            undoRedoVisible=${undoRedoVisible} onToggleUndoRedoVisible=${onToggleUndoRedoVisible} />
-        `}
-        ${!currentFile && html`
-          <button className="panel-toggle-btn" onClick=${onHelp} title="Command palette (Ctrl+H)"><${IconCommandPalette} /></button>
-        `}
+        <${HamburgerMenu} numberedBullets=${numberedBullets} onToggleNumberedBullets=${onToggleNumberedBullets}
+          verticalLines=${verticalLines} onToggleVerticalLines=${onToggleVerticalLines}
+          showTagChips=${showTagChips} onToggleShowTagChips=${onToggleShowTagChips}
+          tagsOnRight=${tagsOnRight} onToggleTagsOnRight=${onToggleTagsOnRight}
+          collapsed=${collapsed}
+          view=${view} setView=${setView}
+          titleFormatMode=${titleFormatMode} onToggleTitleFormat=${onToggleTitleFormat}
+          textMode=${textMode} onToggleTextMode=${onToggleTextMode} onCycleViewMode=${onCycleViewMode} onSetViewMode=${onSetViewMode}
+          notesVisible=${notesVisible} onToggleNotesVisible=${onToggleNotesVisible}
+          isHoisted=${isHoisted} canToggleHoist=${canToggleHoist} onToggleHoist=${onToggleHoist}
+          readingWidth=${readingWidth} onToggleReadingWidth=${onToggleReadingWidth}
+          onFoldToLevel=${onFoldToLevel}
+          searchQuery=${searchQuery} setSearchQuery=${setSearchQuery}
+          allTags=${allTags} selectedTags=${selectedTags} onToggleTag=${onToggleTag}
+          theme=${theme} onToggleTheme=${onToggleTheme} onHelp=${onHelp} syncStatus=${syncStatus}
+          topBarColor=${topBarColor} onSetTopBarColor=${onSetTopBarColor}
+          homeDir=${homeDir} onPickHomeDir=${onPickHomeDir}
+          journalDir=${journalDir} onPickJournalDir=${onPickJournalDir} onClearJournalDir=${onClearJournalDir}
+          tagListFile=${tagListFile} onPickTagListFile=${onPickTagListFile} onClearTagListFile=${onClearTagListFile}
+          tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${onToggleTagPanel}
+          bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${onToggleBookmarkPanel}
+          homeFile=${homeFile} currentFile=${currentFile} onSetHomeFile=${onSetHomeFile}
+          openToSection=${openHamburgerSection} onSectionOpened=${() => setOpenHamburgerSection(null)}
+          undoRedoVisible=${undoRedoVisible} onToggleUndoRedoVisible=${onToggleUndoRedoVisible} />
+        <button className="panel-toggle-btn" onClick=${onHelp} title="Command palette — search and run any command (Ctrl+H)"><${IconCommandPalette} /></button>
         ${currentFile && html`
+          <button className=${"panel-toggle-btn" + (tagPanelVisible && !textMode ? " active" : "") + (selectedTags.length > 0 ? " has-filter" : "")}
+                  onClick=${onToggleTagPanel} disabled=${textMode}
+                  title="Toggle tag panel">
+            <${IconTag} />
+            ${selectedTags.length > 0 && html`<span className="tag-filter-count">${selectedTags.length}</span>`}
+          </button>
           <button className=${"panel-toggle-btn" + (detailVisible ? " active" : "")}
                   onClick=${onToggleDetails}
                   title="Toggle details pane"><${IconDetails} /></button>

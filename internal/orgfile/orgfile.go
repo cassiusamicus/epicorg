@@ -19,9 +19,45 @@ import (
 // Store manages a directory of org files with hash-based change detection.
 type Store struct {
 	dir         string
+	journalDir  string // optional override; empty = dir/journal
+	tagListFile string // optional override full path; empty = {dir}/TagList.org
 	mu          sync.RWMutex
 	active      map[string]*FileState
 	currentFile string // the file currently being edited
+}
+
+// epicorgConfig holds global settings persisted to ~/.config/epicorg/config.json.
+type epicorgConfig struct {
+	JournalDir  string `json:"journalDir,omitempty"`
+	TagListFile string `json:"tagListFile,omitempty"` // full path to the active tag list .org file
+}
+
+func globalConfigPath() string {
+	d, err := os.UserConfigDir()
+	if err != nil {
+		d = "."
+	}
+	return filepath.Join(d, "epicorg", "config.json")
+}
+
+func loadGlobalConfig() epicorgConfig {
+	var cfg epicorgConfig
+	if data, err := os.ReadFile(globalConfigPath()); err == nil {
+		json.Unmarshal(data, &cfg) //nolint:errcheck — tolerate corrupt config
+	}
+	return cfg
+}
+
+func saveGlobalConfig(cfg epicorgConfig) error {
+	p := globalConfigPath()
+	if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(p, data, 0644)
 }
 
 // FileState holds the parsed state and merge base for a single file.
@@ -52,10 +88,80 @@ func NewStore(dir string) (*Store, error) {
 		return nil, err
 	}
 
+	cfg := loadGlobalConfig()
 	return &Store{
-		dir:    dir,
-		active: make(map[string]*FileState),
+		dir:        dir,
+		journalDir: cfg.JournalDir,
+		tagListFile: cfg.TagListFile,
+		active:     make(map[string]*FileState),
 	}, nil
+}
+
+// GetJournalDir returns the configured journal directory (empty = default journal/ subdir).
+func (s *Store) GetJournalDir() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.journalDir
+}
+
+// SetJournalDir changes the journal directory and persists it to the global config.
+// Pass an empty string to revert to the default (journal/ under the home folder).
+func (s *Store) SetJournalDir(dir string) error {
+	if dir != "" {
+		dir = filepath.Clean(dir)
+		info, err := os.Stat(dir)
+		if err != nil {
+			return fmt.Errorf("cannot access journal directory: %w", err)
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("%q is not a directory", dir)
+		}
+	}
+	s.mu.Lock()
+	s.journalDir = dir
+	s.mu.Unlock()
+
+	cfg := loadGlobalConfig()
+	cfg.JournalDir = dir
+	return saveGlobalConfig(cfg)
+}
+
+// GetTagListFile returns the configured tag list file path (empty = default: {workspaceDir}/TagList.org).
+func (s *Store) GetTagListFile() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.tagListFile
+}
+
+// SetTagListFile sets the full path to the active tag list .org file, persisting globally.
+// Pass an empty string to revert to {workspaceDir}/TagList.org.
+func (s *Store) SetTagListFile(path string) error {
+	if path != "" {
+		path = filepath.Clean(path)
+		info, err := os.Stat(path)
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("cannot access tag list file: %w", err)
+		}
+		if err == nil && info.IsDir() {
+			return fmt.Errorf("%q is a directory, not a file", path)
+		}
+	}
+	s.mu.Lock()
+	s.tagListFile = path
+	s.mu.Unlock()
+
+	cfg := loadGlobalConfig()
+	cfg.TagListFile = path
+	return saveGlobalConfig(cfg)
+}
+
+// resolveFilePath returns the absolute filesystem path for a logical file name.
+// Names starting with "journal/" are redirected to journalDir when configured.
+func (s *Store) resolveFilePath(name string) string {
+	if s.journalDir != "" && strings.HasPrefix(name, "journal/") {
+		return filepath.Join(s.journalDir, strings.TrimPrefix(name, "journal/"))
+	}
+	return filepath.Join(s.dir, name)
 }
 
 // Dir returns the directory path.
@@ -122,7 +228,7 @@ func (s *Store) LoadFile(name string) (*FileState, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	path := filepath.Join(s.dir, name)
+	path := s.resolveFilePath(name)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -169,7 +275,7 @@ func (s *Store) SaveFile(name, content string) (SaveResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	path := filepath.Join(s.dir, name)
+	path := s.resolveFilePath(name)
 	fs := s.active[name]
 
 	// Read what's currently on disk
@@ -215,7 +321,7 @@ func (s *Store) SaveFile(name, content string) (SaveResult, error) {
 // DiskHash returns the current SHA-256 hash of the file's on-disk content
 // without touching git or any in-memory parsed state — cheap enough to poll.
 func (s *Store) DiskHash(name string) (string, error) {
-	data, err := os.ReadFile(filepath.Join(s.dir, name))
+	data, err := os.ReadFile(s.resolveFilePath(name))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return contentHash(""), nil
@@ -397,14 +503,18 @@ func (s *Store) CommitCurrent(message string) error {
 	return git.CommitFile(s.dir, name, message)
 }
 
-// ListJournalFiles returns file info for all .org files in the journal/ subdirectory,
+// ListJournalFiles returns file info for all .org files in the journal directory,
 // sorted in reverse chronological order (newest first).
 func (s *Store) ListJournalFiles() ([]FileInfo, error) {
 	s.mu.RLock()
 	dir := s.dir
+	jDir := s.journalDir
 	s.mu.RUnlock()
 
-	journalDir := filepath.Join(dir, "journal")
+	journalDir := jDir
+	if journalDir == "" {
+		journalDir = filepath.Join(dir, "journal")
+	}
 	entries, err := os.ReadDir(journalDir)
 	if os.IsNotExist(err) {
 		return []FileInfo{}, nil
@@ -432,17 +542,24 @@ func (s *Store) ListJournalFiles() ([]FileInfo, error) {
 	return files, nil
 }
 
-// CreateJournalFile creates a daily journal file at journal/YYYY-MM-DD.org with
-// standard org-agenda format. Does nothing if the file already exists.
+// CreateJournalFile creates a daily journal file at the configured journal directory.
+// Does nothing if the file already exists.
 func (s *Store) CreateJournalFile(name string) error {
 	s.mu.RLock()
 	dir := s.dir
+	jDir := s.journalDir
 	s.mu.RUnlock()
 
-	if err := os.MkdirAll(filepath.Join(dir, "journal"), 0755); err != nil {
+	var targetDir string
+	if jDir != "" {
+		targetDir = jDir
+	} else {
+		targetDir = filepath.Join(dir, "journal")
+	}
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
 		return err
 	}
-	path := filepath.Join(dir, name)
+	path := filepath.Join(targetDir, filepath.Base(name))
 	if _, err := os.Stat(path); err == nil {
 		return nil // already exists
 	}
