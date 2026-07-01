@@ -80,15 +80,18 @@ function collectTodoItems(nodes, ancestors = []) {
 function collectDatedItems(nodes, ancestors = []) {
   const items = [];
   for (const n of nodes) {
-    const deadlineDate = tree.parseOrgDate(n.properties?.DEADLINE);
-    if (deadlineDate) {
-      items.push({ id: n.id, title: n.title, date: deadlineDate, time: "", kind: "deadline", status: n.status, tags: n.tags, ancestors });
-    }
-    const scheduledRaw = n.properties?.SCHEDULED;
+    const scheduledRaw = n.properties?.SCHEDULED || "";
+    const deadlineRaw  = n.properties?.DEADLINE  || "";
     const scheduledDate = tree.parseOrgDate(scheduledRaw);
+    const deadlineDate  = tree.parseOrgDate(deadlineRaw);
     if (scheduledDate) {
-      const time = tree.parseOrgScheduledTime(scheduledRaw);
-      items.push({ id: n.id, title: n.title, date: scheduledDate, time, kind: "scheduled", status: n.status, tags: n.tags, ancestors });
+      items.push({ id: n.id, title: n.title, date: scheduledDate,
+        time: tree.parseOrgScheduledTime(scheduledRaw), kind: "scheduled",
+        status: n.status, tags: n.tags, ancestors, scheduledRaw, deadlineRaw });
+    }
+    if (deadlineDate && deadlineDate !== scheduledDate) {
+      items.push({ id: n.id, title: n.title, date: deadlineDate, time: "", kind: "deadline",
+        status: n.status, tags: n.tags, ancestors, scheduledRaw, deadlineRaw });
     }
     if (n.children?.length > 0) {
       items.push(...collectDatedItems(n.children, [...ancestors, n.title]));
@@ -114,6 +117,15 @@ function isToday(dateStr) {
   const local = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   return dateStr === local;
 }
+
+function localDateStr() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+// Cycles through agenda/journal date filters: all → future → past → all
+const DATE_FILTERS = ["all", "future", "past"];
+const DATE_FILTER_LABELS = { all: "All dates", future: "Present & Future", past: "Present & Past" };
 
 function formatJournalDate(dateStr) {
   try {
@@ -1636,9 +1648,190 @@ function SearchResultsView({ searchResults, currentFile, onBack, onNavigate }) {
   `;
 }
 
-function AgendaView({ nodes, onSelect, searchQuery, selectedTags, onGoToDate, onNewAppointment }) {
+// Inline scheduling editor shown beneath an agenda item row.
+function AgendaScheduleEditor({ item, currentNode, onUpdateCurrent, onClose, onItemCleared }) {
+  const isExternal = !!item.file;
+
+  // For external items we manage local copies of the raw values and fetch the doc.
+  const [localSchedRaw, setLocalSchedRaw] = useState(item.scheduledRaw || "");
+  const [localDlRaw,    setLocalDlRaw]    = useState(item.deadlineRaw  || "");
+  const [extDoc,        setExtDoc]        = useState(null); // {nodes, preamble, hash}
+  const [saveLabel,     setSaveLabel]     = useState(""); // "", "Saving…", "Saved", "Error"
+  const saveTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (!isExternal) return;
+    api.get("/api/doc/" + encodeURIComponent(item.file)).then((data) => {
+      setExtDoc(data);
+      // Refresh from the file in case the item's raw values were stale.
+      function find(ns) {
+        for (const n of ns) {
+          if (n.title === item.title) return n;
+          if (n.children?.length > 0) { const f = find(n.children); if (f) return f; }
+        }
+        return null;
+      }
+      const found = find(data.nodes || []);
+      if (found) {
+        setLocalSchedRaw(found.properties?.SCHEDULED || "");
+        setLocalDlRaw(found.properties?.DEADLINE    || "");
+      }
+    }).catch(() => {});
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, []);
+
+  // Derive display values from whichever source is active.
+  const schedRaw = isExternal ? localSchedRaw : (currentNode?.properties?.SCHEDULED || "");
+  const dlRaw    = isExternal ? localDlRaw    : (currentNode?.properties?.DEADLINE  || "");
+  const schedDate     = tree.parseOrgDate(schedRaw);
+  const schedTime     = tree.parseOrgScheduledTime(schedRaw);
+  const schedRepeater = tree.parseOrgRepeater(schedRaw);
+  const dlDate        = tree.parseOrgDate(dlRaw);
+
+  function updateNodePropsInTree(ns, title, updater) {
+    return ns.map((n) => {
+      if (n.title === title) return { ...n, properties: updater(n.properties || {}) };
+      if (n.children?.length > 0) return { ...n, children: updateNodePropsInTree(n.children, title, updater) };
+      return n;
+    });
+  }
+
+  const save = useCallback((newSchedRaw, newDlRaw) => {
+    if (!isExternal) {
+      // Current-file: dispatch immediately via parent callback.
+      const props = { ...(currentNode?.properties || {}) };
+      if (newSchedRaw) props.SCHEDULED = newSchedRaw; else delete props.SCHEDULED;
+      if (newDlRaw)    props.DEADLINE  = newDlRaw;    else delete props.DEADLINE;
+      onUpdateCurrent(item.id, props);
+    } else {
+      // External file: update local state then debounce the PUT.
+      setLocalSchedRaw(newSchedRaw);
+      setLocalDlRaw(newDlRaw);
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(async () => {
+        if (!extDoc) return;
+        setSaveLabel("Saving…");
+        try {
+          const updNodes = updateNodePropsInTree(extDoc.nodes || [], item.title, (props) => {
+            const p = { ...props };
+            if (newSchedRaw) p.SCHEDULED = newSchedRaw; else delete p.SCHEDULED;
+            if (newDlRaw)    p.DEADLINE  = newDlRaw;    else delete p.DEADLINE;
+            return p;
+          });
+          const result = await api.put("/api/doc/" + encodeURIComponent(item.file), {
+            hash: extDoc.hash, preamble: extDoc.preamble || "", nodes: updNodes,
+          });
+          setExtDoc((d) => ({ ...d, hash: result.hash, nodes: updNodes }));
+          setSaveLabel("Saved");
+          setTimeout(() => setSaveLabel(""), 1500);
+        } catch {
+          setSaveLabel("Error saving");
+          setTimeout(() => setSaveLabel(""), 2500);
+        }
+      }, 600);
+    }
+  }, [isExternal, currentNode, extDoc, item, onUpdateCurrent]);
+
+  return html`
+    <div className="agenda-item-editor" onClick=${(e) => e.stopPropagation()}>
+      <div className="agenda-editor-row">
+        <span className="agenda-editor-label">Sched</span>
+        <input type="date" className="detail-date detail-scheduled-date"
+          value=${schedDate}
+          onClick=${(e) => { try { e.target.showPicker(); } catch {} }}
+          onChange=${(e) => {
+            const ns = e.target.value ? tree.formatOrgScheduled(e.target.value, schedTime, schedRepeater) : "";
+            save(ns, dlRaw);
+          }} />
+        <input type="time" step="900" className="detail-date detail-scheduled-time"
+          value=${schedTime} disabled=${!schedDate}
+          onClick=${(e) => { try { e.target.showPicker(); } catch {} }}
+          onChange=${(e) => {
+            save(schedDate ? tree.formatOrgScheduled(schedDate, e.target.value, schedRepeater) : "", dlRaw);
+          }} />
+        <button className="agenda-editor-clear" onClick=${() => save("", dlRaw)}
+                disabled=${!schedRaw}>×</button>
+      </div>
+      <div className="agenda-editor-row">
+        <span className="agenda-editor-label">Repeat</span>
+        <div className="detail-repeater-row">
+          ${REPEATER_OPTIONS.map(({label, value}) => html`
+            <button key=${value || "none"}
+                    className=${"detail-repeater-btn" + (schedRepeater === value ? " active" : "")}
+                    disabled=${!schedDate}
+                    onClick=${() => save(tree.formatOrgScheduled(schedDate, schedTime, value), dlRaw)}>
+              ${label}
+            </button>
+          `)}
+        </div>
+      </div>
+      <div className="agenda-editor-row">
+        <span className="agenda-editor-label">Deadline</span>
+        <input type="date" className="detail-date detail-scheduled-date"
+          value=${dlDate}
+          onClick=${(e) => { try { e.target.showPicker(); } catch {} }}
+          onChange=${(e) => {
+            save(schedRaw, e.target.value ? tree.formatOrgDate(e.target.value) : "");
+          }} />
+        <button className="agenda-editor-clear" onClick=${() => save(schedRaw, "")}
+                disabled=${!dlRaw}>×</button>
+      </div>
+      <div className="agenda-editor-footer">
+        ${saveLabel && html`<span className="agenda-editor-save-label">${saveLabel}</span>`}
+        <button className="agenda-editor-clear-all"
+                onClick=${() => {
+                  save("", "");
+                  if (isExternal) onItemCleared?.();
+                  onClose();
+                }}>Delete All Scheduling</button>
+        <button className="agenda-editor-done"
+                onClick=${() => {
+                  if (isExternal && !localSchedRaw && !localDlRaw) onItemCleared?.();
+                  onClose();
+                }}>Done</button>
+      </div>
+    </div>
+  `;
+}
+
+function AgendaView({ nodes, currentFile, onSelect, onEditNode, searchQuery, selectedTags, onGoToDate, onNewAppointment }) {
+  const [apiItems, setApiItems] = useState(null); // null=loading
+  const [sortDesc, setSortDesc] = useState(true); // true = newest/future first
+  const [dateFilter, setDateFilter] = useState("all"); // "all" | "future" | "past"
+  const [openEditKey, setOpenEditKey] = useState(null); // key of item whose editor is open
+  const [hiddenExternalKeys, setHiddenExternalKeys] = useState(() => new Set());
+
+  useEffect(() => {
+    api.get("/api/agenda")
+      .then((data) => setApiItems(data.items || []))
+      .catch(() => setApiItems([]));
+  }, []);
+
+  const cycleFilter = useCallback(() => {
+    setDateFilter((f) => DATE_FILTERS[(DATE_FILTERS.indexOf(f) + 1) % DATE_FILTERS.length]);
+  }, []);
+
   const isFiltering = !!searchQuery || (selectedTags && selectedTags.length > 0);
-  let items = collectDatedItems(nodes);
+  // Local items come from the current in-memory nodes.
+  const localItems = collectDatedItems(nodes);
+  // External items come from the server scan; exclude the current file to avoid duplicates.
+  const externalItems = (apiItems || [])
+    .filter((it) => it.file !== currentFile && !hiddenExternalKeys.has(it.file + "::" + it.nodeTitle))
+    .map((it) => ({
+      id: null,
+      title: it.nodeTitle,
+      date: it.date,
+      time: it.time || "",
+      kind: it.kind,
+      status: it.status,
+      tags: it.tags || [],
+      ancestors: it.ancestors || [],
+      file: it.file,
+      scheduledRaw: it.scheduledRaw || "",
+      deadlineRaw: it.deadlineRaw || "",
+    }));
+  let items = [...localItems, ...externalItems];
+
   if (searchQuery) items = items.filter((item) =>
     tree.matchesQuery(searchQuery, item.title) ||
     (item.ancestors || []).some((a) => tree.matchesQuery(searchQuery, a))
@@ -1646,16 +1839,22 @@ function AgendaView({ nodes, onSelect, searchQuery, selectedTags, onGoToDate, on
   if (selectedTags && selectedTags.length > 0) {
     items = items.filter((item) => (item.tags || []).some((t) => selectedTags.includes(t)));
   }
+
+  const today = localDateStr();
+  if (dateFilter === "future") items = items.filter((item) => item.date >= today);
+  if (dateFilter === "past")   items = items.filter((item) => item.date <= today);
+
   items.sort((a, b) => {
     const dc = a.date.localeCompare(b.date);
-    if (dc !== 0) return dc;
+    if (dc !== 0) return sortDesc ? -dc : dc;
+    // Within same date: always chronological (earlier time first)
     if (a.time && !b.time) return -1;
     if (!a.time && b.time) return 1;
     return (a.time || "").localeCompare(b.time || "");
   });
 
-  if (items.length === 0) {
-    return html`<div className="agenda-empty">${isFiltering ? "No matches" : "No items scheduled or with deadlines"}</div>`;
+  if (items.length === 0 && apiItems !== null) {
+    return html`<div className="agenda-empty">${isFiltering || dateFilter !== "all" ? "No matches" : "No items scheduled or with deadlines"}</div>`;
   }
 
   const groups = [];
@@ -1683,6 +1882,15 @@ function AgendaView({ nodes, onSelect, searchQuery, selectedTags, onGoToDate, on
         </button>
         <button className="journal-icon-btn journal-add-appt-btn" onClick=${onNewAppointment}
                 title="Add appointment to a journal date">+ Appointment</button>
+        <div className="view-toolbar-spacer" />
+        <button className="journal-icon-btn" onClick=${() => setSortDesc((d) => !d)}
+                title="Toggle sort order">
+          ${sortDesc ? "↓ Newest first" : "↑ Oldest first"}
+        </button>
+        <button className=${"journal-icon-btn" + (dateFilter !== "all" ? " view-ctrl-active" : "")}
+                onClick=${cycleFilter} title="Cycle date filter">
+          ${DATE_FILTER_LABELS[dateFilter]}
+        </button>
       </div>
       ${isFiltering && html`
         <div className="agenda-filter-badge">
@@ -1696,20 +1904,56 @@ function AgendaView({ nodes, onSelect, searchQuery, selectedTags, onGoToDate, on
             ${isToday(g.date) && html`<span className="agenda-badge">today</span>`}
             ${isOverdue(g.date) && html`<span className="agenda-badge overdue">overdue</span>`}
           </div>
-          ${g.items.map((item) => html`
-            <div className="agenda-item" key=${item.id + "-" + item.kind} onClick=${() => onSelect(item.id)}>
-              <div className="agenda-item-top">
-                ${item.time && html`<span className="agenda-item-time">${item.time}</span>`}
-                <span className="agenda-item-title"
-                      dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(item.title || "Untitled") }} />
-                <span className=${"agenda-item-kind " + item.kind}>${item.kind === "scheduled" ? "sched" : "deadline"}</span>
+          ${g.items.map((item, idx) => {
+            const editKey = (item.id || item.file + item.title) + "-" + item.kind + "-" + idx;
+            const isEditing = openEditKey === editKey;
+            const currentNode = item.id ? (() => {
+              function find(ns) {
+                for (const n of ns) {
+                  if (n.id === item.id) return n;
+                  if (n.children?.length > 0) { const f = find(n.children); if (f) return f; }
+                }
+                return null;
+              }
+              return find(nodes);
+            })() : null;
+            return html`
+              <div className=${"agenda-item-wrapper" + (isEditing ? " editing" : "")} key=${editKey}>
+                <div className="agenda-item" onClick=${() => !isEditing && onSelect(item)}>
+                  <div className="agenda-item-top">
+                    ${item.time && html`<span className="agenda-item-time">${item.time}</span>`}
+                    <span className="agenda-item-title"
+                          dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(item.title || "Untitled") }} />
+                    <button className=${"agenda-item-edit-btn" + (isEditing ? " active" : "")}
+                            title="Edit scheduling"
+                            onClick=${(e) => { e.stopPropagation(); setOpenEditKey(isEditing ? null : editKey); }}>\u270E</button>
+                    <span className=${"agenda-item-kind " + item.kind}>${item.kind === "scheduled" ? "sched" : "deadline"}</span>
+                  </div>
+                  ${(() => {
+                    const pathParts = [
+                      ...item.ancestors.map((a) => tree.renderOrgInline(a)),
+                      ...(item.file ? [`<span class="agenda-item-file">${item.file}</span>`] : []),
+                    ];
+                    return pathParts.length > 0 && html`
+                      <span className="agenda-item-path"
+                            dangerouslySetInnerHTML=${{ __html: pathParts.join(" \u203A ") }} />
+                    `;
+                  })()}
+                </div>
+                ${isEditing && html`
+                  <${AgendaScheduleEditor}
+                    item=${item}
+                    currentNode=${currentNode}
+                    onUpdateCurrent=${onEditNode}
+                    onClose=${() => setOpenEditKey(null)}
+                    onItemCleared=${() => {
+                      setHiddenExternalKeys((prev) => { const s = new Set(prev); s.add(item.file + "::" + item.title); return s; });
+                      setOpenEditKey(null);
+                    }} />
+                `}
               </div>
-              ${item.ancestors.length > 0 && html`
-                <span className="agenda-item-path"
-                      dangerouslySetInnerHTML=${{ __html: item.ancestors.map((a) => tree.renderOrgInline(a)).join(" \u203A ") }} />
-              `}
-            </div>
-          `)}
+            `;
+          })}
         </div>
       `)}
     </div>
@@ -1875,12 +2119,18 @@ function AppointmentDialog({ defaultDate, onConfirm, onCancel }) {
 
 function JournalView({ onOpenFile, onOpenFileWithDetail, onOpenFileAt, onGoToDate, onNewAppointment, searchQuery }) {
   const [journalFiles, setJournalFiles] = useState(null); // null=loading, []+ =loaded
+  const [sortDesc, setSortDesc] = useState(true); // true = newest first
+  const [dateFilter, setDateFilter] = useState("all"); // "all" | "future" | "past"
   const datePickerRef = useRef(null);
 
   useEffect(() => {
     api.get("/api/journal")
       .then((d) => setJournalFiles(d.files || []))
       .catch(() => setJournalFiles([]));
+  }, []);
+
+  const cycleFilter = useCallback(() => {
+    setDateFilter((f) => DATE_FILTERS[(DATE_FILTERS.indexOf(f) + 1) % DATE_FILTERS.length]);
   }, []);
 
   const openToday = useCallback(async () => {
@@ -1896,6 +2146,18 @@ function JournalView({ onOpenFile, onOpenFileWithDetail, onOpenFileAt, onGoToDat
     try { el.showPicker(); } catch { el.click(); }
   }, []);
 
+  // Build the display list: filter by date, then sort
+  const today = localDateStr();
+  let displayFiles = journalFiles || [];
+  if (dateFilter === "future") displayFiles = displayFiles.filter((f) => {
+    const m = f.name.match(/(\d{4}-\d{2}-\d{2})\.org$/); return m && m[1] >= today;
+  });
+  if (dateFilter === "past") displayFiles = displayFiles.filter((f) => {
+    const m = f.name.match(/(\d{4}-\d{2}-\d{2})\.org$/); return m && m[1] <= today;
+  });
+  // API returns newest-first; reverse for ascending
+  if (!sortDesc) displayFiles = [...displayFiles].reverse();
+
   return html`
     <div className="journal-view">
       <div className="journal-toolbar">
@@ -1907,17 +2169,26 @@ function JournalView({ onOpenFile, onOpenFileWithDetail, onOpenFileAt, onGoToDat
         </button>
         <button className="journal-icon-btn journal-add-appt-btn" onClick=${onNewAppointment}
                 title="Add appointment to a journal date">+ Appointment</button>
+        <div className="view-toolbar-spacer" />
+        <button className="journal-icon-btn" onClick=${() => setSortDesc((d) => !d)}
+                title="Toggle sort order">
+          ${sortDesc ? "↓ Newest first" : "↑ Oldest first"}
+        </button>
+        <button className=${"journal-icon-btn" + (dateFilter !== "all" ? " view-ctrl-active" : "")}
+                onClick=${cycleFilter} title="Cycle date filter">
+          ${DATE_FILTER_LABELS[dateFilter]}
+        </button>
       </div>
       ${journalFiles === null && html`
         <div className="agenda-empty">Loading journal files…</div>
       `}
-      ${journalFiles !== null && journalFiles.length === 0 && html`
-        <div className="agenda-empty">No journal entries yet — click "Today's Journal" to create one.</div>
+      ${journalFiles !== null && displayFiles.length === 0 && html`
+        <div className="agenda-empty">${journalFiles.length === 0 ? 'No journal entries yet — click "Today\'s Journal" to create one.' : "No entries match the current filter."}</div>
       `}
-      ${journalFiles !== null && journalFiles.length > 0 && searchQuery && html`
+      ${journalFiles !== null && displayFiles.length > 0 && searchQuery && html`
         <div className="agenda-filter-badge">Filtering: ${searchQuery}</div>
       `}
-      ${journalFiles !== null && journalFiles.map((f) => html`
+      ${journalFiles !== null && displayFiles.map((f) => html`
         <${JournalDayCard}
           key=${f.name}
           filename=${f.name}
@@ -2436,7 +2707,8 @@ function App() {
   const [view, setView] = useState("outline");
   const [tagSearch, setTagSearch] = useState(null); // { tag, results } | null
   const pendingTagNavRef = useRef(null); // { file, title } to navigate to after load
-  const pendingJumpIdRef = useRef(null);  // node id to jump+flash to after file loads
+  const pendingJumpIdRef = useRef(null);    // node id to jump+flash to after file loads
+  const pendingJumpTitleRef = useRef(null); // node title to jump+flash to after file loads (for external agenda items)
   const [homeDir, setHomeDir] = useState(null);
   const [journalDir, setJournalDir] = useState(null); // null = not yet loaded; "" = default
   const [tagListFile, setTagListFile] = useState(null); // null = not yet loaded; "" = default
@@ -2705,6 +2977,14 @@ function App() {
       else localStorage.removeItem("epicorg.topBarColor");
     } catch {}
   }, []);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (topBarColor && TOPBAR_COLORS[topBarColor]) {
+      root.style.setProperty("--accent", TOPBAR_COLORS[topBarColor]);
+    } else {
+      root.style.removeProperty("--accent");
+    }
+  }, [topBarColor]);
   const [tagPanelVisible, setTagPanelVisible] = useState(() => {
     try { return localStorage.getItem("epicorg.tagPanelVisible") === "1"; } catch { return false; }
   });
@@ -3088,6 +3368,22 @@ function App() {
     const id = pendingJumpIdRef.current;
     pendingJumpIdRef.current = null;
     jumpToNode(id);
+  }, [nodes, jumpToNode]);
+
+  // After navigating to a file from an external agenda item, jump to the node by title.
+  useEffect(() => {
+    if (!nodes || !pendingJumpTitleRef.current) return;
+    const title = pendingJumpTitleRef.current;
+    pendingJumpTitleRef.current = null;
+    function findByTitle(ns) {
+      for (const n of ns) {
+        if (n.title === title) return n;
+        if (n.children?.length > 0) { const f = findByTitle(n.children); if (f) return f; }
+      }
+      return null;
+    }
+    const found = findByTitle(nodes);
+    if (found) jumpToNode(found.id);
   }, [nodes, jumpToNode]);
 
   const searchTag = useCallback(async (tag) => {
@@ -3617,10 +3913,19 @@ function App() {
     return () => document.removeEventListener("click", handler, true);
   }, []);
 
-  const handleAgendaSelect = useCallback((itemId) => {
-    setView("outline");
-    jumpToNode(itemId);
-  }, [jumpToNode]);
+  const handleAgendaSelect = useCallback((item) => {
+    // TodoView passes a plain ID string; AgendaView passes a full item object.
+    if (typeof item === "string") { setView("outline"); jumpToNode(item); return; }
+    if (item.file && item.file !== currentFile) {
+      navDispatch({ type: "push", entry: { view: "agenda" } });
+      pendingJumpTitleRef.current = item.title;
+      loadFile(item.file);
+      setView("outline");
+    } else {
+      setView("outline");
+      jumpToNode(item.id);
+    }
+  }, [jumpToNode, currentFile, loadFile, navDispatch]);
 
   // Dispatch: all operations are local state mutations
   const dispatch = useCallback((nodeId, action, value) => {
@@ -3756,6 +4061,12 @@ function App() {
     if (action === "move-up") { setNodes((p) => tree.moveNodeUp(p, nodeId)); focusNode(nodeId); markDirty(); return; }
     if (action === "move-down") { setNodes((p) => tree.moveNodeDown(p, nodeId)); focusNode(nodeId); markDirty(); return; }
   }, [focusNode, markDirty, maybeSnapshotForUndo]);
+
+  // Called by AgendaScheduleEditor for current-file nodes only.
+  const handleAgendaEditNode = useCallback((nodeId, newProps) => {
+    dispatch(nodeId, "update-properties", newProps);
+    markDirty();
+  }, [dispatch, markDirty]);
 
   const navigateToBookmark = useCallback((bm) => {
     setNodes((prev) => tree.uncollapseToNode(prev, bm.id));
@@ -4171,7 +4482,8 @@ function App() {
         ${view === "agenda" && html`
           <div className="outline-pane">
             <div className=${"outline-content" + (readingWidth ? " reading-width" : "")}>
-              <${AgendaView} nodes=${nodes} onSelect=${handleAgendaSelect} searchQuery=${searchQuery} selectedTags=${selectedTags}
+              <${AgendaView} nodes=${nodes} currentFile=${currentFile} onSelect=${handleAgendaSelect}
+                onEditNode=${handleAgendaEditNode} searchQuery=${searchQuery} selectedTags=${selectedTags}
                 onGoToDate=${goToJournalDate} onNewAppointment=${openApptDialog} />
             </div>
           </div>

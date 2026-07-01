@@ -36,6 +36,7 @@
   --surface: #fafafa;
   --code-bg: #eee;
   --toggle-bg: #f0f0f0;
+  --accent: #3d72a8;
   --text: #222;
   --text-dim: #aaa;
   --text-dim-strong: #666;
@@ -99,7 +100,16 @@ html, body {
 }
 
 /* Themed scrollbars — otherwise scrollable panes use the browser's default
-   (light) scrollbar regardless of theme, which clashes in dark mode. */
+   (light) scrollbar regardless of theme, which clashes in dark mode.
+   color-scheme: dark on the root ensures Chromium/GTK pick dark OS scrollbars;
+   scrollbar-color is the CSS standard override on top of that. */
+:root {
+  color-scheme: light;
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
 * {
   scrollbar-color: var(--bullet) var(--surface);
   scrollbar-width: thin;
@@ -3101,9 +3111,9 @@ header.header-tinted {
   cursor: default;
 }
 .detail-repeater-btn.active {
-  background: var(--bullet-active);
+  background: var(--accent);
   color: #fff;
-  border-color: var(--bullet-active);
+  border-color: var(--accent);
 }
 
 /* Tag search results view */
@@ -3340,6 +3350,106 @@ header.header-tinted {
   font-size: 11px;
   color: var(--text-dim);
 }
+.agenda-item-file {
+  font-style: italic;
+  opacity: 0.75;
+}
+
+/* Edit icon button on agenda item rows */
+.agenda-item-edit-btn {
+  font-size: 13px;
+  line-height: 1;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 1px 5px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s;
+}
+.agenda-item-wrapper:hover .agenda-item-edit-btn,
+.agenda-item-edit-btn.active {
+  opacity: 1;
+}
+.agenda-item-edit-btn:hover,
+.agenda-item-edit-btn.active {
+  background: var(--focused-bg);
+  border-color: var(--border);
+  color: var(--text);
+}
+.agenda-item-wrapper.editing .agenda-item {
+  cursor: default;
+}
+
+/* Inline scheduling editor panel */
+.agenda-item-editor {
+  margin: 0 4px 6px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.agenda-editor-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.agenda-editor-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  width: 54px;
+  flex-shrink: 0;
+}
+
+.agenda-editor-clear {
+  font-size: 12px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 2px 6px;
+  flex-shrink: 0;
+}
+.agenda-editor-clear:hover:not(:disabled) { color: var(--danger); border-color: var(--danger); }
+.agenda-editor-clear:disabled { opacity: 0.35; cursor: default; }
+
+.agenda-editor-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.agenda-editor-save-label {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.agenda-editor-done,
+.agenda-editor-clear-all {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+.agenda-editor-done:hover,
+.agenda-editor-clear-all:hover { background: var(--focused-bg); }
+.agenda-editor-clear-all { color: var(--text-dim); margin-right: auto; }
 
 /* Responsive header — Header measures whether the toolbar/search/etc.
    actually fit (see the ResizeObserver in the Header component) and
@@ -3649,7 +3759,7 @@ a.org-file-link {
 .tag-panel-item:hover { background: var(--focused-bg); }
 
 .tag-panel-item.active {
-  background: var(--accent, #2d6a4f);
+  background: var(--accent);
   color: #fff;
 }
 
@@ -4047,13 +4157,13 @@ a.org-file-link {
   outline: none;
 }
 .text-search-input:focus {
-  border-color: var(--accent, #4a9eff);
+  border-color: var(--accent);
 }
 
 .text-search-go {
   flex-shrink: 0;
   padding: 7px 16px;
-  background: var(--accent, #4a9eff);
+  background: var(--accent);
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -4153,8 +4263,20 @@ a.org-file-link {
 .journal-toolbar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.view-toolbar-spacer {
+  flex: 1;
+  min-width: 8px;
+}
+
+.view-ctrl-active {
+  border-color: var(--bullet-active);
+  color: var(--bullet-active);
+  background: color-mix(in srgb, var(--bullet-active) 10%, var(--bg));
 }
 
 .journal-today-btn {

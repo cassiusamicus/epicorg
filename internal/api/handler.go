@@ -551,6 +551,18 @@ func (h *handlers) searchTag(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{"results": results})
 }
 
+func (h *handlers) getAgenda(w http.ResponseWriter, r *http.Request) {
+	items, err := h.store.ScanAgenda()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if items == nil {
+		items = []orgfile.AgendaItem{}
+	}
+	writeJSON(w, map[string]interface{}{"items": items})
+}
+
 func writeJSON(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(v)

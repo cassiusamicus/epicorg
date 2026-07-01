@@ -193,6 +193,15 @@ func Register(mux *http.ServeMux, store *orgfile.Store, onSave func(), defaultFi
 		}
 	})
 
+	// Workspace-wide agenda scan — returns all nodes with SCHEDULED or DEADLINE across all files.
+	mux.HandleFunc("/api/agenda", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		h.getAgenda(w, r)
+	})
+
 	// Daily journal files — stored in journal/ subdirectory in org-agenda format.
 	mux.HandleFunc("/api/journal", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
