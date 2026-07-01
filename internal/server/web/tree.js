@@ -210,11 +210,20 @@ export function formatOrgDate(isoDate) {
   return `<${isoDate} ${DAYS[d.getDay()]}>`;
 }
 
-export function formatOrgScheduled(isoDate, time) {
+export function formatOrgScheduled(isoDate, time, repeater) {
   if (!isoDate) return "";
   const d = new Date(isoDate + "T00:00:00");
   const day = DAYS[d.getDay()];
-  return time ? `<${isoDate} ${day} ${time}>` : `<${isoDate} ${day}>`;
+  let s = `<${isoDate} ${day}`;
+  if (time) s += ` ${time}`;
+  if (repeater) s += ` ${repeater}`;
+  return s + ">";
+}
+
+export function parseOrgRepeater(orgDate) {
+  if (!orgDate) return "";
+  const m = orgDate.match(/([.+]?\+\d+[dwmy])/);
+  return m ? m[1] : "";
 }
 
 export function parseOrgDate(orgDate) {

@@ -110,7 +110,9 @@ function isOverdue(dateStr) {
 }
 
 function isToday(dateStr) {
-  return dateStr === new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const local = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  return dateStr === local;
 }
 
 function formatJournalDate(dateStr) {
@@ -1108,6 +1110,15 @@ const DETAIL_MAX_WIDTH_RATIO = 0.70;
 // handles reopening it, so no need to reserve a sliver for a gripper too.
 const DETAIL_CLOSED_WIDTH = 0;
 
+const REPEATER_OPTIONS = [
+  { label: "None",    value: "" },
+  { label: "Daily",   value: "+1d" },
+  { label: "Weekly",  value: "+1w" },
+  { label: "Bi-wk",  value: "+2w" },
+  { label: "Monthly", value: "+1m" },
+  { label: "Yearly",  value: "+1y" },
+];
+
 const DetailPane = forwardRef(function DetailPane({ node, isPreamble, dispatch, inputRefs, width, visible, onWidthChange, onOpen, onClose, titleFormatMode, globalTags, tagPanelVisible, onToggleTagPanel, textMode, selectedTags }, ref) {
   // Only preamble's content still lives here — it has no bulleted row of
   // its own to display notes inline under. Every regular node's body now
@@ -1248,6 +1259,11 @@ const DetailPane = forwardRef(function DetailPane({ node, isPreamble, dispatch, 
         />
       `;
 
+  const scheduledRaw = node?.properties?.SCHEDULED || "";
+  const schedDate = tree.parseOrgDate(scheduledRaw);
+  const schedTime = tree.parseOrgScheduledTime(scheduledRaw);
+  const schedRepeater = tree.parseOrgRepeater(scheduledRaw);
+
   const inner = html`
     <div className="detail-header">
       <span className="detail-title">${header}</span>
@@ -1294,46 +1310,81 @@ const DetailPane = forwardRef(function DetailPane({ node, isPreamble, dispatch, 
         </div>
       </div>
       <div className="detail-section">
-        <label className="detail-label">Deadline</label>
-        <input type="date" className="detail-date"
-          value=${node ? tree.parseOrgDate(node.properties?.DEADLINE) : ""}
-          disabled=${!node}
-          onClick=${(e) => { try { e.target.showPicker(); } catch {} }}
-          onChange=${(e) => {
-            if (!node) return;
-            const updated = { ...(node.properties || {}) };
-            if (e.target.value) updated.DEADLINE = tree.formatOrgDate(e.target.value);
-            else delete updated.DEADLINE;
-            dispatch(node.id, "update-properties", updated);
-          }} />
-      </div>
-      <div className="detail-section">
-        <label className="detail-label">Scheduled</label>
-        <div className="detail-scheduled-row">
-          <input type="date" className="detail-date detail-scheduled-date"
-            value=${node ? tree.parseOrgDate(node.properties?.SCHEDULED) : ""}
-            disabled=${!node}
-            onClick=${(e) => { try { e.target.showPicker(); } catch {} }}
-            onChange=${(e) => {
-              if (!node) return;
-              const updated = { ...(node.properties || {}) };
-              const time = tree.parseOrgScheduledTime(node.properties?.SCHEDULED || "");
-              if (e.target.value) updated.SCHEDULED = tree.formatOrgScheduled(e.target.value, time);
-              else delete updated.SCHEDULED;
-              dispatch(node.id, "update-properties", updated);
-            }} />
-          <input type="time" className="detail-date detail-scheduled-time"
-            value=${node ? tree.parseOrgScheduledTime(node.properties?.SCHEDULED || "") : ""}
-            disabled=${!node || !tree.parseOrgDate(node.properties?.SCHEDULED)}
-            onClick=${(e) => { try { e.target.showPicker(); } catch {} }}
-            onChange=${(e) => {
-              if (!node) return;
-              const date = tree.parseOrgDate(node.properties?.SCHEDULED || "");
-              if (!date) return;
-              const updated = { ...(node.properties || {}) };
-              updated.SCHEDULED = tree.formatOrgScheduled(date, e.target.value);
-              dispatch(node.id, "update-properties", updated);
-            }} />
+        <div className="detail-section-hdr">
+          <label className="detail-label">Scheduling</label>
+          <button className="detail-clear-sched-btn"
+                  disabled=${!node || (!node.properties?.DEADLINE && !node.properties?.SCHEDULED)}
+                  onClick=${() => {
+                    const updated = { ...(node.properties || {}) };
+                    delete updated.DEADLINE;
+                    delete updated.SCHEDULED;
+                    dispatch(node.id, "update-properties", updated);
+                  }}>× Clear</button>
+        </div>
+        <div className="detail-scheduling-row">
+          <span className="detail-sublabel">Scheduled</span>
+          <div className="detail-scheduled-row">
+            <input type="date" className="detail-date detail-scheduled-date"
+              value=${schedDate}
+              disabled=${!node}
+              onClick=${(e) => { try { e.target.showPicker(); } catch {} }}
+              onChange=${(e) => {
+                if (!node) return;
+                const updated = { ...(node.properties || {}) };
+                if (e.target.value) updated.SCHEDULED = tree.formatOrgScheduled(e.target.value, schedTime, schedRepeater);
+                else delete updated.SCHEDULED;
+                dispatch(node.id, "update-properties", updated);
+              }} />
+            <input type="time" className="detail-date detail-scheduled-time" step="900"
+              value=${schedTime}
+              disabled=${!node || !schedDate}
+              onClick=${(e) => { try { e.target.showPicker(); } catch {} }}
+              onChange=${(e) => {
+                if (!node) return;
+                if (!schedDate) return;
+                const updated = { ...(node.properties || {}) };
+                updated.SCHEDULED = tree.formatOrgScheduled(schedDate, e.target.value, schedRepeater);
+                dispatch(node.id, "update-properties", updated);
+              }} />
+          </div>
+        </div>
+        <div className="detail-scheduling-row">
+          <span className="detail-sublabel">Deadline</span>
+          <div className="detail-scheduled-row">
+            <input type="date" className="detail-date detail-scheduled-date"
+              value=${node ? tree.parseOrgDate(node.properties?.DEADLINE) : ""}
+              disabled=${!node}
+              onClick=${(e) => { try { e.target.showPicker(); } catch {} }}
+              onChange=${(e) => {
+                if (!node) return;
+                const updated = { ...(node.properties || {}) };
+                if (e.target.value) updated.DEADLINE = tree.formatOrgDate(e.target.value);
+                else delete updated.DEADLINE;
+                dispatch(node.id, "update-properties", updated);
+              }} />
+            <button className="detail-clear-sched-btn"
+                    disabled=${!node || !node.properties?.DEADLINE}
+                    onClick=${() => {
+                      const updated = { ...(node.properties || {}) };
+                      delete updated.DEADLINE;
+                      dispatch(node.id, "update-properties", updated);
+                    }}>× Clear</button>
+          </div>
+        </div>
+        <div className="detail-scheduling-row">
+          <span className="detail-sublabel">Repeat</span>
+          <div className="detail-repeater-row">
+          ${REPEATER_OPTIONS.map(({label, value}) => html`
+            <button key=${value || "none"}
+                    className=${"detail-repeater-btn" + (schedRepeater === value ? " active" : "")}
+                    disabled=${!node || !schedDate}
+                    onClick=${() => {
+                      const updated = { ...(node.properties || {}) };
+                      updated.SCHEDULED = tree.formatOrgScheduled(schedDate, schedTime, value);
+                      dispatch(node.id, "update-properties", updated);
+                    }}>${label}</button>
+          `)}
+          </div>
         </div>
       </div>
       <div className="detail-section">
@@ -1665,7 +1716,7 @@ function AgendaView({ nodes, onSelect, searchQuery, selectedTags, onGoToDate, on
   `;
 }
 
-function JournalDayCard({ filename, onOpen, onOpenDetail, searchQuery }) {
+function JournalDayCard({ filename, onOpen, onOpenDetail, onOpenAt, searchQuery }) {
   const [content, setContent] = useState(null); // null=not loaded, false=error, {nodes,preamble}=ok
   const hasStarted = useRef(false);
   const cardRef = useRef(null);
@@ -1722,7 +1773,8 @@ function JournalDayCard({ filename, onOpen, onOpenDetail, searchQuery }) {
         `}
         ${content && displayNodes.length > 0 && html`
           ${displayNodes.slice(0, 6).map((node, i) => html`
-            <div key=${i} className="journal-node-preview">
+            <div key=${i} className="journal-node-preview"
+                 onClick=${(e) => { e.stopPropagation(); onOpenAt(node.id); }}>
               <span className="journal-node-bullet">•</span>
               <span dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(node.title || "") }} />
               ${node.children && node.children.length > 0 && html`
@@ -1800,7 +1852,7 @@ function AppointmentDialog({ defaultDate, onConfirm, onCancel }) {
         <div className="appt-field">
           <label className="appt-label">Time</label>
           <div className="appt-input-row">
-            <input ref=${timeInputRef} type="time" className="appt-input appt-datetime"
+            <input ref=${timeInputRef} type="time" className="appt-input appt-datetime" step="900"
                    value=${time} onChange=${(e) => setTime(e.target.value)} />
             <button className="appt-picker-btn" onClick=${openTimePicker} title="Open time picker">
               <${IconClock} />
@@ -1821,7 +1873,7 @@ function AppointmentDialog({ defaultDate, onConfirm, onCancel }) {
   `;
 }
 
-function JournalView({ onOpenFile, onOpenFileWithDetail, onGoToDate, onNewAppointment, searchQuery }) {
+function JournalView({ onOpenFile, onOpenFileWithDetail, onOpenFileAt, onGoToDate, onNewAppointment, searchQuery }) {
   const [journalFiles, setJournalFiles] = useState(null); // null=loading, []+ =loaded
   const datePickerRef = useRef(null);
 
@@ -1871,6 +1923,7 @@ function JournalView({ onOpenFile, onOpenFileWithDetail, onGoToDate, onNewAppoin
           filename=${f.name}
           onOpen=${() => onOpenFile(f.name)}
           onOpenDetail=${() => onOpenFileWithDetail(f.name)}
+          onOpenAt=${(nodeId) => onOpenFileAt(f.name, nodeId)}
           searchQuery=${searchQuery}
         />
       `)}
@@ -2383,6 +2436,7 @@ function App() {
   const [view, setView] = useState("outline");
   const [tagSearch, setTagSearch] = useState(null); // { tag, results } | null
   const pendingTagNavRef = useRef(null); // { file, title } to navigate to after load
+  const pendingJumpIdRef = useRef(null);  // node id to jump+flash to after file loads
   const [homeDir, setHomeDir] = useState(null);
   const [journalDir, setJournalDir] = useState(null); // null = not yet loaded; "" = default
   const [tagListFile, setTagListFile] = useState(null); // null = not yet loaded; "" = default
@@ -2985,6 +3039,23 @@ function App() {
     pendingFocusRef.current = id;
   }, []);
 
+  const jumpToNode = useCallback((id) => {
+    setNodes((prev) => tree.uncollapseToNode(prev, id));
+    focusNode(id);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const row = document.querySelector(`.node-row[data-node-id="${id}"]`);
+        if (row) {
+          row.scrollIntoView({ block: "center", behavior: "smooth" });
+          row.classList.remove("jump-flash");
+          void row.offsetWidth;
+          row.classList.add("jump-flash");
+          setTimeout(() => row.classList.remove("jump-flash"), 2000);
+        }
+      });
+    });
+  }, [focusNode]);
+
   // After a file loads, check if we're waiting to navigate to a global bookmark.
   useEffect(() => {
     if (!nodes || !pendingGlobalBookmarkRef.current) return;
@@ -3010,6 +3081,14 @@ function App() {
       navDispatch({ type: "patch", title: found.title });
     }
   }, [nodes, focusNode, navDispatch]);
+
+  // After a file loads via journal node click, jump to the specific node.
+  useEffect(() => {
+    if (!nodes || !pendingJumpIdRef.current) return;
+    const id = pendingJumpIdRef.current;
+    pendingJumpIdRef.current = null;
+    jumpToNode(id);
+  }, [nodes, jumpToNode]);
 
   const searchTag = useCallback(async (tag) => {
     setTagSearch({ tag, results: null });
@@ -3252,7 +3331,9 @@ function App() {
     const entry = navState.history[navState.index - 1];
     histNavRef.current = true;
     navDispatch({ type: "back" });
-    if (entry.file !== currentFileRef.current) {
+    if (entry.view) {
+      setView(entry.view);
+    } else if (entry.file !== currentFileRef.current) {
       if (entry.title) pendingTagNavRef.current = { title: entry.title };
       await loadFile(entry.file);
     } else if (entry.title) {
@@ -3267,7 +3348,9 @@ function App() {
     const entry = navState.history[navState.index + 1];
     histNavRef.current = true;
     navDispatch({ type: "forward" });
-    if (entry.file !== currentFileRef.current) {
+    if (entry.view) {
+      setView(entry.view);
+    } else if (entry.file !== currentFileRef.current) {
       if (entry.title) pendingTagNavRef.current = { title: entry.title };
       await loadFile(entry.file);
     } else if (entry.title) {
@@ -3536,16 +3619,8 @@ function App() {
 
   const handleAgendaSelect = useCallback((itemId) => {
     setView("outline");
-    setNodes((prev) => tree.uncollapseToNode(prev, itemId));
-    requestAnimationFrame(() => {
-      focusNode(itemId);
-      // Scroll selected item to top of pane after focus so it isn't buried at the bottom edge.
-      requestAnimationFrame(() => {
-        const row = document.querySelector(`.node-row[data-node-id="${itemId}"]`);
-        row?.scrollIntoView({ block: "start", behavior: "smooth" });
-      });
-    });
-  }, [focusNode]);
+    jumpToNode(itemId);
+  }, [jumpToNode]);
 
   // Dispatch: all operations are local state mutations
   const dispatch = useCallback((nodeId, action, value) => {
@@ -4112,8 +4187,19 @@ function App() {
           <div className="outline-pane">
             <div className=${"outline-content" + (readingWidth ? " reading-width" : "")}>
               <${JournalView}
-                onOpenFile=${(filename) => { loadFile(filename); setView("outline"); }}
-                onOpenFileWithDetail=${(filename) => { loadFile(filename); setView("outline"); setDetailVisiblePersisted(true); }}
+                onOpenFile=${(filename) => { navDispatch({ type: "push", entry: { view: "journal" } }); loadFile(filename); setView("outline"); }}
+                onOpenFileWithDetail=${(filename) => { navDispatch({ type: "push", entry: { view: "journal" } }); loadFile(filename); setView("outline"); setDetailVisiblePersisted(true); }}
+                onOpenFileAt=${(filename, nodeId) => {
+                  if (currentFile === filename) {
+                    setView("outline");
+                    jumpToNode(nodeId);
+                  } else {
+                    navDispatch({ type: "push", entry: { view: "journal" } });
+                    pendingJumpIdRef.current = nodeId;
+                    loadFile(filename);
+                    setView("outline");
+                  }
+                }}
                 onGoToDate=${goToJournalDate}
                 onNewAppointment=${openApptDialog}
                 searchQuery=${searchQuery}
@@ -4333,11 +4419,11 @@ function IconHome() {
 function IconJournal() {
   return html`
     <svg ...${ICON_PROPS}>
-      <rect x="3" y="4" width="18" height="18" rx="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-      <line x1="7" y1="15" x2="13" y2="15" />
+      <rect x="3" y="2" width="18" height="20" rx="2" />
+      <line x1="8" y1="2" x2="8" y2="22" />
+      <line x1="11" y1="7" x2="18" y2="7" />
+      <line x1="11" y1="11" x2="18" y2="11" />
+      <line x1="11" y1="15" x2="16" y2="15" />
     </svg>
   `;
 }
@@ -5196,7 +5282,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
     const header = headerRef.current;
     const probe = probeRef.current;
     if (!header || !probe || typeof ResizeObserver === "undefined") return;
-    const check = () => setCollapsed(probe.scrollWidth > header.clientWidth);
+    const check = () => setCollapsed(probe.scrollWidth + 80 > header.clientWidth);
     check();
     const ro = new ResizeObserver(check);
     ro.observe(header);
@@ -5222,6 +5308,23 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
           </button>
         `}
       </div>
+      ${currentFile && !showFull && html`
+        <div className="header-collapsed-nav">
+          ${canGoBack && html`
+            <button className="view-tab" onClick=${onGoBack} title="Go back (Alt+←)"><${IconNavBack} /></button>
+          `}
+          <div className="view-toggle">
+            <button className=${"view-tab" + (view === "outline" ? " active" : "")}
+                    onClick=${() => setView("outline")} title="Outline view"><${IconOutline} /></button>
+            <button className=${"view-tab" + (view === "agenda" ? " active" : "")}
+                    onClick=${() => setView("agenda")} title="Agenda view"><${IconAgenda} /></button>
+            <button className=${"view-tab" + (view === "todo" ? " active" : "")}
+                    onClick=${() => setView("todo")} title="TODO list"><${IconTodo} /></button>
+            <button className=${"view-tab" + (view === "journal" ? " active" : "")}
+                    onClick=${() => setView("journal")} title="Daily journal"><${IconJournal} /></button>
+          </div>
+        </div>
+      `}
       ${currentFile && showFull && html`
         <div className="toolbar-and-search">
         <div className="toolbar">
