@@ -331,13 +331,13 @@ func (s *Store) DiskHash(name string) (string, error) {
 	return contentHash(string(data)), nil
 }
 
-// CreateFile creates a new empty org file.
-func (s *Store) CreateFile(name string) error {
+// CreateFile creates a new org file with optional initial content.
+func (s *Store) CreateFile(name, content string) error {
 	path := filepath.Join(s.dir, name)
 	if _, err := os.Stat(path); err == nil {
 		return os.ErrExist
 	}
-	return os.WriteFile(path, []byte(""), 0644)
+	return os.WriteFile(path, []byte(content), 0644)
 }
 
 // DeleteFile removes name from disk, along with its collapsed-state

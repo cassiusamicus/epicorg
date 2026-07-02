@@ -171,6 +171,140 @@ export function moveNodeDown(nodes, id) {
   return mapNode(nodes, info.parent.id, (n) => ({ ...n, children: list }));
 }
 
+// "Heading only" variants — the node moves but its children are left behind as
+// siblings, promoted to the same level as the node was.
+
+export function indentNodeOnly(nodes, id) {
+  const info = findParentInfo(nodes, id);
+  if (!info || info.index === 0) return nodes;
+  const node = info.parentList[info.index];
+  const prevSibling = info.parentList[info.index - 1];
+  const children = node.children || [];
+  const childlessNode = { ...node, children: [] };
+  // Promote children into sibling list at node's former position
+  const newSiblings = [
+    ...info.parentList.slice(0, info.index),
+    ...children,
+    ...info.parentList.slice(info.index + 1),
+  ];
+  let result = info.parent
+    ? mapNode(nodes, info.parent.id, (n) => ({ ...n, children: newSiblings }))
+    : newSiblings;
+  // Append childless node as last child of previous sibling
+  result = mapNode(result, prevSibling.id, (n) => ({
+    ...n, collapsed: false, children: [...(n.children || []), childlessNode],
+  }));
+  return result;
+}
+
+export function outdentNodeOnly(nodes, id) {
+  const info = findParentInfo(nodes, id);
+  if (!info || !info.parent) return nodes;
+  const node = info.parentList[info.index];
+  const children = node.children || [];
+  const childlessNode = { ...node, children: [] };
+  // Promote children into parent's child list at node's former position
+  const newParentChildren = [
+    ...info.parentList.slice(0, info.index),
+    ...children,
+    ...info.parentList.slice(info.index + 1),
+  ];
+  let result = mapNode(nodes, info.parent.id, (n) => ({ ...n, children: newParentChildren }));
+  // Place childless node after its former parent
+  result = insertAfter(result, info.parent.id, childlessNode);
+  return result;
+}
+
+export function moveNodeUpOnly(nodes, id) {
+  const info = findParentInfo(nodes, id);
+  if (!info || info.index === 0) return nodes;
+  const node = info.parentList[info.index];
+  const children = node.children || [];
+  const childlessNode = { ...node, children: [] };
+  const idx = info.index;
+  // Promote children into sibling list, then insert childless node before prev sibling
+  const promoted = [
+    ...info.parentList.slice(0, idx),
+    ...children,
+    ...info.parentList.slice(idx + 1),
+  ];
+  const result = [
+    ...promoted.slice(0, idx - 1),
+    childlessNode,
+    ...promoted.slice(idx - 1),
+  ];
+  if (!info.parent) return result;
+  return mapNode(nodes, info.parent.id, (n) => ({ ...n, children: result }));
+}
+
+export function moveNodeDownOnly(nodes, id) {
+  const info = findParentInfo(nodes, id);
+  if (!info || info.index >= info.parentList.length - 1) return nodes;
+  const node = info.parentList[info.index];
+  const children = node.children || [];
+  const childlessNode = { ...node, children: [] };
+  const idx = info.index;
+  const n = children.length;
+  // Promote children into sibling list, then insert childless node after next sibling
+  const promoted = [
+    ...info.parentList.slice(0, idx),
+    ...children,
+    ...info.parentList.slice(idx + 1),
+  ];
+  const insertAt = idx + n + 1;
+  const result = [
+    ...promoted.slice(0, insertAt),
+    childlessNode,
+    ...promoted.slice(insertAt),
+  ];
+  if (!info.parent) return result;
+  return mapNode(nodes, info.parent.id, (np) => ({ ...np, children: result }));
+}
+
+// Split a node's title at pos: left part stays in the node (with children),
+// right part becomes a new sibling immediately after.
+export function splitNode(nodes, id, pos) {
+  const nn = newNode();
+  function walk(list) {
+    const result = [];
+    for (const n of list) {
+      if (n.id === id) {
+        nn.title = (n.title || "").slice(pos);
+        result.push({ ...n, title: (n.title || "").slice(0, pos) });
+        result.push(nn);
+      } else {
+        result.push(n.children?.length > 0 ? { ...n, children: walk(n.children) } : n);
+      }
+    }
+    return result;
+  }
+  return { nodes: walk(nodes), newId: nn.id };
+}
+
+// Join a node with its next sibling: titles joined with a space (unless one
+// is empty), bodies joined with a newline, children concatenated.
+// Returns { nodes, cursorPos } where cursorPos is the original title length
+// (the join point), useful for restoring the cursor.
+export function joinNodes(nodes, id) {
+  const info = findParentInfo(nodes, id);
+  if (!info) return { nodes, cursorPos: 0 };
+  const { parentList, index, parent } = info;
+  if (index >= parentList.length - 1) return { nodes, cursorPos: 0 };
+  const node = parentList[index];
+  const next = parentList[index + 1];
+  const cursorPos = (node.title || "").length;
+  const sep = (node.title && next.title) ? " " : "";
+  const merged = {
+    ...node,
+    title: (node.title || "") + sep + (next.title || ""),
+    body: [node.body, next.body].filter(Boolean).join("\n"),
+    children: [...(node.children || []), ...(next.children || [])],
+  };
+  const newList = [...parentList.slice(0, index), merged, ...parentList.slice(index + 2)];
+  if (!parent) return { nodes: newList, cursorPos };
+  return { nodes: mapNode(nodes, parent.id, (n) => ({ ...n, children: newList })), cursorPos };
+}
+
 // --- Folding ---
 
 export function foldToLevel(nodes, level, depth = 1) {

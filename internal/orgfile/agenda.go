@@ -85,9 +85,15 @@ func (s *Store) ScanAgenda() ([]AgendaItem, error) {
 		return nil, err
 	}
 
-	// If the journal dir is external (outside the workspace), scan it separately
-	// and map file names to journal/YYYY-MM-DD.org so the frontend can load them.
+	// Only scan jDir separately when it is outside the workspace; if it lives
+	// inside dir the workspace walk above already covered it.
+	jDirIsExternal := false
 	if jDir != "" {
+		if rel, relErr := filepath.Rel(dir, jDir); relErr != nil || strings.HasPrefix(rel, "..") {
+			jDirIsExternal = true
+		}
+	}
+	if jDirIsExternal {
 		walkErr := filepath.WalkDir(jDir, func(path string, d fs.DirEntry, werr error) error {
 			if werr != nil {
 				return nil

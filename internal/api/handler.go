@@ -36,6 +36,7 @@ func (h *handlers) listFiles(w http.ResponseWriter, r *http.Request) {
 func (h *handlers) createFile(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Filename string `json:"filename"`
+		Title    string `json:"title"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -45,7 +46,11 @@ func (h *handlers) createFile(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasSuffix(name, ".org") {
 		name += ".org"
 	}
-	if err := h.store.CreateFile(name); err != nil {
+	content := ""
+	if req.Title != "" {
+		content = "#+TITLE: " + req.Title + "\n"
+	}
+	if err := h.store.CreateFile(name, content); err != nil {
 		http.Error(w, err.Error(), http.StatusConflict)
 		return
 	}
@@ -141,7 +146,13 @@ func (h *handlers) renameFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	writeJSON(w, map[string]string{"filename": newName})
+	// Update [[file:oldName...]] links across all org files in the workspace.
+	filesChanged, replacements, _ := orgfile.RenameFileLinks(h.store.Dir(), name, newName)
+	writeJSON(w, map[string]any{
+		"filename":     newName,
+		"filesChanged": filesChanged,
+		"replacements": replacements,
+	})
 }
 
 func (h *handlers) getDoc(w http.ResponseWriter, r *http.Request) {
@@ -417,6 +428,36 @@ func (h *handlers) putGlobalTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]bool{"ok": true})
+}
+
+func (h *handlers) renameTag(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		OldName string `json:"oldName"`
+		NewName string `json:"newName"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.OldName == "" || req.NewName == "" {
+		http.Error(w, "invalid request: oldName and newName required", http.StatusBadRequest)
+		return
+	}
+	if req.OldName == req.NewName {
+		writeJSON(w, map[string]int{"filesChanged": 0, "replacements": 0})
+		return
+	}
+	dir := h.store.Dir()
+	filesChanged, replacements, err := orgfile.RenameTagInDir(dir, req.OldName, req.NewName)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// If the custom tag list file lives outside the home dir, process it separately.
+	if f := h.store.GetTagListFile(); f != "" && !strings.HasPrefix(f, dir) {
+		n, ferr := orgfile.RenameTagInFile(f, req.OldName, req.NewName)
+		if ferr == nil && n > 0 {
+			filesChanged++
+			replacements += n
+		}
+	}
+	writeJSON(w, map[string]int{"filesChanged": filesChanged, "replacements": replacements})
 }
 
 func (h *handlers) getTagListFile(w http.ResponseWriter, r *http.Request) {

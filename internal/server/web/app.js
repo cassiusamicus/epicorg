@@ -319,29 +319,18 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
               onMouseDown=${(e) => {
                 e.preventDefault();
                 if (hasChildren) dispatch(node.id, "toggle");
+                else { pendingEditRef.current = true; dispatch(node.id, "edit-title"); }
               }}>
           ${numberedBullets && html`<span className="bullet-caret">${hasChildren ? (node.collapsed ? "\u25B6" : "\u25BC") : ""}</span>`}
           ${numberedBullets && html`<span className="bullet-number">${siblingIndex}.</span>`}
           ${!numberedBullets && (hasChildren ? (node.collapsed ? "\u25B6" : "\u25BC") : html`<span className="bullet-dot" />`)}
         </span>
-        ${node.status ? html`
-          <span className=${"status-badge status-" + node.status.toLowerCase()}
-                onClick=${(e) => { e.stopPropagation(); dispatch(node.id, "cycle-status"); }}
-                title="Click to change status">${node.status}</span>
-        ` : html`
-          <span className="status-badge status-none"
-                onClick=${(e) => { e.stopPropagation(); dispatch(node.id, "cycle-status"); }}
-                title="Click to set status"></span>
-        `}
-        ${node.priority && html`
-          <span className=${"priority-badge priority-" + node.priority}
-                onClick=${(e) => { e.stopPropagation(); dispatch(node.id, "set-priority", node.priority === "A" ? "B" : node.priority === "B" ? "C" : "A"); }}
-                title="Click to cycle priority">${node.priority}</span>
-        `}
         ${showFormatted
           ? html`
             <div className=${"node-title node-title-preview" + (node.status === "DONE" || node.status === "CANCELLED" ? " done" : "")}
                  onClick=${(e) => {
+                   if (e.target.closest(".status-badge")) { e.stopPropagation(); dispatch(node.id, "cycle-status"); return; }
+                   if (e.target.closest(".priority-badge")) { e.stopPropagation(); dispatch(node.id, "set-priority", node.priority === "A" ? "B" : node.priority === "B" ? "C" : "A"); return; }
                    const tagEl = e.target.closest("[data-tag]");
                    if (tagEl) { e.stopPropagation(); onSearchTag?.(tagEl.dataset.tag); return; }
                    if (e.target.closest(".node-has-notes-indicator")) { dispatch(node.id, "preview-body"); return; }
@@ -351,7 +340,11 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                  dangerouslySetInnerHTML=${{
                    __html: tree.renderOrgInline(node.title) +
                      (hasHiddenNote ? ' <span class="node-has-notes-indicator" title="This item has a hidden note — click to view it">…</span>' : "") +
-                     (showTagChips && !tagsOnRight && node.tags?.length > 0 ? ' <span class="node-tag-chips-inline">' + inlineTagChipsHtml(node.tags) + "</span>" : ""),
+                     (showTagChips && !tagsOnRight ? (
+                       (node.status ? ` <span class="status-badge status-${node.status.toLowerCase()}">${node.status}</span>` : "") +
+                       (node.priority ? ` <span class="priority-badge priority-${node.priority}">${node.priority}</span>` : "") +
+                       (node.tags?.length > 0 ? ' <span class="node-tag-chips-inline">' + inlineTagChipsHtml(node.tags) + "</span>" : "")
+                     ) : ""),
                  }} />
           `
           : html`
@@ -372,7 +365,28 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                   dispatch(node.id, "release-focus");
                   return;
                 }
+                // In overlay (navigation) mode, Enter should begin editing rather
+                // than creating a new sibling via handleKey.
+                if (showOverlay && e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  setIsEditing(true);
+                  return;
+                }
                 if (showOverlay && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) setIsEditing(true);
+                // When actively editing, let the browser move the cursor first for
+                // ArrowUp/Down. Check in rAF whether it actually moved — if not, the
+                // cursor was already at the visual boundary and we navigate to the
+                // adjacent node. This handles both literal-newline and word-wrapped
+                // titles without needing to measure visual line position.
+                if (isEditing && (e.key === "ArrowUp" || e.key === "ArrowDown") && !e.altKey) {
+                  const ta = e.target;
+                  const posBefore = ta.selectionStart;
+                  const dir = e.key === "ArrowUp" ? "nav-up" : "nav-down";
+                  requestAnimationFrame(() => {
+                    if (ta.selectionStart === posBefore) dispatch(node.id, dir);
+                  });
+                  return;
+                }
                 handleKey(e, node.id, dispatch);
               }}
               onChange=${(e) => { setIsEditing(true); dispatch(node.id, "change", tree.orgifyPaths(e.target.value)); triggerLinkPicker(e.target, e); }}
@@ -381,6 +395,8 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
         ${showOverlay && html`
           <div className=${"node-title node-title-preview" + (node.status === "DONE" || node.status === "CANCELLED" ? " done" : "")}
                onClick=${(e) => {
+                 if (e.target.closest(".status-badge")) { e.stopPropagation(); dispatch(node.id, "cycle-status"); return; }
+                 if (e.target.closest(".priority-badge")) { e.stopPropagation(); dispatch(node.id, "set-priority", node.priority === "A" ? "B" : node.priority === "B" ? "C" : "A"); return; }
                  const tagEl = e.target.closest("[data-tag]");
                  if (tagEl) { e.stopPropagation(); onSearchTag?.(tagEl.dataset.tag); return; }
                  if (e.target.closest(".node-has-notes-indicator")) { dispatch(node.id, "preview-body"); return; }
@@ -390,13 +406,31 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                dangerouslySetInnerHTML=${{
                  __html: tree.renderOrgInline(node.title) +
                    (hasHiddenNote ? ' <span class="node-has-notes-indicator" title="This item has a hidden note — click to view it">…</span>' : "") +
-                   (showTagChips && !tagsOnRight && node.tags?.length > 0 ? ' <span class="node-tag-chips-inline">' + inlineTagChipsHtml(node.tags) + "</span>" : ""),
+                   (showTagChips && !tagsOnRight ? (
+                     (node.status ? ` <span class="status-badge status-${node.status.toLowerCase()}">${node.status}</span>` : "") +
+                     (node.priority ? ` <span class="priority-badge priority-${node.priority}">${node.priority}</span>` : "") +
+                     (node.tags?.length > 0 ? ' <span class="node-tag-chips-inline">' + inlineTagChipsHtml(node.tags) + "</span>" : "")
+                   ) : ""),
                }} />
         `}
         ${!showFormatted && !showOverlay && hasHiddenNote && html`
           <span className="node-has-notes-indicator"
                 onClick=${() => dispatch(node.id, "preview-body")}
                 title="This item has a hidden note — click to view it">…</span>
+        `}
+        ${showTagChips && (tagsOnRight || (!showFormatted && !showOverlay)) && (node.status ? html`
+          <span className=${"status-badge status-" + node.status.toLowerCase()}
+                onClick=${(e) => { e.stopPropagation(); dispatch(node.id, "cycle-status"); }}
+                title="Click to change status">${node.status}</span>
+        ` : html`
+          <span className="status-badge status-none"
+                onClick=${(e) => { e.stopPropagation(); dispatch(node.id, "cycle-status"); }}
+                title="Click to set status"></span>
+        `)}
+        ${showTagChips && (tagsOnRight || (!showFormatted && !showOverlay)) && node.priority && html`
+          <span className=${"priority-badge priority-" + node.priority}
+                onClick=${(e) => { e.stopPropagation(); dispatch(node.id, "set-priority", node.priority === "A" ? "B" : node.priority === "B" ? "C" : "A"); }}
+                title="Click to cycle priority">${node.priority}</span>
         `}
         ${showTagChips && node.tags?.length > 0 && (tagsOnRight || (!showFormatted && !showOverlay)) && html`
           <span className="node-tag-chips">
@@ -726,12 +760,14 @@ let gBMLineIdx = null;
 
 // Recursive sibling list — each instance owns its own render state (line/nest indicators)
 // but shares the module-level drag vars for reliable drop logic.
-function TagList({ tags, onUpdate, depth, selectedTags, onToggleTag, onAddTagToItem, onNestTag, onSearch }) {
+function TagList({ tags, onUpdate, depth, selectedTags, onToggleTag, onAddTagToItem, onNestTag, onSearch, onRenameTag }) {
   const [draggingIdx, setDraggingIdx] = useState(null);
   const [dropLineIdx, setDropLineIdx] = useState(null);  // line shown between items
   const [nestOverIdx, setNestOverIdx] = useState(null);  // box shown on nest target
   const [addingChildFor, setAddingChildFor] = useState(null);
   const [newChildName, setNewChildName] = useState("");
+  const [renamingIdx, setRenamingIdx] = useState(null);
+  const [renameValue, setRenameValue] = useState("");
 
   const clearDrag = () => {
     setDraggingIdx(null); setDropLineIdx(null); setNestOverIdx(null);
@@ -839,9 +875,30 @@ function TagList({ tags, onUpdate, depth, selectedTags, onToggleTag, onAddTagToI
                     onClick=${(e) => { e.stopPropagation(); onAddTagToItem(tag.name); }}>+</button>
             <button className="tag-add-child-btn" title="Add sub-tag"
                     onClick=${(e) => { e.stopPropagation(); setAddingChildFor(i); setNewChildName(""); }}>↳</button>
+            <button className="tag-rename-btn" title="Rename this tag"
+                    onClick=${(e) => { e.stopPropagation(); setRenamingIdx(i); setRenameValue(tag.name); }}>✎</button>
             <button className="tag-panel-remove" title="Remove from list"
                     onClick=${(e) => { e.stopPropagation(); onUpdate(tags.filter((_, j) => j !== i)); }}>×</button>
           </div>
+          ${renamingIdx === i && html`
+            <div className="tag-add-child-row" style=${{paddingLeft: (4 + depth * 14) + "px"}}>
+              <input className="tag-add-child-input"
+                     autoFocus
+                     value=${renameValue}
+                     onChange=${(e) => setRenameValue(e.target.value)}
+                     onKeyDown=${(e) => {
+                       if (e.key === "Enter") {
+                         e.preventDefault();
+                         const newName = renameValue.trim();
+                         const oldName = tag.name;
+                         setRenamingIdx(null); setRenameValue("");
+                         if (newName && newName !== oldName) onRenameTag?.(oldName, newName);
+                       }
+                       if (e.key === "Escape") { setRenamingIdx(null); setRenameValue(""); }
+                     }}
+                     onBlur=${() => { setRenamingIdx(null); setRenameValue(""); }} />
+            </div>
+          `}
           ${addingChildFor === i && html`
             <div className="tag-add-child-row" style=${{paddingLeft: (4 + (depth + 1) * 14) + "px"}}>
               <input className="tag-add-child-input"
@@ -869,7 +926,8 @@ function TagList({ tags, onUpdate, depth, selectedTags, onToggleTag, onAddTagToI
               onToggleTag=${onToggleTag}
               onAddTagToItem=${onAddTagToItem}
               onNestTag=${onNestTag}
-              onSearch=${onSearch} />
+              onSearch=${onSearch}
+              onRenameTag=${onRenameTag} />
           `}
         </div>
       `;
@@ -878,8 +936,28 @@ function TagList({ tags, onUpdate, depth, selectedTags, onToggleTag, onAddTagToI
   `;
 }
 
-function TagPanel({ globalTags, onUpdateTags, onNestTag, onAddTagToItem, selectedTags, onToggleTag, onClearTags, onEditTagFile, onPickTagListFile, tagListFile, width, onWidthChange, onSearch }) {
+function TagPanel({ globalTags, onUpdateTags, onNestTag, onAddTagToItem, selectedTags, onToggleTag, onClearTags, onEditTagFile, onPickTagListFile, tagListFile, width, onWidthChange, onSearch, onReloadTags }) {
   const tagListLabel = tagListFile ? pathBasename(tagListFile) : "TagList.org";
+  const [renameConfirm, setRenameConfirm] = useState(null); // { oldName, newName }
+  const [renaming, setRenaming] = useState(false);
+  const [renameResult, setRenameResult] = useState(null); // { filesChanged, replacements } after success
+
+  const handleRenameTag = (oldName, newName) => setRenameConfirm({ oldName, newName });
+
+  const confirmRenameEverywhere = async () => {
+    if (!renameConfirm || renaming) return;
+    setRenaming(true);
+    try {
+      const result = await api.post("/api/rename-tag", { oldName: renameConfirm.oldName, newName: renameConfirm.newName });
+      setRenameResult(result);
+      setRenameConfirm(null);
+      onReloadTags?.();
+    } catch (e) {
+      setRenaming(false);
+    }
+    setRenaming(false);
+  };
+
   const onGripperMouseDown = (e) => {
     e.preventDefault();
     const startX = e.clientX;
@@ -917,16 +995,42 @@ function TagPanel({ globalTags, onUpdateTags, onNestTag, onAddTagToItem, selecte
             depth=${0}
             selectedTags=${selectedTags}
             onToggleTag=${onToggleTag}
-            onSearch=${onSearch} />
+            onSearch=${onSearch}
+            onRenameTag=${handleRenameTag} />
           ${globalTags.length === 0 && html`
             <div className="tag-panel-empty">No tags yet.<br/>Open org files with tags to populate this list.</div>
           `}
         </div>
+        ${renameResult && html`
+          <div className="tag-rename-result" onClick=${() => setRenameResult(null)}>
+            Renamed in ${renameResult.filesChanged} file${renameResult.filesChanged !== 1 ? "s" : ""}
+            (${renameResult.replacements} occurrence${renameResult.replacements !== 1 ? "s" : ""}) ×
+          </div>
+        `}
         <div className="tag-panel-footer">
           <button className="tag-edit-file-btn" onClick=${onEditTagFile}>Edit ${tagListLabel}</button>
           <button className="tag-edit-file-btn" onClick=${onPickTagListFile} title="Switch to a different tag list file">Change</button>
         </div>
       </div>
+      ${renameConfirm && html`
+        <div className="rename-tag-overlay" onClick=${(e) => { if (e.target === e.currentTarget) setRenameConfirm(null); }}>
+          <div className="rename-tag-dialog">
+            <div className="rename-tag-title">Rename Tag</div>
+            <div className="rename-tag-msg">
+              Rename <strong>:${renameConfirm.oldName}:</strong> to <strong>:${renameConfirm.newName}:</strong>
+              in all org files in home folder?
+            </div>
+            <div className="rename-tag-actions">
+              <button className="rename-tag-btn-confirm" onClick=${confirmRenameEverywhere} disabled=${renaming}>
+                ${renaming ? "Renaming…" : "Rename Everywhere"}
+              </button>
+              <button className="rename-tag-btn-cancel" onClick=${() => setRenameConfirm(null)} disabled=${renaming}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      `}
     </div>
   `;
 }
@@ -2202,14 +2306,102 @@ function JournalView({ onOpenFile, onOpenFileWithDetail, onOpenFileAt, onGoToDat
   `;
 }
 
-// Ctrl+B/I/U wrap the selection in org-mode's inline markup characters.
-// Org has no native underline marker — "_underline_" is the closest
-// convention (rendered as underline by tree.renderOrgInline elsewhere).
-const FORMAT_MARKERS = { b: "*", i: "/", u: "_", s: "+" }; // Ctrl+B/I/U/S
+// --- Keyboard shortcuts ---
 
+const SHORTCUTS_KEY = "epicorg.shortcuts";
+
+const SHORTCUT_DEFS = [
+  { id: "undo",            cat: "Edit",       label: "Undo",                  def: "Ctrl+Z" },
+  { id: "redo",            cat: "Edit",       label: "Redo",                  def: "Ctrl+Shift+Z" },
+  { id: "bold",            cat: "Formatting", label: "Bold",                  def: "Ctrl+B" },
+  { id: "italic",          cat: "Formatting", label: "Italic",                def: "Ctrl+I" },
+  { id: "underline",       cat: "Formatting", label: "Underline",             def: "Ctrl+U" },
+  { id: "strikethrough",   cat: "Formatting", label: "Strikethrough",         def: "Ctrl+S" },
+  { id: "insertFootnote",  cat: "Formatting", label: "Insert Footnote",       def: "Ctrl+Shift+N" },
+  { id: "insertDateStamp", cat: "Formatting", label: "Insert Date Stamp",     def: "Ctrl+Shift+Q" },
+  { id: "splitNode",       cat: "Outline",    label: "Split Node at Cursor",  def: "Ctrl+Shift+S" },
+  { id: "joinNode",        cat: "Outline",    label: "Join with Next Node",   def: "Ctrl+Shift+J" },
+  { id: "moveUp",          cat: "Outline",    label: "Move Node Up",          def: "Alt+ArrowUp" },
+  { id: "moveDown",        cat: "Outline",    label: "Move Node Down",        def: "Alt+ArrowDown" },
+  { id: "indent",          cat: "Outline",    label: "Indent Node",           def: "Alt+ArrowRight" },
+  { id: "outdent",         cat: "Outline",    label: "Outdent Node",          def: "Alt+ArrowLeft" },
+  { id: "moveUpOnly",      cat: "Outline",    label: "Move Heading Up",       def: "Alt+Shift+ArrowUp" },
+  { id: "moveDownOnly",    cat: "Outline",    label: "Move Heading Down",     def: "Alt+Shift+ArrowDown" },
+  { id: "indentOnly",      cat: "Outline",    label: "Demote Heading",        def: "Alt+Shift+ArrowRight" },
+  { id: "outdentOnly",     cat: "Outline",    label: "Promote Heading",       def: "Alt+Shift+ArrowLeft" },
+  { id: "commandPalette",  cat: "Navigation", label: "Command Palette",       def: "Ctrl+H" },
+  { id: "textSearch",      cat: "Navigation", label: "Full-text Search",      def: "Ctrl+Shift+F" },
+  // Fixed: shown for reference, not rebindable
+  { id: "newSibling",  cat: "Reference", label: "New Sibling Node",  def: "Enter",       fixed: true },
+  { id: "editBody",    cat: "Reference", label: "Edit Body Note",    def: "Shift+Enter", fixed: true },
+  { id: "foldToggle",  cat: "Reference", label: "Fold / Unfold",     def: "Tab",         fixed: true },
+  { id: "deleteEmpty", cat: "Reference", label: "Delete Empty Node", def: "Backspace",   fixed: true },
+  { id: "navUp",       cat: "Reference", label: "Navigate Up",       def: "↑",           fixed: true },
+  { id: "navDown",     cat: "Reference", label: "Navigate Down",     def: "↓",           fixed: true },
+  { id: "navBack",     cat: "Reference", label: "Go Back",           def: "Alt+←",       fixed: true },
+  { id: "navForward",  cat: "Reference", label: "Go Forward",        def: "Alt+→",       fixed: true },
+  { id: "foldLevel1",  cat: "Reference", label: "Fold to Level 1",   def: "Alt+1",       fixed: true },
+  { id: "foldLevel2",  cat: "Reference", label: "Fold to Level 2",   def: "Alt+2",       fixed: true },
+  { id: "foldLevel3",  cat: "Reference", label: "Fold to Level 3",   def: "Alt+3",       fixed: true },
+  { id: "expandAll",   cat: "Reference", label: "Expand All",        def: "Alt+9",       fixed: true },
+];
+
+// Module-level shortcut overrides — mutated directly so key handlers
+// (which are module-level functions) can always read the current bindings
+// without needing them threaded through props/context.
+let shortcutOverrides = (function() {
+  try { return JSON.parse(localStorage.getItem(SHORTCUTS_KEY) || "{}"); } catch { return {}; }
+})();
+
+function getShortcutCombo(id) {
+  if (shortcutOverrides[id]) return shortcutOverrides[id];
+  const d = SHORTCUT_DEFS.find((x) => x.id === id);
+  return d ? d.def : "";
+}
+
+function matchesKey(combo, e) {
+  if (!combo) return false;
+  const parts = combo.split("+");
+  const key = parts[parts.length - 1];
+  const needsCtrl  = parts.includes("Ctrl");
+  const needsShift = parts.includes("Shift");
+  const needsAlt   = parts.includes("Alt");
+  const ctrl = e.ctrlKey || e.metaKey;
+  return ctrl === needsCtrl && e.shiftKey === needsShift && e.altKey === needsAlt
+    && (e.key === key || e.key.toLowerCase() === key.toLowerCase());
+}
+
+function matchShortcut(id, e) {
+  return matchesKey(getShortcutCombo(id), e);
+}
+
+function keyEventToCombo(e) {
+  const key = e.key;
+  if (["Control", "Shift", "Alt", "Meta"].includes(key)) return null;
+  const parts = [];
+  if (e.ctrlKey || e.metaKey) parts.push("Ctrl");
+  if (e.shiftKey) parts.push("Shift");
+  if (e.altKey) parts.push("Alt");
+  parts.push(key);
+  return parts.join("+");
+}
+
+function displayCombo(combo) {
+  if (!combo) return "—";
+  return combo
+    .replace(/\bArrowUp\b/g, "↑")
+    .replace(/\bArrowDown\b/g, "↓")
+    .replace(/\bArrowLeft\b/g, "←")
+    .replace(/\bArrowRight\b/g, "→");
+}
+
+// Ctrl+B/I/U/S wrap the selection in org-mode's inline markup characters.
 function formatMarkerForKey(e) {
-  if (!e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return null;
-  return FORMAT_MARKERS[e.key.toLowerCase()] || null;
+  if (matchShortcut("bold", e))          return "*";
+  if (matchShortcut("italic", e))        return "/";
+  if (matchShortcut("underline", e))     return "_";
+  if (matchShortcut("strikethrough", e)) return "+";
+  return null;
 }
 
 // Apply an org inline marker to whichever textarea currently has focus,
@@ -2241,17 +2433,70 @@ function wrapSelectionWithMarker(e, marker, onChange) {
 function handleKey(e, id, dispatch) {
   const marker = formatMarkerForKey(e);
   if (marker) { e.preventDefault(); wrapSelectionWithMarker(e, marker, (v) => dispatch(id, "change", v)); return; }
-  const alt = e.altKey, shift = e.shiftKey, key = e.key;
-  if (alt && key === "ArrowUp")    { e.preventDefault(); dispatch(id, "move-up"); return; }
-  if (alt && key === "ArrowDown")  { e.preventDefault(); dispatch(id, "move-down"); return; }
-  if (alt && key === "ArrowRight") { e.preventDefault(); dispatch(id, "indent"); return; }
-  if (alt && key === "ArrowLeft")  { e.preventDefault(); dispatch(id, "outdent"); return; }
-  if (key === "Tab") { e.preventDefault(); dispatch(id, "toggle"); return; }
+  if (matchShortcut("splitNode", e)) { e.preventDefault(); dispatch(id, "split-at-cursor", e.target.selectionStart); return; }
+  if (matchShortcut("joinNode", e))  { e.preventDefault(); dispatch(id, "join-with-next"); return; }
+  if (matchShortcut("moveUp", e))       { e.preventDefault(); dispatch(id, "move-up"); return; }
+  if (matchShortcut("moveDown", e))     { e.preventDefault(); dispatch(id, "move-down"); return; }
+  if (matchShortcut("indent", e))       { e.preventDefault(); dispatch(id, "indent"); return; }
+  if (matchShortcut("outdent", e))      { e.preventDefault(); dispatch(id, "outdent"); return; }
+  if (matchShortcut("moveUpOnly", e))   { e.preventDefault(); dispatch(id, "move-up-only"); return; }
+  if (matchShortcut("moveDownOnly", e)) { e.preventDefault(); dispatch(id, "move-down-only"); return; }
+  if (matchShortcut("indentOnly", e))   { e.preventDefault(); dispatch(id, "indent-only"); return; }
+  if (matchShortcut("outdentOnly", e))  { e.preventDefault(); dispatch(id, "outdent-only"); return; }
+  const key = e.key;
+  if (key === "Tab")       { e.preventDefault(); dispatch(id, "toggle"); return; }
   if (key === "ArrowUp")   { e.preventDefault(); dispatch(id, "nav-up"); return; }
   if (key === "ArrowDown") { e.preventDefault(); dispatch(id, "nav-down"); return; }
-  if (key === "Enter" && shift) { e.preventDefault(); dispatch(id, "focus-body"); return; }
-  if (key === "Enter") { e.preventDefault(); dispatch(id, "new-sibling"); return; }
+  if (key === "Enter" && e.shiftKey) { e.preventDefault(); dispatch(id, "focus-body"); return; }
+  if (key === "Enter")     { e.preventDefault(); dispatch(id, "new-sibling"); return; }
   if (key === "Backspace" && e.target.value === "") { e.preventDefault(); dispatch(id, "delete"); return; }
+}
+
+// --- Date stamp ---
+
+const DATE_STAMP_KEY = "epicorg.dateStampFmt";
+const DATE_STAMP_DEFAULT = { date: "YYYY-MM-DD", time: "hh:mm am" };
+
+const DATE_FMT_OPTIONS = [
+  { key: "M/D/YY",     label: "7/2/26" },
+  { key: "M/D/YYYY",   label: "7/2/2026" },
+  { key: "YYYY-MM-DD", label: "ISO" },
+  { key: "Mon D",      label: "Jul 2" },
+];
+
+const TIME_FMT_OPTIONS = [
+  { key: "hh:mm am", label: "05:32 pm" },
+  { key: "h:mm AM",  label: "5:34 AM" },
+  { key: "HH:mm",    label: "17:34" },
+  { key: "none",     label: "Date only" },
+];
+
+function getDateStampFmt() {
+  try { return { ...DATE_STAMP_DEFAULT, ...JSON.parse(localStorage.getItem(DATE_STAMP_KEY) || "{}") }; }
+  catch { return DATE_STAMP_DEFAULT; }
+}
+
+const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function formatDateStamp(d, fmt) {
+  const M = d.getMonth() + 1, D = d.getDate(), Y = d.getFullYear();
+  const YY = String(Y).slice(-2);
+  let s;
+  switch (fmt.date) {
+    case "M/D/YYYY":   s = `${M}/${D}/${Y}`; break;
+    case "YYYY-MM-DD": s = `${Y}-${String(M).padStart(2,"0")}-${String(D).padStart(2,"0")}`; break;
+    case "Mon D":      s = `${MONTHS_SHORT[d.getMonth()]} ${D}`; break;
+    default:           s = `${M}/${D}/${YY}`;
+  }
+  if (fmt.time === "none") return s;
+  const h = d.getHours(), mm = String(d.getMinutes()).padStart(2,"0");
+  switch (fmt.time) {
+    case "hh:mm am": { const h12 = h % 12 || 12; s += ` ${String(h12).padStart(2,"0")}:${mm} ${h < 12 ? "am" : "pm"}`; break; }
+    case "h:mm AM":  { const h12 = h % 12 || 12; s += ` ${h12}:${mm} ${h < 12 ? "AM" : "PM"}`; break; }
+    case "HH:mm":    s += ` ${String(h).padStart(2,"0")}:${mm}`; break;
+    default:         { const h12 = h % 12 || 12; s += ` ${String(h12).padStart(2,"0")}:${mm} ${h < 12 ? "am" : "pm"}`; }
+  }
+  return s;
 }
 
 // --- Sync status ---
@@ -2473,24 +2718,70 @@ function SidebarBookmarkRow({ entry, onNavigate, onDelete, onDragStart, onDragOv
   `;
 }
 
-function SidebarFileRow({ name, active, isFavorite, onSelect, onToggleFavorite }) {
+function SidebarFileRow({ name, active, isFavorite, onSelect, onToggleFavorite, onRenameStart }) {
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const inputRef = useRef(null);
+
+  const startRename = (e) => {
+    e.stopPropagation();
+    setRenameValue(name);
+    setRenaming(true);
+    requestAnimationFrame(() => { inputRef.current?.focus(); inputRef.current?.select(); });
+  };
+  const commitRename = () => {
+    const trimmed = renameValue.trim();
+    setRenaming(false);
+    if (trimmed && trimmed !== name) onRenameStart?.(name, trimmed);
+  };
+  const cancelRename = () => { setRenaming(false); setRenameValue(""); };
+
   return html`
     <div className=${"sidebar-item" + (active ? " active" : "")}>
-      <span className="sidebar-item-main" onClick=${() => onSelect(name)} title=${name}>
-        <span className="sidebar-item-icon"><${IconDoc}/></span>
-        <span className="sidebar-item-name">${name}</span>
-      </span>
-      <button className=${"sidebar-star" + (isFavorite ? " sidebar-star-active" : "")}
-              onClick=${(e) => { e.stopPropagation(); onToggleFavorite(name); }}
-              title=${isFavorite ? "Remove from favorites" : "Add to favorites"}>
-        ${isFavorite ? "★" : "☆"}
-      </button>
+      ${renaming
+        ? html`
+          <input ref=${inputRef} className="sidebar-rename-input"
+                 value=${renameValue}
+                 onChange=${(e) => setRenameValue(e.target.value)}
+                 onKeyDown=${(e) => {
+                   if (e.key === "Enter") { e.preventDefault(); commitRename(); }
+                   if (e.key === "Escape") cancelRename();
+                 }}
+                 onBlur=${cancelRename} />`
+        : html`
+          <span className="sidebar-item-main" onClick=${() => onSelect(name)} title=${name}>
+            <span className="sidebar-item-icon"><${IconDoc}/></span>
+            <span className="sidebar-item-name">${name}</span>
+          </span>
+          <button className="sidebar-file-rename" onClick=${startRename} title="Rename file">✎</button>
+          <button className=${"sidebar-star" + (isFavorite ? " sidebar-star-active" : "")}
+                  onClick=${(e) => { e.stopPropagation(); onToggleFavorite(name); }}
+                  title=${isFavorite ? "Remove from favorites" : "Add to favorites"}>
+            ${isFavorite ? "★" : "☆"}
+          </button>`
+      }
     </div>
   `;
 }
 
-function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavorite, bookmarks, onNavigateToBookmark, onDeleteBookmark, onReorderBookmarks, bookmarkPanelVisible, onToggleBookmarkPanel, textMode, onToggleSidebar }) {
+function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavorite, bookmarks, onNavigateToBookmark, onDeleteBookmark, onReorderBookmarks, bookmarkPanelVisible, onToggleBookmarkPanel, textMode, onToggleSidebar, onOpenTodayJournal, onOpenJournalList, onRenameFile }) {
   const dragIndexRef = useRef(null);
+  const [renameConfirm, setRenameConfirm] = useState(null); // { oldName, newName }
+  const [renameBusy, setRenameBusy] = useState(false);
+  const [renameResult, setRenameResult] = useState(null); // { filesChanged, replacements }
+
+  const handleRenameStart = (oldName, newName) => setRenameConfirm({ oldName, newName });
+
+  const confirmRename = async () => {
+    if (!renameConfirm || renameBusy) return;
+    setRenameBusy(true);
+    try {
+      const result = await onRenameFile(renameConfirm.oldName, renameConfirm.newName);
+      setRenameResult(result);
+    } catch {}
+    setRenameConfirm(null);
+    setRenameBusy(false);
+  };
 
   return html`
     <div className="sidebar">
@@ -2500,6 +2791,24 @@ function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavori
         <button className=${"panel-toggle-btn" + (bookmarkPanelVisible && !textMode ? " active" : "")}
                 onClick=${onToggleBookmarkPanel} disabled=${textMode}
                 title=${textMode ? "Not available in reveal codes mode" : "Bookmark panel"}><${IconBookmark} /></button>
+      </div>
+      <div className="sidebar-section">
+        <div className="sidebar-section-header">
+          <span className="sidebar-section-icon">✎</span>
+          <span>Journal</span>
+        </div>
+        <div className="sidebar-item" onClick=${onOpenTodayJournal}>
+          <span className="sidebar-item-main">
+            <span className="sidebar-item-icon"><${IconJournal} /></span>
+            <span className="sidebar-item-name">Today's Journal</span>
+          </span>
+        </div>
+        <div className="sidebar-item" onClick=${onOpenJournalList}>
+          <span className="sidebar-item-main">
+            <span className="sidebar-item-icon"><${IconAgenda} /></span>
+            <span className="sidebar-item-name">Journal List</span>
+          </span>
+        </div>
       </div>
       ${bookmarks.length > 0 && html`
         <div className="sidebar-section">
@@ -2535,7 +2844,8 @@ function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavori
           ? html`<div className="sidebar-empty">Star a file to pin it here</div>`
           : favorites.map((name) => html`
               <${SidebarFileRow} key=${"fav-" + name} name=${name} active=${name === currentFile}
-                isFavorite=${true} onSelect=${onSelect} onToggleFavorite=${onToggleFavorite} />
+                isFavorite=${true} onSelect=${onSelect} onToggleFavorite=${onToggleFavorite}
+                onRenameStart=${handleRenameStart} />
             `)}
       </div>
       <div className="sidebar-section">
@@ -2547,9 +2857,35 @@ function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavori
           ? html`<div className="sidebar-empty">No recent files</div>`
           : recentFiles.map((name) => html`
               <${SidebarFileRow} key=${"recent-" + name} name=${name} active=${name === currentFile}
-                isFavorite=${favorites.includes(name)} onSelect=${onSelect} onToggleFavorite=${onToggleFavorite} />
+                isFavorite=${favorites.includes(name)} onSelect=${onSelect} onToggleFavorite=${onToggleFavorite}
+                onRenameStart=${handleRenameStart} />
             `)}
       </div>
+      ${renameResult && html`
+        <div className="sidebar-rename-result" onClick=${() => setRenameResult(null)}>
+          Links updated in ${renameResult.filesChanged} file${renameResult.filesChanged !== 1 ? "s" : ""}
+          (${renameResult.replacements} link${renameResult.replacements !== 1 ? "s" : ""}) ×
+        </div>
+      `}
+      ${renameConfirm && html`
+        <div className="rename-tag-overlay" onClick=${(e) => { if (e.target === e.currentTarget && !renameBusy) setRenameConfirm(null); }}>
+          <div className="rename-tag-dialog">
+            <div className="rename-tag-title">Rename File</div>
+            <div className="rename-tag-msg">
+              Rename <strong>${renameConfirm.oldName}</strong> to <strong>${renameConfirm.newName}</strong>
+              and update all links to it in the home folder?
+            </div>
+            <div className="rename-tag-actions">
+              <button className="rename-tag-btn-confirm" onClick=${confirmRename} disabled=${renameBusy}>
+                ${renameBusy ? "Renaming…" : "Rename + Update Links"}
+              </button>
+              <button className="rename-tag-btn-cancel" onClick=${() => setRenameConfirm(null)} disabled=${renameBusy}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      `}
     </div>
   `;
 }
@@ -2564,6 +2900,8 @@ const UNDO_LIMIT = 100;
 const UNDOABLE_ACTIONS = new Set([
   "change-preamble", "change", "change-body", "update-properties", "update-tags", "update-bookmarks",
   "set-status", "set-priority", "cycle-status", "new-sibling", "delete", "indent", "outdent", "move-up", "move-down",
+  "indent-only", "outdent-only", "move-up-only", "move-down-only",
+  "split-at-cursor", "join-with-next",
 ]);
 // Of those, typing actions get debounced into one undo step per "burst"
 // rather than one per keystroke.
@@ -2670,6 +3008,33 @@ function FootnoteInsertPopup({ popup, onInsert, onClose }) {
   `;
 }
 
+function StatusBar({ currentFile, homeDir, journalDir, tagListFile }) {
+  const journalLabel = journalDir ? journalDir : "(workspace default)";
+  return html`
+    <div className="status-bar">
+      <span className="status-bar-item">
+        <span className="status-bar-label">File</span>
+        ${currentFile || "—"}
+      </span>
+      <span className="status-bar-sep" />
+      <span className="status-bar-item">
+        <span className="status-bar-label">Home Folder</span>
+        ${homeDir || "—"}
+      </span>
+      <span className="status-bar-sep" />
+      <span className="status-bar-item">
+        <span className="status-bar-label">Journal</span>
+        ${journalLabel}
+      </span>
+      <span className="status-bar-sep" />
+      <span className="status-bar-item">
+        <span className="status-bar-label">Tag List</span>
+        ${tagListFile || "—"}
+      </span>
+    </div>
+  `;
+}
+
 function App() {
   const [files, setFiles] = useState(null);
   const [favorites, setFavorites] = useState([]);
@@ -2770,6 +3135,17 @@ function App() {
     });
   }, []);
 
+  const [statusBarVisible, setStatusBarVisible] = useState(() => {
+    try { return localStorage.getItem("epicorg.statusBarVisible") === "1"; } catch { return false; }
+  });
+  const toggleStatusBarVisible = useCallback(() => {
+    setStatusBarVisible((p) => {
+      const next = !p;
+      try { localStorage.setItem("epicorg.statusBarVisible", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  }, []);
+
   const [numberedBullets, setNumberedBullets] = useState(() => {
     try { return localStorage.getItem("epicorg.numberedBullets") === "1"; } catch { return false; }
   });
@@ -2856,6 +3232,46 @@ function App() {
     const handler = () => insertFootnoteRef.current();
     document.body.addEventListener("epicInsertFootnote", handler);
     return () => document.body.removeEventListener("epicInsertFootnote", handler);
+  }, []);
+
+  // Date stamp
+  const [dateStampFmt, setDateStampFmtState] = useState(getDateStampFmt);
+  const setDateStampFmt = useCallback((fmt) => {
+    setDateStampFmtState(fmt);
+    try { localStorage.setItem(DATE_STAMP_KEY, JSON.stringify(fmt)); } catch {}
+  }, []);
+  const insertDateStamp = useCallback(() => {
+    const el = document.activeElement;
+    if (!el || el.tagName !== "TEXTAREA") return;
+    const stamp = formatDateStamp(new Date(), dateStampFmt);
+    const { selectionStart: s, selectionEnd: en, value } = el;
+    const newVal = value.slice(0, s) + stamp + value.slice(en);
+    const nativeSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set;
+    nativeSetter.call(el, newVal);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    requestAnimationFrame(() => el.setSelectionRange(s + stamp.length, s + stamp.length));
+  }, [dateStampFmt]);
+  const insertDateStampRef = useRef(insertDateStamp);
+  useEffect(() => { insertDateStampRef.current = insertDateStamp; }, [insertDateStamp]);
+
+  // Shortcut customization
+  const [shortcutVer, setShortcutVer] = useState(0);
+  const [showShortcutEditor, setShowShortcutEditor] = useState(false);
+  const [showOutlineActions, setShowOutlineActions] = useState(false);
+  const updateShortcut = useCallback((id, combo) => {
+    shortcutOverrides[id] = combo;
+    try { localStorage.setItem(SHORTCUTS_KEY, JSON.stringify(shortcutOverrides)); } catch {}
+    setShortcutVer((v) => v + 1);
+  }, []);
+  const resetShortcut = useCallback((id) => {
+    delete shortcutOverrides[id];
+    try { localStorage.setItem(SHORTCUTS_KEY, JSON.stringify(shortcutOverrides)); } catch {}
+    setShortcutVer((v) => v + 1);
+  }, []);
+  const resetAllShortcuts = useCallback(() => {
+    for (const k of Object.keys(shortcutOverrides)) delete shortcutOverrides[k];
+    try { localStorage.removeItem(SHORTCUTS_KEY); } catch {}
+    setShortcutVer((v) => v + 1);
   }, []);
 
   // Footnote reference clicks — [fn:label] spans rendered by renderOrgInline.
@@ -2979,11 +3395,9 @@ function App() {
   }, []);
   useEffect(() => {
     const root = document.documentElement;
-    if (topBarColor && TOPBAR_COLORS[topBarColor]) {
-      root.style.setProperty("--accent", TOPBAR_COLORS[topBarColor]);
-    } else {
-      root.style.removeProperty("--accent");
-    }
+    const accentHex = resolveTopBarColor(topBarColor);
+    if (accentHex) root.style.setProperty("--accent", accentHex);
+    else root.style.removeProperty("--accent");
   }, [topBarColor]);
   const [tagPanelVisible, setTagPanelVisible] = useState(() => {
     try { return localStorage.getItem("epicorg.tagPanelVisible") === "1"; } catch { return false; }
@@ -3034,6 +3448,7 @@ function App() {
     try { localStorage.setItem("epicorg.detailWidth", String(w)); } catch {}
   }, []);
   const pendingFocusRef = useRef(null);
+  const pendingCursorPosRef = useRef(null);
   const inputRefs = useRef({});
   const bodyRefs = useRef({});
   // Which node's inline body/notes textarea is currently open for editing —
@@ -3256,7 +3671,7 @@ function App() {
   // Global keyboard shortcuts
   useEffect(() => {
     const handler = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "h") {
+      if (matchShortcut("commandPalette", e)) {
         e.preventDefault(); setShowHelp((v) => !v); return;
       }
       if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "/")) {
@@ -3265,27 +3680,20 @@ function App() {
         if (el) { el.focus(); el.select(); }
         return;
       }
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "F") {
-        e.preventDefault();
-        setShowTextSearch(true);
-        return;
+      if (matchShortcut("textSearch", e)) {
+        e.preventDefault(); setShowTextSearch(true); return;
       }
       if (e.altKey && e.key === "ArrowLeft") { e.preventDefault(); goBackRef.current?.(); return; }
       if (e.altKey && e.key === "ArrowRight") { e.preventDefault(); goForwardRef.current?.(); return; }
       if (e.altKey && e.key >= "1" && e.key <= "9" && !textModeRef.current) {
-        e.preventDefault();
-        foldToLevel(parseInt(e.key));
+        e.preventDefault(); foldToLevel(parseInt(e.key));
       }
-      // Unified document-level undo/redo, taking over from the browser's
-      // native per-field undo so the whole document has one consistent
-      // history regardless of which textarea (if any) has focus. Disabled
-      // in text mode, where the plain textarea's own native undo applies.
+      // Unified document-level undo/redo. Ctrl+Y is a fixed secondary for redo.
       if ((e.ctrlKey || e.metaKey) && !textModeRef.current) {
-        const key = e.key.toLowerCase();
-        if (key === "z" && e.shiftKey) { e.preventDefault(); redo(); return; }
-        if (key === "z") { e.preventDefault(); undo(); return; }
-        if (key === "y") { e.preventDefault(); redo(); return; }
-        if (key === "n" && e.shiftKey) { e.preventDefault(); insertFootnoteRef.current(); return; }
+        if (matchShortcut("redo", e) || e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
+        if (matchShortcut("undo", e)) { e.preventDefault(); undo(); return; }
+        if (matchShortcut("insertFootnote", e)) { e.preventDefault(); insertFootnoteRef.current(); return; }
+        if (matchShortcut("insertDateStamp", e)) { e.preventDefault(); insertDateStampRef.current(); return; }
       }
     };
     document.addEventListener("keydown", handler);
@@ -3301,7 +3709,11 @@ function App() {
         const el = inputRefs.current[id];
         if (el) {
           el.focus();
-          if (el.setSelectionRange) el.selectionStart = el.selectionEnd = el.value?.length || 0;
+          if (el.setSelectionRange) {
+            const pos = pendingCursorPosRef.current !== null ? pendingCursorPosRef.current : (el.value?.length || 0);
+            pendingCursorPosRef.current = null;
+            el.selectionStart = el.selectionEnd = pos;
+          }
           // The textarea may be off-screen at -9999px when overlay mode is active,
           // so scroll the .node-row (always in the real layout) instead.
           const row = document.querySelector(`.node-row[data-node-id="${id}"]`);
@@ -3427,6 +3839,13 @@ function App() {
     textarea.setSelectionRange(newCursor, newCursor);
     textarea.focus();
   }, []);
+
+  const createFileForLink = useCallback(async (filename, title) => {
+    await api.post("/api/files", { filename, title });
+    const data = await api.get("/api/files");
+    setFiles(data.files || []);
+    insertFileLink(filename, title);
+  }, [insertFileLink]);
 
   const runTextSearch = useCallback(async (query) => {
     setShowTextSearch(false);
@@ -3782,11 +4201,10 @@ function App() {
       return next;
     });
     if (currentFileRef.current === oldName) {
-      // Renaming the open file doesn't change its content, so just relabel
-      // it in place rather than reloading.
       setCurrentFile(finalName);
       try { localStorage.setItem("epicorg.lastFile", finalName); } catch {}
     }
+    return result; // includes { filesChanged, replacements } for the sidebar notice
   }, []);
 
   // Background sync — also polls disk for external changes while idle, so
@@ -4060,7 +4478,49 @@ function App() {
     if (action === "outdent") { setNodes((p) => tree.outdentNode(p, nodeId)); focusNode(nodeId); markDirty(); return; }
     if (action === "move-up") { setNodes((p) => tree.moveNodeUp(p, nodeId)); focusNode(nodeId); markDirty(); return; }
     if (action === "move-down") { setNodes((p) => tree.moveNodeDown(p, nodeId)); focusNode(nodeId); markDirty(); return; }
+    if (action === "indent-only") { setNodes((p) => tree.indentNodeOnly(p, nodeId)); focusNode(nodeId); markDirty(); return; }
+    if (action === "outdent-only") { setNodes((p) => tree.outdentNodeOnly(p, nodeId)); focusNode(nodeId); markDirty(); return; }
+    if (action === "move-up-only") { setNodes((p) => tree.moveNodeUpOnly(p, nodeId)); focusNode(nodeId); markDirty(); return; }
+    if (action === "move-down-only") { setNodes((p) => tree.moveNodeDownOnly(p, nodeId)); focusNode(nodeId); markDirty(); return; }
+
+    if (action === "split-at-cursor") {
+      const pos = typeof value === "number" ? value : 0;
+      setNodes((p) => {
+        const { nodes: updated, newId } = tree.splitNode(p, nodeId, pos);
+        requestAnimationFrame(() => focusNode(newId));
+        return updated;
+      });
+      markDirty(); return;
+    }
+
+    if (action === "join-with-next") {
+      const curNode = flat[idx];
+      const cursorPos = curNode ? (curNode.title || "").length : 0;
+      pendingCursorPosRef.current = cursorPos;
+      setNodes((p) => tree.joinNodes(p, nodeId).nodes);
+      focusNode(nodeId);
+      markDirty(); return;
+    }
   }, [focusNode, markDirty, maybeSnapshotForUndo]);
+
+  const splitFocusedNode = useCallback(() => {
+    const id = focusedIdRef.current;
+    if (!id || id === "preamble") return;
+    const el = inputRefs.current[id];
+    const pos = el ? el.selectionStart : 0;
+    dispatch(id, "split-at-cursor", pos);
+  }, [dispatch]);
+
+  const joinFocusedWithNext = useCallback(() => {
+    const id = focusedIdRef.current;
+    if (!id || id === "preamble") return;
+    dispatch(id, "join-with-next");
+  }, [dispatch]);
+
+  const outlineAction = useCallback((action) => {
+    const id = focusedIdRef.current;
+    if (id && id !== "preamble") dispatch(id, action);
+  }, [dispatch]);
 
   // Called by AgendaScheduleEditor for current-file nodes only.
   const handleAgendaEditNode = useCallback((nodeId, newProps) => {
@@ -4358,7 +4818,16 @@ function App() {
                   onGoBack=${goBack} onGoForward=${goForward}
                   homeFile=${homeFile} onGoHome=${() => { if (homeFile) { loadFile(homeFile); setView("outline"); } }}
                   onSetHomeFile=${setHomeFilePersisted}
-                  undoRedoVisible=${undoRedoVisible} onToggleUndoRedoVisible=${toggleUndoRedoVisible} />
+                  undoRedoVisible=${undoRedoVisible} onToggleUndoRedoVisible=${toggleUndoRedoVisible}
+                  statusBarVisible=${statusBarVisible} onToggleStatusBar=${toggleStatusBarVisible}
+                  dateStampFmt=${dateStampFmt} onSetDateStampFmt=${setDateStampFmt}
+                  onShowShortcutEditor=${() => setShowShortcutEditor(true)}
+                  onShowOutlineActions=${() => setShowOutlineActions(true)} />
+      ${showOutlineActions && html`
+        <${OutlineActionsPanel}
+          focusedId=${focusedId}
+          onAction=${outlineAction}
+          onClose=${() => setShowOutlineActions(false)} />`}
       ${showHelp && html`<${CommandPalette} commands=${buildCommands({
           undo, redo, canUndo, canRedo,
           goBack, goForward, canGoBack, canGoForward,
@@ -4375,9 +4844,18 @@ function App() {
           foldToLevel,
           setView, view,
           setShowPicker, setShowTextSearch, setShowFolderPicker,
-          setShowHelp, insertFootnote,
+          setShowHelp, insertFootnote, insertDateStamp,
+          splitFocusedNode, joinFocusedWithNext,
           exportToHtml, currentFile,
         })} onClose=${() => setShowHelp(false)} />`}
+      ${showShortcutEditor && html`
+        <${ShortcutEditor}
+          shortcutVer=${shortcutVer}
+          onUpdate=${updateShortcut}
+          onReset=${resetShortcut}
+          onResetAll=${resetAllShortcuts}
+          onClose=${() => setShowShortcutEditor(false)} />
+      `}
       ${apptDialog && html`
         <${AppointmentDialog}
           defaultDate=${apptDialog.defaultDate}
@@ -4411,6 +4889,7 @@ function App() {
         <${FileLinkPicker}
           files=${files}
           onSelect=${insertFileLink}
+          onCreate=${createFileForLink}
           onCancel=${() => setShowLinkPicker(false)} />
       `}
       <div className="app-layout">
@@ -4422,7 +4901,12 @@ function App() {
             onDeleteBookmark=${deleteBookmark}
             onReorderBookmarks=${updateBookmarkOrder}
             bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${toggleBookmarkPanel}
-            textMode=${textMode} onToggleSidebar=${toggleSidebar} />
+            textMode=${textMode} onToggleSidebar=${toggleSidebar}
+            onOpenTodayJournal=${async () => {
+              try { const d = await api.post("/api/journal", {}); loadFile(d.filename); setView("outline"); } catch {}
+            }}
+            onOpenJournalList=${() => setView("journal")}
+            onRenameFile=${handleRenameFile} />
         `}
         ${bookmarkPanelVisible && !textMode && html`
           <${BookmarkPanel} globalBMs=${globalBMs}
@@ -4551,7 +5035,8 @@ function App() {
             onClearTags=${clearTags}
             width=${tagPanelWidth}
             onWidthChange=${setTagPanelWidthPersisted}
-            onSearch=${searchTag} />
+            onSearch=${searchTag}
+            onReloadTags=${reloadGlobalTags} />
         `}
         <${DetailPane} ref=${detailPaneRef} key=${detailKey} node=${detailNode} isPreamble=${isPreambleFocused}
           dispatch=${dispatch} inputRefs=${inputRefs}
@@ -4564,6 +5049,9 @@ function App() {
           tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${toggleTagPanel}
           textMode=${textMode} selectedTags=${selectedTags} />
       </div>
+      ${statusBarVisible && html`
+        <${StatusBar} currentFile=${currentFile} homeDir=${homeDir} journalDir=${journalDir} tagListFile=${tagListFile} />
+      `}
     </div>
     ${fnPopup && html`<${FootnotePopup} popup=${fnPopup} onClose=${() => setFnPopup(null)} onSave=${saveFootnoteDef} />`}
     ${fnInsertPopup && html`<${FootnoteInsertPopup} popup=${fnInsertPopup} onInsert=${confirmInsertFootnote} onClose=${() => setFnInsertPopup(null)} />`}
@@ -4580,7 +5068,12 @@ const FOLD_LEVELS = [1, 2, 3, 4];
 
 const ICON_PROPS = { width: "15", height: "15", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" };
 
-const TOPBAR_COLORS = { green: "#166534", blue: "#3d72a8", red: "#991b1b" };
+const TOPBAR_COLORS = { green: "#166534", blue: "#225167", red: "#991b1b" };
+// Resolve a topBarColor value (named key or raw "#rrggbb") to a hex string.
+function resolveTopBarColor(c) {
+  if (!c) return null;
+  return TOPBAR_COLORS[c] || (c.startsWith("#") ? c : null);
+}
 
 function IconSun() {
   return html`<svg ...${ICON_PROPS}>
@@ -4808,6 +5301,14 @@ function IconNotes() {
   `;
 }
 
+function IconMoveNode() {
+  return html`
+    <svg ...${ICON_PROPS} fill="currentColor" stroke="none">
+      <path d="M12 3 9 7h2v4H7V9l-4 3 4 3v-2h4v4H9l3 4 3-4h-2v-4h4v2l4-3-4-3v2h-4V7h2z"/>
+    </svg>
+  `;
+}
+
 function IconHamburger() {
   return html`
     <svg ...${ICON_PROPS}>
@@ -4887,7 +5388,7 @@ function IconWidth() {
 
 // File link picker — triggered by typing [[ in a node title or body.
 // Shows a filterable list of org files; selecting one inserts an org link.
-function FileLinkPicker({ files, onSelect, onCancel }) {
+function FileLinkPicker({ files, onSelect, onCreate, onCancel }) {
   const [filter, setFilter] = useState("");
   const [highlighted, setHighlighted] = useState(0);
   const inputRef = useRef(null);
@@ -4912,11 +5413,26 @@ function FileLinkPicker({ files, onSelect, onCancel }) {
     onSelect(name, title);
   };
 
+  // Derive a candidate filename and title from what the user typed.
+  const trimmed = filter.trim();
+  const newFileName = trimmed
+    ? (trimmed.toLowerCase().endsWith(".org") ? trimmed : trimmed + ".org")
+    : null;
+  const newFileTitle = newFileName ? newFileName.replace(/\.org$/i, "") : "";
+  const showCreate = !!newFileName && filtered.length === 0;
+
+  const doCreate = () => { if (showCreate) onCreate(newFileName, newFileTitle); };
+
   const onKeyDown = (e) => {
     if (e.key === "Escape") { e.preventDefault(); onCancel(); return; }
     if (e.key === "ArrowDown") { e.preventDefault(); setHighlighted((h) => Math.min(h + 1, filtered.length - 1)); return; }
     if (e.key === "ArrowUp") { e.preventDefault(); setHighlighted((h) => Math.max(h - 1, 0)); return; }
-    if (e.key === "Enter") { e.preventDefault(); if (filtered[highlighted]) select(filtered[highlighted].name); return; }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (filtered[highlighted]) select(filtered[highlighted].name);
+      else doCreate();
+      return;
+    }
   };
 
   return html`
@@ -4938,9 +5454,7 @@ function FileLinkPicker({ files, onSelect, onCancel }) {
             onKeyDown=${onKeyDown}
           />
           <div className="file-link-list" ref=${listRef}>
-            ${filtered.length === 0 ? html`
-              <div className="file-link-empty">No files match "${filter}"</div>
-            ` : filtered.map((f, i) => html`
+            ${filtered.map((f, i) => html`
               <div key=${f.name}
                    className=${"file-link-item" + (i === highlighted ? " highlighted" : "")}
                    onClick=${() => select(f.name)}
@@ -4949,6 +5463,17 @@ function FileLinkPicker({ files, onSelect, onCancel }) {
                 <span className="file-link-ext">.org</span>
               </div>
             `)}
+            ${showCreate ? html`
+              <div className="file-link-item file-link-create-item highlighted"
+                   onClick=${doCreate}>
+                <span className="file-link-create-icon">＋</span>
+                <span className="file-link-create-label">Create</span>
+                <span className="file-link-filename"> ${newFileTitle}</span>
+                <span className="file-link-ext">.org</span>
+              </div>
+            ` : filtered.length === 0 ? html`
+              <div className="file-link-empty">No files match "${filter}"</div>
+            ` : null}
           </div>
           <div className="file-link-hint">↑↓ to navigate · Enter to select · Esc to dismiss</div>
         </div>
@@ -5245,6 +5770,79 @@ function RightPanelLauncher({ tagPanelVisible, onToggleTagPanel, detailVisible, 
   `;
 }
 
+// --- Shortcut Editor popup ---
+
+function ShortcutEditor({ shortcutVer, onUpdate, onReset, onResetAll, onClose }) {
+  const [recordingId, setRecordingId] = useState(null);
+
+  useEffect(() => {
+    if (!recordingId) return;
+    const capture = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === "Escape") { setRecordingId(null); return; }
+      const combo = keyEventToCombo(e);
+      if (combo) { onUpdate(recordingId, combo); setRecordingId(null); }
+    };
+    document.addEventListener("keydown", capture, true);
+    return () => document.removeEventListener("keydown", capture, true);
+  }, [recordingId, onUpdate]);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape" && !recordingId) onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [recordingId, onClose]);
+
+  const cats = [...new Set(SHORTCUT_DEFS.map((d) => d.cat))];
+
+  return html`
+    <div className="shortcut-editor-overlay"
+         onMouseDown=${(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="shortcut-editor">
+        <div className="shortcut-editor-hdr">
+          <span className="shortcut-editor-title">Keyboard Shortcuts</span>
+          <button className="shortcut-editor-close" onClick=${onClose}>×</button>
+        </div>
+        <div className="shortcut-editor-body">
+          <div className="shortcut-editor-hint">
+            Click a binding to rebind it — press any key combo, Escape to cancel.
+          </div>
+          <button className="shortcut-reset-all-btn" onClick=${onResetAll}>Reset All to Defaults</button>
+
+          ${cats.map((cat) => html`
+            <div key=${cat} className="shortcut-cat-group">
+              <div className="shortcut-cat-label">${cat === "Reference" ? "Reference (fixed)" : cat}</div>
+              ${SHORTCUT_DEFS.filter((d) => d.cat === cat).map((d) => {
+                const isRecording = recordingId === d.id;
+                const custom = shortcutOverrides[d.id];
+                const combo = custom || d.def;
+                return html`
+                  <div key=${d.id} className=${"shortcut-row" + (d.fixed ? " shortcut-row-fixed" : "")}>
+                    <span className="shortcut-label">${d.label}</span>
+                    <button
+                      className=${"shortcut-combo-btn" + (isRecording ? " recording" : "") + (custom ? " custom" : "")}
+                      disabled=${!!d.fixed}
+                      onClick=${!d.fixed ? () => setRecordingId(d.id) : undefined}
+                    >
+                      ${isRecording ? "Press keys…" : displayCombo(combo)}
+                    </button>
+                    ${!d.fixed && custom && !isRecording && html`
+                      <button className="shortcut-row-reset" title="Reset to ${displayCombo(d.def)}"
+                              onClick=${() => onReset(d.id)}>↺</button>
+                    `}
+                    ${(!d.fixed && !custom) && html`<span className="shortcut-row-reset"></span>`}
+                  </div>
+                `;
+              })}
+            </div>
+          `)}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 // A general options menu, extensible as more entries get added — for now
 // just the one, toggling numbered outline bullets (Dynalist-style).
 function HamburgerMenu({
@@ -5269,12 +5867,17 @@ function HamburgerMenu({
   homeFile, currentFile, onSetHomeFile,
   openToSection, onSectionOpened,
   undoRedoVisible, onToggleUndoRedoVisible,
+  statusBarVisible, onToggleStatusBar,
+  dateStampFmt, onSetDateStampFmt,
+  onShowShortcutEditor,
 }) {
   const [open, setOpen] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [highlightSection, setHighlightSection] = useState(null);
   const containerRef = useRef(null);
   const homeFileRowRef = useRef(null);
+  const colorInputRef = useRef(null);
+  const isCustomColor = topBarColor && topBarColor.startsWith("#");
 
   useEffect(() => {
     if (!openToSection) return;
@@ -5357,14 +5960,18 @@ function HamburgerMenu({
           </label>
           <label className="hamburger-menu-option">
             <input type="checkbox" checked=${showTagChips} onChange=${onToggleShowTagChips} disabled=${textMode} />
-            <span>Show tags as chips</span>
+            <span>Show tags and todo status in outline</span>
           </label>
           ${showTagChips && html`
             <label className="hamburger-menu-option hamburger-menu-option-indented">
               <input type="checkbox" checked=${tagsOnRight} onChange=${onToggleTagsOnRight} disabled=${textMode} />
-              <span>Show chips on right</span>
+              <span>Show on right</span>
             </label>
           `}
+          <label className="hamburger-menu-option">
+            <input type="checkbox" checked=${statusBarVisible} onChange=${onToggleStatusBar} />
+            <span>Show status bar</span>
+          </label>
           ${view === "outline" && html`
             <div className="hamburger-fold-row">
               <span>Fold to level</span>
@@ -5441,6 +6048,15 @@ function HamburgerMenu({
                           onClick=${() => onSetTopBarColor(c)}
                           title=${c.charAt(0).toUpperCase() + c.slice(1)}></button>
                 `)}
+                <div className="topbar-chip-custom-wrap">
+                  <button className=${"topbar-chip topbar-chip-custom" + (isCustomColor ? " active" : "")}
+                          style=${isCustomColor ? { background: topBarColor } : {}}
+                          onClick=${() => colorInputRef.current?.click()}
+                          title=${isCustomColor ? "Custom: " + topBarColor : "Custom color…"}></button>
+                  <input ref=${colorInputRef} type="color" className="topbar-color-input-hidden"
+                         value=${isCustomColor ? topBarColor : "#225167"}
+                         onInput=${(e) => onSetTopBarColor(e.target.value)} />
+                </div>
               </div>
             </div>
             <label className="hamburger-menu-option">
@@ -5451,6 +6067,30 @@ function HamburgerMenu({
               <input type="checkbox" checked=${undoRedoVisible} onChange=${onToggleUndoRedoVisible} />
               <span>Show undo/redo buttons</span>
             </label>
+            <div className="hamburger-viewmode-row">
+              <span className="hamburger-viewmode-label">Stamp date</span>
+              <div className="hamburger-segmented">
+                ${DATE_FMT_OPTIONS.map((opt) => html`
+                  <button key=${opt.key}
+                          className=${"hamburger-segmented-btn" + (dateStampFmt?.date === opt.key ? " active" : "")}
+                          onClick=${() => onSetDateStampFmt({ ...dateStampFmt, date: opt.key })}>
+                    ${opt.label}
+                  </button>
+                `)}
+              </div>
+            </div>
+            <div className="hamburger-viewmode-row">
+              <span className="hamburger-viewmode-label">Stamp time</span>
+              <div className="hamburger-segmented">
+                ${TIME_FMT_OPTIONS.map((opt) => html`
+                  <button key=${opt.key}
+                          className=${"hamburger-segmented-btn" + (dateStampFmt?.time === opt.key ? " active" : "")}
+                          onClick=${() => onSetDateStampFmt({ ...dateStampFmt, time: opt.key })}>
+                    ${opt.label}
+                  </button>
+                `)}
+              </div>
+            </div>
           </div>
 
           <!-- ── Mobile-only: view switcher + panels + status ── -->
@@ -5481,8 +6121,11 @@ function HamburgerMenu({
             </div>
           `}
 
-          <!-- ── About ── -->
+          <!-- ── About / Tools ── -->
           <div className="hamburger-section">
+            <button className="hamburger-about-btn" onClick=${() => { setOpen(false); onShowShortcutEditor?.(); }}>
+              Keyboard Shortcuts…
+            </button>
             <button className="hamburger-about-btn" onClick=${() => { setOpen(false); setShowAbout(true); }}>
               About Epicorg…
             </button>
@@ -5575,7 +6218,99 @@ function TagFilterButton({ allTags, selectedTags, onToggleTag, onClearTags }) {
   `;
 }
 
-function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, undoRedoVisible, onToggleUndoRedoVisible }) {
+function OutlineActionsPanel({ onAction, focusedId, onClose }) {
+  const canAct = focusedId && focusedId !== "preamble";
+  const act = (action) => { if (!canAct) return; onAction(action); };
+
+  // Drag state: null = centered via CSS, {left, top} = user has moved it
+  const [pos, setPos] = useState(null);
+  const panelRef = useRef(null);
+  const dragState = useRef(null);
+
+  const onHeaderMouseDown = (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const rect = panelRef.current.getBoundingClientRect();
+    dragState.current = { startX: e.clientX, startY: e.clientY, origLeft: rect.left, origTop: rect.top };
+    const onMove = (me) => {
+      const { startX, startY, origLeft, origTop } = dragState.current;
+      setPos({ left: origLeft + me.clientX - startX, top: origTop + me.clientY - startY });
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
+  useEffect(() => {
+    const h = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [onClose]);
+
+  const GROUPS = [
+    {
+      label: "Move Subtree",
+      sub: "Node moves with all its children",
+      items: [
+        { dir: "↑", name: "Move Up",            shortcutId: "moveUp",     action: "move-up" },
+        { dir: "↓", name: "Move Down",           shortcutId: "moveDown",   action: "move-down" },
+        { dir: "→", name: "Demote / Indent",     shortcutId: "indent",     action: "indent" },
+        { dir: "←", name: "Promote / Outdent",   shortcutId: "outdent",    action: "outdent" },
+      ],
+    },
+    {
+      label: "Move Heading Only",
+      sub: "Children are left in place as siblings",
+      items: [
+        { dir: "↑", name: "Move Heading Up",     shortcutId: "moveUpOnly",   action: "move-up-only" },
+        { dir: "↓", name: "Move Heading Down",   shortcutId: "moveDownOnly", action: "move-down-only" },
+        { dir: "→", name: "Demote Heading",      shortcutId: "indentOnly",   action: "indent-only" },
+        { dir: "←", name: "Promote Heading",     shortcutId: "outdentOnly",  action: "outdent-only" },
+      ],
+    },
+  ];
+
+  const panelStyle = pos
+    ? { left: pos.left + "px", top: pos.top + "px", transform: "none" }
+    : {};
+
+  return html`
+    <div className="oap-overlay" onClick=${(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div ref=${panelRef} className="oap-panel" style=${panelStyle}>
+        <div className="oap-header" onMouseDown=${onHeaderMouseDown}>
+          <span className="oap-title">Outline Move</span>
+          <button className="oap-close" onClick=${onClose} onMouseDown=${(e) => e.stopPropagation()} title="Close">×</button>
+        </div>
+        ${!canAct && html`<div className="oap-no-focus">Select a node first</div>`}
+        ${GROUPS.map((g) => html`
+          <div className="oap-group" key=${g.label}>
+            <div className="oap-group-label">${g.label}</div>
+            <div className="oap-group-sub">${g.sub}</div>
+            ${g.items.map((item) => {
+              const combo = getShortcutCombo(item.shortcutId);
+              const keys = combo ? displayCombo(combo) : "—";
+              return html`
+                <button key=${item.action}
+                        className=${"oap-item" + (!canAct ? " oap-item-disabled" : "")}
+                        onClick=${() => act(item.action)}
+                        disabled=${!canAct}>
+                  <span className="oap-item-dir">${item.dir}</span>
+                  <span className="oap-item-name">${item.name}</span>
+                  <span className="oap-item-keys">${keys}</span>
+                </button>
+              `;
+            })}
+          </div>
+        `)}
+      </div>
+    </div>
+  `;
+}
+
+function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, undoRedoVisible, onToggleUndoRedoVisible, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions }) {
   // Whether the toolbar/search/etc. actually fit is measured, not
   // guessed from viewport width — a long filename or a pile of tags
   // eats into the same space a phone-width media query would assume is
@@ -5645,6 +6380,12 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
                     onClick=${() => homeFile ? onGoHome() : setOpenHamburgerSection("homeFile")}
                     title=${homeFile ? "Go home: " + homeFile : "No home file set — click to configure"}><${IconHome} /></button>
           </div>
+          <div className="view-toggle">
+            <button className="view-tab" onClick=${onGoBack} disabled=${!canGoBack}
+                    title="Go back (Alt+←)"><${IconNavBack} /></button>
+            <button className="view-tab" onClick=${onGoForward} disabled=${!canGoForward}
+                    title="Go forward (Alt+→)"><${IconNavForward} /></button>
+          </div>
           ${view === "outline" && html`
             <div className="view-toggle">
               ${FOLD_LEVELS.map((lvl) => html`
@@ -5655,6 +6396,12 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
               `)}
             </div>
             <div className="view-toggle">
+              <button className="view-tab"
+                      onClick=${onShowOutlineActions}
+                      disabled=${textMode}
+                      title=${textMode ? "Not available in reveal codes mode" : "Outline move — indent, promote, move up/down"}>
+                <${IconMoveNode} />
+              </button>
               <button className=${"view-tab" + (notesVisible && !textMode ? " active" : "")}
                       disabled=${textMode}
                       onClick=${onToggleNotesVisible}
@@ -5666,12 +6413,6 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
               </button>
             </div>
           `}
-          <div className="view-toggle">
-            <button className="view-tab" onClick=${onGoBack} disabled=${!canGoBack}
-                    title="Go back (Alt+←)"><${IconNavBack} /></button>
-            <button className="view-tab" onClick=${onGoForward} disabled=${!canGoForward}
-                    title="Go forward (Alt+→)"><${IconNavForward} /></button>
-          </div>
           ${undoRedoVisible && html`
             <div className="view-toggle">
               <button className="view-tab" onClick=${onUndo} disabled=${!canUndo || textMode}
@@ -5756,7 +6497,10 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
           bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${onToggleBookmarkPanel}
           homeFile=${homeFile} currentFile=${currentFile} onSetHomeFile=${onSetHomeFile}
           openToSection=${openHamburgerSection} onSectionOpened=${() => setOpenHamburgerSection(null)}
-          undoRedoVisible=${undoRedoVisible} onToggleUndoRedoVisible=${onToggleUndoRedoVisible} />
+          undoRedoVisible=${undoRedoVisible} onToggleUndoRedoVisible=${onToggleUndoRedoVisible}
+          statusBarVisible=${statusBarVisible} onToggleStatusBar=${onToggleStatusBar}
+          dateStampFmt=${dateStampFmt} onSetDateStampFmt=${onSetDateStampFmt}
+          onShowShortcutEditor=${onShowShortcutEditor} />
         <button className="panel-toggle-btn" onClick=${onHelp} title="Command palette — search and run any command (Ctrl+H)"><${IconCommandPalette} /></button>
         ${currentFile && html`
           <button className=${"panel-toggle-btn" + (tagPanelVisible && !textMode ? " active" : "") + (selectedTags.length > 0 ? " has-filter" : "")}
@@ -5773,7 +6517,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
     `;
   }
 
-  const headerBg = topBarColor ? TOPBAR_COLORS[topBarColor] : null;
+  const headerBg = resolveTopBarColor(topBarColor);
   return html`
     <header ref=${headerRef}
             className=${topBarColor ? "header-tinted" : ""}
@@ -5803,7 +6547,8 @@ function buildCommands(ctx) {
     foldToLevel,
     setView, view,
     setShowPicker, setShowTextSearch, setShowFolderPicker, setShowHelp,
-    insertFootnote,
+    insertFootnote, insertDateStamp,
+    splitFocusedNode, joinFocusedWithNext,
     exportToHtml, currentFile,
   } = ctx;
 
@@ -5831,16 +6576,19 @@ function buildCommands(ctx) {
     { category: "Folding", label: "Fold to Level 4",      desc: "Expand to level 4",              keys: "Alt+4",         action: () => foldToLevel(4) },
     { category: "Folding", label: "Expand All",           desc: "Unfold everything",              keys: "Alt+9",         action: () => foldToLevel(9) },
     // Edit
-    { category: "Edit", label: "Undo",                    desc: "Undo last change",               keys: "Ctrl+Z",        action: undo,      disabled: !canUndo },
-    { category: "Edit", label: "Redo",                    desc: "Redo last undone change",        keys: "Ctrl+Shift+Z",  action: redo,      disabled: !canRedo },
-    { category: "Edit", label: "Bold selection",          desc: "Wrap selection in *bold*",       keys: "Ctrl+B",        action: () => applyMarkerToFocused("*") },
-    { category: "Edit", label: "Italic selection",        desc: "Wrap selection in /italic/",     keys: "Ctrl+I",        action: () => applyMarkerToFocused("/") },
-    { category: "Edit", label: "Underline selection",     desc: "Wrap selection in _underline_",  keys: "Ctrl+U",        action: () => applyMarkerToFocused("_") },
-    { category: "Edit", label: "Strikethrough selection", desc: "Wrap selection in +strike+",     keys: "Ctrl+S",        action: () => applyMarkerToFocused("+") },
-    { category: "Edit", label: "Insert Footnote",         desc: "Add [fn:N] at cursor in notes",  keys: "Ctrl+Shift+N",  action: insertFootnote },
+    { category: "Edit", label: "Undo",                    desc: "Undo last change",               keys: displayCombo(getShortcutCombo("undo")),            action: undo,      disabled: !canUndo },
+    { category: "Edit", label: "Redo",                    desc: "Redo last undone change",        keys: displayCombo(getShortcutCombo("redo")),            action: redo,      disabled: !canRedo },
+    { category: "Edit", label: "Bold selection",          desc: "Wrap selection in *bold*",       keys: displayCombo(getShortcutCombo("bold")),            action: () => applyMarkerToFocused("*") },
+    { category: "Edit", label: "Italic selection",        desc: "Wrap selection in /italic/",     keys: displayCombo(getShortcutCombo("italic")),          action: () => applyMarkerToFocused("/") },
+    { category: "Edit", label: "Underline selection",     desc: "Wrap selection in _underline_",  keys: displayCombo(getShortcutCombo("underline")),       action: () => applyMarkerToFocused("_") },
+    { category: "Edit", label: "Strikethrough selection", desc: "Wrap selection in +strike+",     keys: displayCombo(getShortcutCombo("strikethrough")),   action: () => applyMarkerToFocused("+") },
+    { category: "Edit", label: "Insert Footnote",         desc: "Add [fn:N] at cursor in notes",  keys: displayCombo(getShortcutCombo("insertFootnote")),  action: insertFootnote },
+    { category: "Edit", label: "Insert Date Stamp",       desc: "Insert formatted date/time at cursor", keys: displayCombo(getShortcutCombo("insertDateStamp")), action: insertDateStamp },
+    { category: "Edit", label: "Split Node at Cursor",    desc: "Split title at cursor into two sibling nodes", keys: displayCombo(getShortcutCombo("splitNode")), action: splitFocusedNode },
+    { category: "Edit", label: "Join with Next Node",     desc: "Merge this node with the next sibling",        keys: displayCombo(getShortcutCombo("joinNode")),   action: joinFocusedWithNext },
     { category: "Edit", label: "Hoist / Unhoist",         desc: isHoisted ? "Unhoist — show full tree" : "Hoist focused item", keys: "", action: toggleHoist },
     // Search
-    { category: "Search", label: "Full-text Search…",    desc: "Search across all org files",    keys: "Ctrl+Shift+F",  action: () => setShowTextSearch(true) },
+    { category: "Search", label: "Full-text Search…",    desc: "Search across all org files",    keys: displayCombo(getShortcutCombo("textSearch")),      action: () => setShowTextSearch(true) },
     // Settings
     { category: "Settings", label: "Toggle Dark/Light Theme", desc: "Switch colour theme",       keys: "",              action: toggleTheme },
     { category: "Settings", label: "Cycle View Mode",       desc: textMode ? "Reveal codes → Plain" : titleFormatMode ? "Formatted → Reveal codes" : "Plain → Formatted titles", keys: "", action: cycleViewMode },
@@ -5848,7 +6596,7 @@ function buildCommands(ctx) {
     // Export
     { category: "Export", label: "Export to HTML",        desc: "Save standalone HTML file of this document", keys: "", action: exportToHtml, disabled: !currentFile },
     // Help
-    { category: "Help", label: "Keyboard Shortcuts",      desc: "Show this command palette",      keys: "Ctrl+H",        action: () => setShowHelp(true) },
+    { category: "Help", label: "Keyboard Shortcuts",      desc: "Show this command palette",      keys: displayCombo(getShortcutCombo("commandPalette")), action: () => setShowHelp(true) },
   ].filter((c) => !c.disabled);
 }
 

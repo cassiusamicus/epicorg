@@ -193,6 +193,15 @@ func Register(mux *http.ServeMux, store *orgfile.Store, onSave func(), defaultFi
 		}
 	})
 
+	// Rename a tag across all .org files in the workspace.
+	mux.HandleFunc("/api/rename-tag", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		h.renameTag(w, r)
+	})
+
 	// Workspace-wide agenda scan — returns all nodes with SCHEDULED or DEADLINE across all files.
 	mux.HandleFunc("/api/agenda", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
