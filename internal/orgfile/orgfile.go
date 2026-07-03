@@ -157,7 +157,11 @@ func (s *Store) SetTagListFile(path string) error {
 
 // resolveFilePath returns the absolute filesystem path for a logical file name.
 // Names starting with "journal/" are redirected to journalDir when configured.
+// Absolute paths (from the filesystem browser) are returned as-is.
 func (s *Store) resolveFilePath(name string) string {
+	if filepath.IsAbs(name) {
+		return filepath.Clean(name)
+	}
 	if s.journalDir != "" && strings.HasPrefix(name, "journal/") {
 		return filepath.Join(s.journalDir, strings.TrimPrefix(name, "journal/"))
 	}

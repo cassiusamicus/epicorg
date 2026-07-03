@@ -156,7 +156,10 @@ func (h *handlers) renameFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) getDoc(w http.ResponseWriter, r *http.Request) {
-	name := extractFilename(r.URL.Path)
+	name := r.URL.Query().Get("abs")
+	if name == "" {
+		name = extractFilename(r.URL.Path)
+	}
 	if name == "" {
 		http.Error(w, "missing filename", http.StatusBadRequest)
 		return
@@ -180,7 +183,10 @@ func (h *handlers) getDoc(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) putDoc(w http.ResponseWriter, r *http.Request) {
-	name := extractFilename(r.URL.Path)
+	name := r.URL.Query().Get("abs")
+	if name == "" {
+		name = extractFilename(r.URL.Path)
+	}
 	if name == "" {
 		http.Error(w, "missing filename", http.StatusBadRequest)
 		return
@@ -299,7 +305,10 @@ func (h *handlers) setFavorite(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) diskHash(w http.ResponseWriter, r *http.Request) {
-	name := extractHashFilename(r.URL.Path)
+	name := r.URL.Query().Get("abs")
+	if name == "" {
+		name = extractHashFilename(r.URL.Path)
+	}
 	if name == "" {
 		http.Error(w, "missing filename", http.StatusBadRequest)
 		return
@@ -520,12 +529,8 @@ func (h *handlers) setJournalDir(w http.ResponseWriter, r *http.Request) {
 
 func (h *handlers) browseDir(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
-	if path == "" {
-		var err error
-		path, err = os.UserHomeDir()
-		if err != nil {
-			path = "/"
-		}
+	if path == "" || path == "." {
+		path = h.store.Dir()
 	}
 	path = filepath.Clean(path)
 

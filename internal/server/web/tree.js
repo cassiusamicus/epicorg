@@ -666,3 +666,89 @@ export function collapsedMap(nodes) {
   walk(nodes || []);
   return m;
 }
+
+// Remove org inline markup characters, leaving readable plain text.
+// *bold* → bold, /italic/ → italic, _underline_ → underline, =code= → code.
+// [[url][label]] → label, [[url]] → url.  Footnote refs are dropped.
+export function stripOrgMarkup(text) {
+  if (!text) return "";
+  // [[url][label]] → label, [[url]] → url
+  let s = text.replace(/\[\[([^\]]+)\]\[([^\]]*)\]\]/g, (_, _url, label) => label || _url);
+  s = s.replace(/\[\[([^\]]+)\]\]/g, (_, url) => url);
+  // Footnote refs [fn:label]
+  s = s.replace(/\[fn:[^\]]+\]/g, "");
+  // Inline markup *b* /i/ _u_ =c=
+  s = s.replace(/\*([^\s*][^*]*?)\*/g, "$1");
+  s = s.replace(/\/([^\s/][^/]*?)\//g, "$1");
+  s = s.replace(/_([^\s_][^_]*?)_/g, "$1");
+  s = s.replace(/=([^\s=][^=]*?)=/g, "$1");
+  return s;
+}
+
+// Convert a node tree to an HTML string suitable for rich-text clipboard.
+// Depth 0 → <h1>, depth 1 → <h2>, … capped at <h6>.
+export function treeToHtml(nodes, depth = 0) {
+  let html = "";
+  for (const node of (nodes || [])) {
+    if (!node.title && !node.body && !(node.children?.length)) continue;
+    const tag = "h" + Math.min(depth + 1, 6);
+    html += `<${tag}>${renderOrgInline(node.title || "")}</${tag}>\n`;
+    if (node.body) {
+      for (const line of node.body.split("\n")) {
+        if (line.trim()) html += `<p>${renderOrgInline(line)}</p>\n`;
+      }
+    }
+    if (node.children?.length) html += treeToHtml(node.children, depth + 1);
+  }
+  return html;
+}
+
+// Convert a node tree to readable plain text (no org markup characters).
+export function treeToPlainText(nodes, depth = 0) {
+  let text = "";
+  const pad = "  ".repeat(depth);
+  for (const node of (nodes || [])) {
+    if (!node.title && !node.body && !(node.children?.length)) continue;
+    text += pad + stripOrgMarkup(node.title || "") + "\n";
+    if (node.body) {
+      for (const line of node.body.split("\n")) {
+        text += line.trim() ? pad + "  " + stripOrgMarkup(line) + "\n" : "\n";
+      }
+    }
+    if (node.children?.length) text += treeToPlainText(node.children, depth + 1);
+  }
+  return text;
+}
+
+// Convert a flat list of {node, depth} pairs (from a drag/text selection) to HTML.
+// Does NOT recurse into children — only the explicitly selected rows are rendered.
+export function selectionToHtml(items) {
+  let html = "";
+  for (const { node, depth } of (items || [])) {
+    if (!node.title && !node.body) continue;
+    const tag = "h" + Math.min(depth + 1, 6);
+    html += `<${tag}>${renderOrgInline(node.title || "")}</${tag}>\n`;
+    if (node.body) {
+      for (const line of node.body.split("\n")) {
+        if (line.trim()) html += `<p>${renderOrgInline(line)}</p>\n`;
+      }
+    }
+  }
+  return html;
+}
+
+// Convert a flat list of {node, depth} pairs (from a drag/text selection) to plain text.
+export function selectionToPlainText(items) {
+  let text = "";
+  for (const { node, depth } of (items || [])) {
+    if (!node.title && !node.body) continue;
+    const pad = "  ".repeat(depth);
+    text += pad + stripOrgMarkup(node.title || "") + "\n";
+    if (node.body) {
+      for (const line of node.body.split("\n")) {
+        text += line.trim() ? pad + "  " + stripOrgMarkup(line) + "\n" : "\n";
+      }
+    }
+  }
+  return text;
+}

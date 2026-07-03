@@ -1058,7 +1058,6 @@ header h1 {
   gap: 8px;
   flex-shrink: 1;
   min-width: 0;
-  overflow: hidden;
 }
 .toolbar {
   display: flex;
@@ -1152,6 +1151,33 @@ header h1 {
 
 .sync-merged, .sync-reloaded {
   color: var(--info);
+}
+
+.sync-copied {
+  color: var(--accent);
+}
+
+/* Toast notification */
+.toast {
+  position: fixed;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--panel-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 13px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  z-index: 9999;
+  pointer-events: none;
+  white-space: nowrap;
+  animation: toast-in 0.15s ease;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 .help-btn,
@@ -1588,29 +1614,27 @@ header.header-tinted {
 
 /* Help panel */
 /* Command Palette */
-.cp-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--overlay);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 80px;
-  z-index: 500;
-}
-
 .cp-dialog {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
   background: var(--panel-bg);
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 12px 40px rgba(0,0,0,0.4);
   width: 520px;
-  max-width: 94vw;
-  max-height: 72vh;
+  min-width: 300px;
+  min-height: 200px;
+  max-width: 96vw;
+  max-height: 88vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  z-index: 500;
+  resize: both;
 }
+.cp-dialog.dragging { transform: none; }
 
 .cp-input-row {
   display: flex;
@@ -1618,7 +1642,14 @@ header.header-tinted {
   gap: 8px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
 }
+.cp-input-row:active { cursor: grabbing; }
+.cp-input-row .cp-input,
+.cp-input-row .cp-search-icon,
+.cp-input-row .cp-close { cursor: auto; user-select: text; }
 
 .cp-search-icon {
   width: 16px;
@@ -1789,9 +1820,11 @@ header.header-tinted {
   padding: 8px 16px 10px;
   border-top: 1px solid var(--border);
   display: flex;
+  gap: 8px;
   justify-content: flex-start;
 }
-.file-picker-change-folder {
+.file-picker-change-folder,
+.file-picker-browse-btn {
   background: none;
   border: none;
   color: var(--text-dim);
@@ -1800,7 +1833,49 @@ header.header-tinted {
   padding: 3px 6px;
   border-radius: 4px;
 }
-.file-picker-change-folder:hover { color: var(--accent); background: var(--hover); }
+.file-picker-change-folder:hover,
+.file-picker-browse-btn:hover { color: var(--accent); background: var(--hover); }
+.fp-nav-path-title {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-family: monospace;
+  font-weight: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 340px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Dir rows in workspace list */
+.fp-dir-row { color: var(--text-dim); }
+.fp-dir-row:hover { background: var(--hover); color: var(--text); }
+.fp-dir-icon { font-size: 13px; }
+.fp-dir-name { font-style: italic; }
+
+/* FilePicker folder navigation list (non-workspace dirs) */
+.fp-nav-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 4px 0;
+  min-height: 200px;
+}
+.fp-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.fp-nav-item:hover { background: var(--hover); }
+.fp-nav-dir { color: var(--text); }
+.fp-nav-file { color: var(--accent); }
+.fp-nav-icon { font-size: 14px; flex-shrink: 0; }
+.fp-nav-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fp-nav-loading { padding: 16px; text-align: center; color: var(--text-dim); font-size: 13px; }
+.fp-nav-empty { padding: 16px; text-align: center; color: var(--text-dim); font-size: 12px; }
 
 /* --- Workspace Settings Panel --- */
 .wsp-overlay {

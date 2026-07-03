@@ -59,6 +59,18 @@ const api = {
   },
 };
 
+// Build the correct API URL for a doc/hash request. Absolute filesystem
+// paths (from the folder browser) go as a query param to avoid Go's mux
+// cleaning double-slashes; relative workspace names go in the path segment.
+function docUrl(name) {
+  if (name && name.startsWith("/")) return "/api/doc/?abs=" + encodeURIComponent(name);
+  return "/api/doc/" + encodeURIComponent(name);
+}
+function hashUrl(name) {
+  if (name && name.startsWith("/")) return "/api/hash/?abs=" + encodeURIComponent(name);
+  return "/api/hash/" + encodeURIComponent(name);
+}
+
 // --- Agenda helpers ---
 
 const PRIORITY_ORDER = { A: 0, B: 1, C: 2 };
@@ -244,7 +256,13 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
             value=${node.body || ""}
             placeholder="Add notes..."
             onChange=${(e) => { dispatch(node.id, "change-body", tree.orgifyPaths(e.target.value)); triggerLinkPicker(e.target, e); }}
-            onBlur=${() => dispatch(node.id, "stop-edit-body")}
+            onBlur=${() => {
+              dispatch(node.id, "stop-edit-body");
+              // If the blur was caused by tab-switching (not clicking elsewhere in
+              // the page), keep the note visible in preview mode so it survives the
+              // round-trip and the user can resume editing when they return.
+              if (!document.hasFocus()) dispatch(node.id, "preview-body");
+            }}
             onKeyDown=${(e) => {
               const marker = formatMarkerForKey(e);
               if (marker) { e.preventDefault(); wrapSelectionWithMarker(e, marker, (v) => dispatch(node.id, "change-body", v)); return; }
@@ -1765,7 +1783,7 @@ function AgendaScheduleEditor({ item, currentNode, onUpdateCurrent, onClose, onI
 
   useEffect(() => {
     if (!isExternal) return;
-    api.get("/api/doc/" + encodeURIComponent(item.file)).then((data) => {
+    api.get(docUrl(item.file)).then((data) => {
       setExtDoc(data);
       // Refresh from the file in case the item's raw values were stale.
       function find(ns) {
@@ -1822,7 +1840,7 @@ function AgendaScheduleEditor({ item, currentNode, onUpdateCurrent, onClose, onI
             if (newDlRaw)    p.DEADLINE  = newDlRaw;    else delete p.DEADLINE;
             return p;
           });
-          const result = await api.put("/api/doc/" + encodeURIComponent(item.file), {
+          const result = await api.put(docUrl(item.file), {
             hash: extDoc.hash, preamble: extDoc.preamble || "", nodes: updNodes,
           });
           setExtDoc((d) => ({ ...d, hash: result.hash, nodes: updNodes }));
@@ -2072,7 +2090,7 @@ function JournalDayCard({ filename, onOpen, onOpenDetail, onOpenAt, searchQuery 
   const doLoad = useCallback(() => {
     if (hasStarted.current) return;
     hasStarted.current = true;
-    api.get("/api/doc/" + encodeURIComponent(filename))
+    api.get(docUrl(filename))
       .then((d) => setContent({ nodes: d.nodes || [], preamble: d.preamble || "" }))
       .catch(() => setContent(false));
   }, [filename]);
@@ -2331,6 +2349,8 @@ const SHORTCUT_DEFS = [
   { id: "outdentOnly",     cat: "Outline",    label: "Promote Heading",       def: "Alt+Shift+ArrowLeft" },
   { id: "commandPalette",  cat: "Navigation", label: "Command Palette",       def: "Ctrl+H" },
   { id: "textSearch",      cat: "Navigation", label: "Full-text Search",      def: "Ctrl+Shift+F" },
+  { id: "copyFormatted",   cat: "Export",     label: "Copy as Formatted Text", def: "Ctrl+Shift+C" },
+  { id: "copyPlain",       cat: "Export",     label: "Copy as Plain Text",     def: "Ctrl+Shift+X" },
   // Fixed: shown for reference, not rebindable
   { id: "newSibling",  cat: "Reference", label: "New Sibling Node",  def: "Enter",       fixed: true },
   { id: "editBody",    cat: "Reference", label: "Edit Body Note",    def: "Shift+Enter", fixed: true },
@@ -2520,6 +2540,8 @@ const SYNC_CONFLICT = "conflict";
 const SYNC_MERGED = "merged";
 const SYNC_RELOADED = "reloaded";
 
+const SYNC_COPIED = "copied";
+
 const SYNC_LABELS = {
   [SYNC_SAVED]:    "Saved \u2014 gray dot: up to date",
   [SYNC_DIRTY]:    "Unsaved changes \u2014 yellow hollow dot: pending save",
@@ -2528,7 +2550,13 @@ const SYNC_LABELS = {
   [SYNC_CONFLICT]: "Merge conflict \u2014 red dot: resolve conflict markers in file",
   [SYNC_MERGED]:   "Merged external edits \u2014 blue dot: external edit was merged in",
   [SYNC_RELOADED]: "Reloaded \u2014 blue dot: file changed on disk and was reloaded",
+  [SYNC_COPIED]:   "Copied to clipboard",
 };
+
+function Toast({ message }) {
+  if (!message) return null;
+  return html`<div className="toast">${message}</div>`;
+}
 
 function SyncIndicator({ status }) {
   const label = SYNC_LABELS[status] || "";
@@ -2553,6 +2581,35 @@ const FILE_COL_DEFAULTS = { size: 80, date: 170 };
 function FilePicker({ files, onSelect, onCreate, onClose, onRename, onDelete, onChangeHomeFolder }) {
   const [newName, setNewName] = useState("");
   const [sort, setSort] = useState({ column: "name", dir: "asc" });
+
+  // Integrated folder navigation — always starts at workspace dir
+  const workspacePath = useRef(null); // resolved on first browse fetch
+  const [navPath, setNavPath] = useState(null);  // null = at workspace root
+  const [navDirs, setNavDirs] = useState([]);
+  const [navFiles, setNavFiles] = useState([]);  // used only when not at workspace
+  const [navParent, setNavParent] = useState(null);
+  const [navLoading, setNavLoading] = useState(false);
+
+  const fetchNav = useCallback(async (path) => {
+    setNavLoading(true);
+    try {
+      const url = path
+        ? "/api/browse?ext=.org&path=" + encodeURIComponent(path)
+        : "/api/browse?ext=.org";
+      const data = await api.get(url);
+      if (!path) workspacePath.current = data.path;  // capture workspace path once
+      const atHome = data.path === workspacePath.current;
+      setNavPath(atHome ? null : data.path);
+      setNavDirs(data.dirs || []);
+      setNavFiles(atHome ? [] : (data.files || []));
+      setNavParent(data.parent || null);
+    } catch {}
+    setNavLoading(false);
+  }, []);
+
+  useEffect(() => { fetchNav(null); }, [fetchNav]);
+
+  const atWorkspace = navPath === null;
   const [renamingFile, setRenamingFile] = useState(null);
   const [renameValue, setRenameValue] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(null);
@@ -2615,87 +2672,147 @@ function FilePicker({ files, onSelect, onCreate, onClose, onRename, onDelete, on
   return html`
     <div className="file-picker">
       <div className="file-picker-header">
-        <h2>Choose a file</h2>
+        <h2>${atWorkspace ? "Choose a file" : html`<span className="fp-nav-path-title" title=${navPath}>${navPath}</span>`}</h2>
         ${onClose && html`
           <button className="file-picker-close" onClick=${onClose} title="Cancel" aria-label="Close">×</button>
         `}
       </div>
-      <div className="file-list" style=${{ "--col-size-width": colWidths.size + "px", "--col-date-width": colWidths.date + "px" }}>
-        <div className="file-list-header">
-          <button className="file-sort-btn file-col-name" onClick=${() => handleSort("name")}>Name${arrow("name")}</button>
-          <div className="file-col-resizable">
-            <button className="file-sort-btn file-col-size" onClick=${() => handleSort("size")}>Size${arrow("size")}</button>
-            <span className="file-col-resizer" onMouseDown=${(e) => startResize("size", e)} />
+
+      ${atWorkspace
+        ? html`
+          <div className="file-list" style=${{ "--col-size-width": colWidths.size + "px", "--col-date-width": colWidths.date + "px" }}>
+            <div className="file-list-header">
+              <button className="file-sort-btn file-col-name" onClick=${() => handleSort("name")}>Name${arrow("name")}</button>
+              <div className="file-col-resizable">
+                <button className="file-sort-btn file-col-size" onClick=${() => handleSort("size")}>Size${arrow("size")}</button>
+                <span className="file-col-resizer" onMouseDown=${(e) => startResize("size", e)} />
+              </div>
+              <div className="file-col-resizable">
+                <button className="file-sort-btn file-col-date" onClick=${() => handleSort("modTime")}>Date${arrow("modTime")}</button>
+                <span className="file-col-resizer" onMouseDown=${(e) => startResize("date", e)} />
+              </div>
+              <span className="file-col-actions"></span>
+            </div>
+            ${navParent && html`
+              <div className="file-item fp-dir-row" onClick=${() => fetchNav(navParent)}>
+                <span className="file-col-name file-name-col">
+                  <span className="file-icon fp-dir-icon">📁</span>
+                  <span className="file-name fp-dir-name">..</span>
+                </span>
+                <span className="file-col-size"></span>
+                <span className="file-col-date"></span>
+                <span className="file-col-actions"></span>
+              </div>
+            `}
+            ${navDirs.map((d) => html`
+              <div className="file-item fp-dir-row" key=${"d:" + d} onClick=${() => fetchNav((navPath || workspacePath.current) + "/" + d)}>
+                <span className="file-col-name file-name-col">
+                  <span className="file-icon fp-dir-icon">📁</span>
+                  <span className="file-name fp-dir-name">${d}</span>
+                </span>
+                <span className="file-col-size"></span>
+                <span className="file-col-date"></span>
+                <span className="file-col-actions"></span>
+              </div>
+            `)}
+            ${sorted.map((f) => html`
+              <div className="file-item" key=${f.name} onClick=${() => { if (renamingFile !== f.name) onSelect(f.name); }}>
+                <span className="file-col-name file-name-col">
+                  <span className="file-icon"><${IconDoc}/></span>
+                  ${renamingFile === f.name
+                    ? html`
+                      <input
+                        ref=${(el) => { renameInputRef.current = el; }}
+                        className="file-rename-input"
+                        value=${renameValue}
+                        onClick=${(e) => e.stopPropagation()}
+                        onChange=${(e) => setRenameValue(e.target.value)}
+                        onBlur=${() => setRenamingFile(null)}
+                        onKeyDown=${(e) => {
+                          if (e.key === "Enter") { e.preventDefault(); commitRename(); }
+                          if (e.key === "Escape") { e.preventDefault(); setRenamingFile(null); }
+                        }}
+                      />
+                    `
+                    : html`<span className="file-name">${f.name}</span>`}
+                </span>
+                <span className="file-col-size">${tree.formatFileSize(f.size)}</span>
+                <span className="file-col-date">${tree.formatFileDate(f.modTime)}</span>
+                <span className="file-col-actions">
+                  ${confirmingDelete === f.name
+                    ? html`
+                      <span className="file-delete-confirm" onClick=${(e) => e.stopPropagation()}>
+                        <span>Delete?</span>
+                        <button className="file-delete-confirm-btn" onClick=${() => { onDelete(f.name); setConfirmingDelete(null); }}>Yes</button>
+                        <button className="file-delete-cancel-btn" onClick=${() => setConfirmingDelete(null)}>No</button>
+                      </span>
+                    `
+                    : html`
+                      <span className="file-row-actions" onClick=${(e) => e.stopPropagation()}>
+                        <button className="file-action-btn" title="Rename" onClick=${() => startRename(f.name)}><${IconPencil} /></button>
+                        <button className="file-action-btn file-action-danger" title="Delete" onClick=${() => setConfirmingDelete(f.name)}><${IconTrash} /></button>
+                      </span>
+                    `}
+                </span>
+              </div>
+            `)}
           </div>
-          <div className="file-col-resizable">
-            <button className="file-sort-btn file-col-date" onClick=${() => handleSort("modTime")}>Date${arrow("modTime")}</button>
-            <span className="file-col-resizer" onMouseDown=${(e) => startResize("date", e)} />
+          <div className="file-create">
+            <input className="file-create-input" placeholder="new-file.org"
+                   value=${newName} onChange=${(e) => setNewName(e.target.value)}
+                   onKeyDown=${(e) => {
+                     if (e.key === "Enter" && newName.trim()) {
+                       onCreate(newName.trim());
+                       setNewName("");
+                     }
+                   }} />
+            <button className="file-create-btn" onClick=${() => {
+              if (newName.trim()) { onCreate(newName.trim()); setNewName(""); }
+            }}>Create</button>
           </div>
-          <span className="file-col-actions"></span>
-        </div>
-        ${sorted.map((f) => html`
-          <div className="file-item" key=${f.name} onClick=${() => { if (renamingFile !== f.name) onSelect(f.name); }}>
-            <span className="file-col-name file-name-col">
-              <span className="file-icon"><${IconDoc}/></span>
-              ${renamingFile === f.name
-                ? html`
-                  <input
-                    ref=${(el) => { renameInputRef.current = el; }}
-                    className="file-rename-input"
-                    value=${renameValue}
-                    onClick=${(e) => e.stopPropagation()}
-                    onChange=${(e) => setRenameValue(e.target.value)}
-                    onBlur=${() => setRenamingFile(null)}
-                    onKeyDown=${(e) => {
-                      if (e.key === "Enter") { e.preventDefault(); commitRename(); }
-                      if (e.key === "Escape") { e.preventDefault(); setRenamingFile(null); }
-                    }}
-                  />
-                `
-                : html`<span className="file-name">${f.name}</span>`}
-            </span>
-            <span className="file-col-size">${tree.formatFileSize(f.size)}</span>
-            <span className="file-col-date">${tree.formatFileDate(f.modTime)}</span>
-            <span className="file-col-actions">
-              ${confirmingDelete === f.name
-                ? html`
-                  <span className="file-delete-confirm" onClick=${(e) => e.stopPropagation()}>
-                    <span>Delete?</span>
-                    <button className="file-delete-confirm-btn" onClick=${() => { onDelete(f.name); setConfirmingDelete(null); }}>Yes</button>
-                    <button className="file-delete-cancel-btn" onClick=${() => setConfirmingDelete(null)}>No</button>
-                  </span>
-                `
-                : html`
-                  <span className="file-row-actions" onClick=${(e) => e.stopPropagation()}>
-                    <button className="file-action-btn" title="Rename" onClick=${() => startRename(f.name)}><${IconPencil} /></button>
-                    <button className="file-action-btn file-action-danger" title="Delete" onClick=${() => setConfirmingDelete(f.name)}><${IconTrash} /></button>
-                  </span>
-                `}
-            </span>
+        `
+        : html`
+          <div className="fp-nav-list">
+            ${navLoading && html`<div className="fp-nav-loading">Loading…</div>`}
+            ${!navLoading && navParent !== null && html`
+              <div className="fp-nav-item fp-nav-dir" onClick=${() => fetchNav(navParent)}>
+                <span className="fp-nav-icon">📁</span>
+                <span className="fp-nav-name">..</span>
+              </div>
+            `}
+            ${!navLoading && navDirs.map((d) => html`
+              <div className="fp-nav-item fp-nav-dir" key=${"d:" + d} onClick=${() => fetchNav(navPath + "/" + d)}>
+                <span className="fp-nav-icon">📁</span>
+                <span className="fp-nav-name">${d}</span>
+              </div>
+            `)}
+            ${!navLoading && navFiles.map((f) => html`
+              <div className="fp-nav-item fp-nav-file" key=${"f:" + f} onClick=${() => { onSelect(navPath + "/" + f); onClose && onClose(); }}>
+                <span className="fp-nav-icon">📄</span>
+                <span className="fp-nav-name">${f}</span>
+              </div>
+            `)}
+            ${!navLoading && navDirs.length === 0 && navFiles.length === 0 && html`
+              <div className="fp-nav-empty">No .org files or folders here</div>
+            `}
           </div>
-        `)}
-      </div>
-      <div className="file-create">
-        <input className="file-create-input" placeholder="new-file.org"
-               value=${newName} onChange=${(e) => setNewName(e.target.value)}
-               onKeyDown=${(e) => {
-                 if (e.key === "Enter" && newName.trim()) {
-                   onCreate(newName.trim());
-                   setNewName("");
-                 }
-               }} />
-        <button className="file-create-btn" onClick=${() => {
-          if (newName.trim()) { onCreate(newName.trim()); setNewName(""); }
-        }}>Create</button>
-      </div>
-      ${onChangeHomeFolder && html`
-        <div className="file-picker-footer">
+        `
+      }
+
+      <div className="file-picker-footer">
+        ${!atWorkspace && html`
+          <button className="file-picker-browse-btn" onClick=${() => fetchNav(null)}
+                  title="Return to workspace folder">
+            ↵ Back to workspace
+          </button>
+        `}
+        ${atWorkspace && onChangeHomeFolder && html`
           <button className="file-picker-change-folder" onClick=${onChangeHomeFolder}
                   title="Switch to a different workspace folder">
             ⌂ Change home folder…
           </button>
-        </div>
-      `}
+        `}
+      </div>
     </div>
   `;
 }
@@ -3143,6 +3260,13 @@ function App() {
   const [hoistedId, setHoistedId] = useState(null);
   const [showHelp, setShowHelp] = useState(false);
   const [syncStatus, setSyncStatus] = useState(SYNC_SAVED);
+  const [toastMsg, setToastMsg] = useState(null);
+  const toastTimer = useRef(null);
+  const showToast = useCallback((msg, ms = 2000) => {
+    setToastMsg(msg);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToastMsg(null), ms);
+  }, []);
   const [view, setView] = useState("outline");
   const [tagSearch, setTagSearch] = useState(null); // { tag, results } | null
   const pendingTagNavRef = useRef(null); // { file, title } to navigate to after load
@@ -3767,6 +3891,12 @@ function App() {
       if (matchShortcut("textSearch", e)) {
         e.preventDefault(); setShowTextSearch(true); return;
       }
+      if (matchShortcut("copyFormatted", e)) {
+        e.preventDefault(); copyFormattedRef.current?.(); return;
+      }
+      if (matchShortcut("copyPlain", e)) {
+        e.preventDefault(); copyPlainRef.current?.(); return;
+      }
       if (e.altKey && e.key === "ArrowLeft") { e.preventDefault(); goBackRef.current?.(); return; }
       if (e.altKey && e.key === "ArrowRight") { e.preventDefault(); goForwardRef.current?.(); return; }
       if (e.altKey && e.key >= "1" && e.key <= "9" && !textModeRef.current) {
@@ -4042,7 +4172,7 @@ function App() {
   }, [favorites]);
 
   const loadFile = useCallback(async (name) => {
-    const data = await api.get("/api/doc/" + encodeURIComponent(name));
+    const data = await api.get(docUrl(name));
     setShowPicker(false);
     setTextMode(false);
     setHoistedId(null);
@@ -4119,6 +4249,103 @@ function App() {
     URL.revokeObjectURL(url);
   }, [nodes, preamble, currentFile, theme, topBarColor]);
 
+  // Write text to clipboard with multiple fallbacks so it works across browsers
+  // and privacy-hardened Chromium builds (Thorium, Brave, etc.).
+  const writeToClipboard = useCallback(async (htmlStr, plainStr) => {
+    // 1. Modern async Clipboard API with both types
+    if (htmlStr && navigator.clipboard && window.ClipboardItem) {
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": new Blob([htmlStr], { type: "text/html" }),
+            "text/plain": new Blob([plainStr], { type: "text/plain" }),
+          }),
+        ]);
+        return true;
+      } catch {}
+    }
+    // 2. Plain text via async API
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(plainStr);
+        return true;
+      } catch {}
+    }
+    // 3. Legacy execCommand fallback (works even without clipboard permission)
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = plainStr;
+      ta.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch {}
+    return false;
+  }, []);
+
+  // Returns {type:"selection", items:[{node,depth}]} when the user has drag-selected
+  // rows in the outline, otherwise {type:"subtree", nodes:[...]} for focused node / whole tree.
+  const getCopySource = useCallback(() => {
+    if (!nodes) return null;
+    const base = hoistedId ? (tree.findNode(nodes, hoistedId)?.children || []) : nodes;
+
+    // 1. Browser text selection spanning one or more outline rows
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      const rows = [...document.querySelectorAll(".node-row[data-node-id]")];
+      const selectedRows = rows.filter((r) => range.intersectsNode(r));
+      if (selectedRows.length > 0) {
+        const items = [];
+        for (const row of selectedRows) {
+          const id = row.dataset.nodeId;
+          const depth = parseInt(row.dataset.depth || "0", 10);
+          const node = tree.findNode(base, id);
+          if (node) items.push({ node, depth });
+        }
+        if (items.length > 0) return { type: "selection", items };
+      }
+    }
+
+    // 2. Focused node + its subtree
+    if (focusedId && focusedId !== "preamble") {
+      const focused = tree.findNode(base, focusedId);
+      if (focused) return { type: "subtree", nodes: [focused] };
+    }
+
+    // 3. Entire visible tree
+    return { type: "subtree", nodes: base };
+  }, [nodes, hoistedId, focusedId]);
+
+  const copyAsFormatted = useCallback(async () => {
+    const src = getCopySource();
+    if (!src) return;
+    let htmlBody, plain;
+    if (src.type === "selection") {
+      htmlBody = tree.selectionToHtml(src.items);
+      plain    = tree.selectionToPlainText(src.items);
+    } else {
+      htmlBody = tree.treeToHtml(src.nodes);
+      plain    = tree.treeToPlainText(src.nodes);
+    }
+    const htmlFull = `<!DOCTYPE html><html><body>${htmlBody}</body></html>`;
+    const ok = await writeToClipboard(htmlFull, plain);
+    if (ok) { showToast("Copied to clipboard"); setSyncStatus(SYNC_COPIED); setTimeout(() => setSyncStatus(SYNC_SAVED), 2000); }
+  }, [getCopySource, writeToClipboard, showToast]);
+
+  const copyAsPlain = useCallback(async () => {
+    const src = getCopySource();
+    if (!src) return;
+    const plain = src.type === "selection"
+      ? tree.selectionToPlainText(src.items)
+      : tree.treeToPlainText(src.nodes);
+    const ok = await writeToClipboard(null, plain);
+    if (ok) { showToast("Copied to clipboard"); setSyncStatus(SYNC_COPIED); setTimeout(() => setSyncStatus(SYNC_SAVED), 2000); }
+  }, [getCopySource, writeToClipboard, showToast]);
+
   const canGoBack = navState.index > 0;
   const canGoForward = navState.index < navState.history.length - 1;
 
@@ -4161,6 +4388,11 @@ function App() {
 
   useEffect(() => { goBackRef.current = goBack; }, [goBack]);
   useEffect(() => { goForwardRef.current = goForward; }, [goForward]);
+
+  const copyFormattedRef = useRef(null);
+  const copyPlainRef = useRef(null);
+  useEffect(() => { copyFormattedRef.current = copyAsFormatted; }, [copyAsFormatted]);
+  useEffect(() => { copyPlainRef.current = copyAsPlain; }, [copyAsPlain]);
 
   const enterTextMode = useCallback(async () => {
     if (!nodesRef.current) return;
@@ -4328,9 +4560,9 @@ function App() {
         // change there would clobber whatever the user is mid-typing.
         if (textModeRef.current) return;
         try {
-          const probe = await api.get("/api/hash/" + encodeURIComponent(file));
+          const probe = await api.get(hashUrl(file));
           if (probe.hash && probe.hash !== hashRef.current) {
-            const data = await api.get("/api/doc/" + encodeURIComponent(file));
+            const data = await api.get(docUrl(file));
             setNodes(data.nodes || []);
             setPreamble(data.preamble || "");
             setHash(data.hash || "");
@@ -4347,7 +4579,7 @@ function App() {
       dirtyRef.current = false;
       setSyncStatus(SYNC_SAVING);
       try {
-        const result = await api.put("/api/doc/" + encodeURIComponent(file), {
+        const result = await api.put(docUrl(file), {
           hash: hashRef.current,
           preamble: preambleRef.current,
           nodes: nodesRef.current,
@@ -4381,12 +4613,26 @@ function App() {
         hash: hashRef.current, preamble: preambleRef.current, nodes: nodesRef.current,
       });
       navigator.sendBeacon(
-        "/api/doc/" + encodeURIComponent(currentFileRef.current),
+        docUrl(currentFileRef.current),
         new Blob([body], { type: "application/json" })
       );
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
+  }, []);
+
+  // When the user returns to this tab, re-focus whichever node (or preamble)
+  // was focused before they left, so keyboard navigation resumes seamlessly.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      const id = focusedIdRef.current;
+      if (!id) return;
+      const el = inputRefs.current[id];
+      if (el) el.focus();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
   // Keep a stable ref to loadFile so the delegated link handler below always
@@ -4933,6 +5179,7 @@ function App() {
           setShowHelp, insertFootnote, insertDateStamp,
           splitFocusedNode, joinFocusedWithNext,
           exportToHtml, currentFile,
+          copyAsFormatted, copyAsPlain,
         })} onClose=${() => setShowHelp(false)} />`}
       ${showShortcutEditor && html`
         <${ShortcutEditor}
@@ -5160,6 +5407,7 @@ function App() {
     </div>
     ${fnPopup && html`<${FootnotePopup} popup=${fnPopup} onClose=${() => setFnPopup(null)} onSave=${saveFootnoteDef} />`}
     ${fnInsertPopup && html`<${FootnoteInsertPopup} popup=${fnInsertPopup} onInsert=${confirmInsertFootnote} onClose=${() => setFnInsertPopup(null)} />`}
+    <${Toast} message=${toastMsg} />
   `;
 }
 
@@ -6471,7 +6719,9 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
     const header = headerRef.current;
     const probe = probeRef.current;
     if (!header || !probe || typeof ResizeObserver === "undefined") return;
-    const check = () => setCollapsed(probe.scrollWidth + 80 > header.clientWidth);
+    // header.clientWidth is inflated by 64px when the tinted-header bleed
+    // margins are active. Use the parent's clientWidth (= true content area).
+    const check = () => setCollapsed(probe.scrollWidth + 80 > header.parentElement.clientWidth);
     check();
     const ro = new ResizeObserver(check);
     ro.observe(header);
@@ -6700,6 +6950,7 @@ function buildCommands(ctx) {
     insertFootnote, insertDateStamp,
     splitFocusedNode, joinFocusedWithNext,
     exportToHtml, currentFile,
+    copyAsFormatted, copyAsPlain,
   } = ctx;
 
   return [
@@ -6743,8 +6994,10 @@ function buildCommands(ctx) {
     { category: "Settings", label: "Toggle Dark/Light Theme", desc: "Switch colour theme",       keys: "",              action: toggleTheme },
     { category: "Settings", label: "Cycle View Mode",       desc: textMode ? "Reveal codes → Plain" : titleFormatMode ? "Formatted → Reveal codes" : "Plain → Formatted titles", keys: "", action: cycleViewMode },
     { category: "Settings", label: "Change Home Folder…", desc: "Pick a new home org folder",    keys: "",              action: () => setShowFolderPicker(true) },
-    // Export
-    { category: "Export", label: "Export to HTML",        desc: "Save standalone HTML file of this document", keys: "", action: exportToHtml, disabled: !currentFile },
+    // Export / Copy
+    { category: "Export", label: "Export to HTML",           desc: "Save standalone HTML file of this document",    keys: "", action: exportToHtml,     disabled: !currentFile },
+    { category: "Export", label: "Copy as Formatted Text",   desc: "Copy visible outline to clipboard with bold/italic/links preserved (paste into Word, email, etc.)", keys: displayCombo(getShortcutCombo("copyFormatted")), action: copyAsFormatted, disabled: !currentFile },
+    { category: "Export", label: "Copy as Plain Text",       desc: "Copy visible outline to clipboard as clean text — no *markup* characters",                        keys: displayCombo(getShortcutCombo("copyPlain")),     action: copyAsPlain,      disabled: !currentFile },
     // Help
     { category: "Help", label: "Keyboard Shortcuts",      desc: "Show this command palette",      keys: displayCombo(getShortcutCombo("commandPalette")), action: () => setShowHelp(true) },
   ].filter((c) => !c.disabled);
@@ -6760,14 +7013,59 @@ function cpSaveRecent(labels) {
   try { localStorage.setItem(CP_RECENT_KEY, JSON.stringify(labels)); } catch {}
 }
 
+const CP_POS_KEY  = "epicorg.cp.pos";
+const CP_SIZE_KEY = "epicorg.cp.size";
+
 function CommandPalette({ commands, onClose }) {
   const [query, setQuery] = useState("");
   const [highlighted, setHighlighted] = useState(0);
   const [recentLabels, setRecentLabels] = useState(cpLoadRecent);
   const inputRef = useRef(null);
-  const listRef = useRef(null);
+  const listRef  = useRef(null);
+  const dialogRef = useRef(null);
+  const dragState = useRef(null);
+
+  // Drag position \u2014 null = use CSS default (centered)
+  const [pos, setPos] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(CP_POS_KEY)) || null; } catch { return null; }
+  });
 
   useEffect(() => { inputRef.current?.focus(); }, []);
+
+  // Drag-by-header
+  const onHeaderMouseDown = (e) => {
+    if (e.target.closest("input, button")) return;
+    e.preventDefault();
+    const dlg = dialogRef.current;
+    if (!dlg) return;
+    const rect = dlg.getBoundingClientRect();
+    dragState.current = { startX: e.clientX, startY: e.clientY, origLeft: rect.left, origTop: rect.top };
+    const onMove = (ev) => {
+      const { startX, startY, origLeft, origTop } = dragState.current;
+      const left = origLeft + ev.clientX - startX;
+      const top  = origTop  + ev.clientY - startY;
+      setPos({ left, top });
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      if (dragState.current) {
+        const dlg = dialogRef.current;
+        if (dlg) {
+          const r = dlg.getBoundingClientRect();
+          const p = { left: r.left, top: r.top };
+          try { localStorage.setItem(CP_POS_KEY, JSON.stringify(p)); } catch {}
+        }
+      }
+      dragState.current = null;
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  };
+
+  const dialogStyle = pos
+    ? { left: pos.left + "px", top: pos.top + "px", transform: "none" }
+    : {};
 
   const isSearching = query.trim() !== "";
 
@@ -6782,7 +7080,6 @@ function CommandPalette({ commands, onClose }) {
     );
   }, [query, commands]);
 
-  // Recent commands that still exist in the current commands list
   const recentCmds = useMemo(() => {
     if (isSearching) return [];
     return recentLabels
@@ -6791,7 +7088,6 @@ function CommandPalette({ commands, onClose }) {
       .slice(0, CP_RECENT_MAX);
   }, [recentLabels, commands, isSearching]);
 
-  // Non-recent commands grouped by category (when not searching)
   const grouped = useMemo(() => {
     if (isSearching) return null;
     const recentSet = new Set(recentCmds.map((c) => c.label));
@@ -6802,12 +7098,10 @@ function CommandPalette({ commands, onClose }) {
       if (!map[cat]) map[cat] = [];
       map[cat].push(c);
     }
-    // Sort each category alphabetically by label
     for (const cat of Object.keys(map)) map[cat].sort((a, b) => a.label.localeCompare(b.label));
     return map;
   }, [commands, recentCmds, isSearching]);
 
-  // Flat list for highlight index tracking (recents first, then grouped rest)
   const flatList = useMemo(() => {
     if (isSearching) return filtered;
     const rest = grouped ? Object.values(grouped).flat() : [];
@@ -6821,13 +7115,15 @@ function CommandPalette({ commands, onClose }) {
     items?.[highlighted]?.scrollIntoView({ block: "nearest" });
   }, [highlighted]);
 
+  // Sticky: run the command but do NOT close the palette automatically.
+  // The user closes it explicitly with X or Escape.
   const run = (cmd) => {
-    // Record in recents
     const next = [cmd.label, ...recentLabels.filter((l) => l !== cmd.label)].slice(0, CP_RECENT_MAX);
     setRecentLabels(next);
     cpSaveRecent(next);
-    onClose();
     cmd.action();
+    // Refocus search so the user can immediately run another command
+    requestAnimationFrame(() => inputRef.current?.focus());
   };
 
   const onKeyDown = (e) => {
@@ -6853,43 +7149,43 @@ function CommandPalette({ commands, onClose }) {
   `;
 
   return html`
-    <div className="cp-overlay" onMouseDown=${(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="cp-dialog">
-        <div className="cp-input-row">
-          <svg className="cp-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-          <input ref=${inputRef} className="cp-input" type="text"
-                 placeholder="Search commands\u2026"
-                 value=${query} onInput=${(e) => setQuery(e.target.value)}
-                 onKeyDown=${onKeyDown} />
-          <button className="cp-close" onClick=${onClose}>\u00D7</button>
-        </div>
-        <div ref=${listRef} className="cp-list">
-          ${flatList.length === 0 && html`
-            <div className="cp-empty">No commands match "${query}"</div>
-          `}
-          ${isSearching
-            ? filtered.map((cmd, idx) => renderItem(cmd, idx))
-            : html`
-                ${recentCmds.length > 0 && html`
-                  <div className="cp-group">
-                    <div className="cp-group-label">Recent</div>
-                    ${recentCmds.map((cmd) => renderItem(cmd, flatList.indexOf(cmd)))}
-                  </div>
-                `}
-                ${Object.entries(grouped).map(([cat, cmds]) => html`
-                  <div key=${cat} className="cp-group">
-                    <div className="cp-group-label">${cat}</div>
-                    ${cmds.map((cmd) => renderItem(cmd, flatList.indexOf(cmd)))}
-                  </div>
-                `)}
-              `
-          }
-        </div>
-        <div className="cp-footer">
-          <span>\u2191\u2193 navigate</span><span>\u21B5 run</span><span>Esc close</span>
-        </div>
+    <div className="cp-dialog ${pos ? "dragging" : ""}"
+         ref=${dialogRef}
+         style=${dialogStyle}>
+      <div className="cp-input-row" onMouseDown=${onHeaderMouseDown}>
+        <svg className="cp-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input ref=${inputRef} className="cp-input" type="text"
+               placeholder="Search commands\u2026"
+               value=${query} onInput=${(e) => setQuery(e.target.value)}
+               onKeyDown=${onKeyDown} />
+        <button className="cp-close" onClick=${onClose}>\u00D7</button>
+      </div>
+      <div ref=${listRef} className="cp-list">
+        ${flatList.length === 0 && html`
+          <div className="cp-empty">No commands match "${query}"</div>
+        `}
+        ${isSearching
+          ? filtered.map((cmd, idx) => renderItem(cmd, idx))
+          : html`
+              ${recentCmds.length > 0 && html`
+                <div className="cp-group">
+                  <div className="cp-group-label">Recent</div>
+                  ${recentCmds.map((cmd) => renderItem(cmd, flatList.indexOf(cmd)))}
+                </div>
+              `}
+              ${Object.entries(grouped).map(([cat, cmds]) => html`
+                <div key=${cat} className="cp-group">
+                  <div className="cp-group-label">${cat}</div>
+                  ${cmds.map((cmd) => renderItem(cmd, flatList.indexOf(cmd)))}
+                </div>
+              `)}
+            `
+        }
+      </div>
+      <div className="cp-footer">
+        <span>\u2191\u2193 navigate</span><span>\u21B5 run</span><span>Esc close</span>
       </div>
     </div>
   `;
