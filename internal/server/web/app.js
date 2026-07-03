@@ -2346,6 +2346,18 @@ const SHORTCUT_DEFS = [
   { id: "expandAll",   cat: "Reference", label: "Expand All",        def: "Alt+9",       fixed: true },
 ];
 
+const TOOLBAR_ITEMS = [
+  { id: "home",       label: "Home button",          desc: "Jump to your configured home file" },
+  { id: "navArrows",  label: "Back / Forward",       desc: "Navigate recently viewed files" },
+  { id: "foldLevels", label: "Fold level buttons",   desc: "Collapse outline to heading levels 1–3 (outline only)" },
+  { id: "moveGroup",  label: "Move / Notes / Hoist", desc: "Outline movement panel, inline notes, hoist (outline only)" },
+  { id: "undoRedo",   label: "Undo / Redo",          desc: "Undo and redo editing actions" },
+  { id: "viewTabs",   label: "View switcher",        desc: "Switch between Outline, Agenda, TODO, Journal" },
+  { id: "modeToggle", label: "Mode toggle",          desc: "Plain, formatted titles, and reveal codes (outline only)" },
+];
+const TOOLBAR_DEFAULTS = { home: true, navArrows: true, foldLevels: true, moveGroup: true, undoRedo: true, viewTabs: true, modeToggle: true };
+const TOOLBAR_CONFIG_KEY = "epicorg.toolbarConfig";
+
 // Module-level shortcut overrides — mutated directly so key handlers
 // (which are module-level functions) can always read the current bindings
 // without needing them threaded through props/context.
@@ -3176,16 +3188,25 @@ function App() {
       return next;
     });
   }, []);
-  const [undoRedoVisible, setUndoRedoVisible] = useState(() => {
-    try { return localStorage.getItem("epicorg.undoRedoVisible") !== "0"; } catch { return true; }
+  const [toolbarConfig, setToolbarConfig] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(TOOLBAR_CONFIG_KEY) || "{}");
+      const merged = { ...TOOLBAR_DEFAULTS, ...saved };
+      // Migrate old per-key undoRedoVisible if no new config saved yet
+      if (!Object.prototype.hasOwnProperty.call(saved, "undoRedo")) {
+        merged.undoRedo = localStorage.getItem("epicorg.undoRedoVisible") !== "0";
+      }
+      return merged;
+    } catch { return { ...TOOLBAR_DEFAULTS }; }
   });
-  const toggleUndoRedoVisible = useCallback(() => {
-    setUndoRedoVisible((p) => {
-      const next = !p;
-      try { localStorage.setItem("epicorg.undoRedoVisible", next ? "1" : "0"); } catch {}
+  const updateToolbarConfig = useCallback((key, val) => {
+    setToolbarConfig((prev) => {
+      const next = { ...prev, [key]: val };
+      try { localStorage.setItem(TOOLBAR_CONFIG_KEY, JSON.stringify(next)); } catch {}
       return next;
     });
   }, []);
+  const [showToolbarCustomizer, setShowToolbarCustomizer] = useState(false);
   const [theme, setTheme] = useState(() => {
     try {
       const stored = localStorage.getItem("epicorg.theme");
@@ -4818,11 +4839,12 @@ function App() {
                   onGoBack=${goBack} onGoForward=${goForward}
                   homeFile=${homeFile} onGoHome=${() => { if (homeFile) { loadFile(homeFile); setView("outline"); } }}
                   onSetHomeFile=${setHomeFilePersisted}
-                  undoRedoVisible=${undoRedoVisible} onToggleUndoRedoVisible=${toggleUndoRedoVisible}
+                  toolbarConfig=${toolbarConfig}
                   statusBarVisible=${statusBarVisible} onToggleStatusBar=${toggleStatusBarVisible}
                   dateStampFmt=${dateStampFmt} onSetDateStampFmt=${setDateStampFmt}
                   onShowShortcutEditor=${() => setShowShortcutEditor(true)}
-                  onShowOutlineActions=${() => setShowOutlineActions(true)} />
+                  onShowOutlineActions=${() => setShowOutlineActions(true)}
+                  onShowToolbarCustomizer=${() => setShowToolbarCustomizer(true)} />
       ${showOutlineActions && html`
         <${OutlineActionsPanel}
           focusedId=${focusedId}
@@ -4855,6 +4877,12 @@ function App() {
           onReset=${resetShortcut}
           onResetAll=${resetAllShortcuts}
           onClose=${() => setShowShortcutEditor(false)} />
+      `}
+      ${showToolbarCustomizer && html`
+        <${ToolbarCustomizer}
+          toolbarConfig=${toolbarConfig}
+          onUpdate=${updateToolbarConfig}
+          onClose=${() => setShowToolbarCustomizer(false)} />
       `}
       ${apptDialog && html`
         <${AppointmentDialog}
@@ -5770,6 +5798,44 @@ function RightPanelLauncher({ tagPanelVisible, onToggleTagPanel, detailVisible, 
   `;
 }
 
+// --- Toolbar Customizer popup ---
+
+function ToolbarCustomizer({ toolbarConfig, onUpdate, onClose }) {
+  useEffect(() => {
+    const h = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [onClose]);
+
+  return html`
+    <div className="shortcut-editor-overlay"
+         onMouseDown=${(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="tc-panel">
+        <div className="shortcut-editor-hdr">
+          <span className="shortcut-editor-title">Customize Toolbar</span>
+          <button className="shortcut-editor-close" onClick=${onClose}>×</button>
+        </div>
+        <div className="tc-body">
+          <p className="shortcut-editor-hint">Toggle which button groups appear in the top toolbar. Items marked "outline only" are always hidden in other views.</p>
+          ${TOOLBAR_ITEMS.map((item) => html`
+            <div className="tc-row" key=${item.id}>
+              <div className="tc-row-text">
+                <span className="tc-row-label">${item.label}</span>
+                <span className="tc-row-desc">${item.desc}</span>
+              </div>
+              <button className=${"tc-toggle" + (toolbarConfig[item.id] ? " on" : "")}
+                      onClick=${() => onUpdate(item.id, !toolbarConfig[item.id])}
+                      aria-label=${toolbarConfig[item.id] ? "Hide " + item.label : "Show " + item.label}>
+                <span className="tc-toggle-knob"></span>
+              </button>
+            </div>
+          `)}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 // --- Shortcut Editor popup ---
 
 function ShortcutEditor({ shortcutVer, onUpdate, onReset, onResetAll, onClose }) {
@@ -5866,10 +5932,10 @@ function HamburgerMenu({
   bookmarkPanelVisible, onToggleBookmarkPanel,
   homeFile, currentFile, onSetHomeFile,
   openToSection, onSectionOpened,
-  undoRedoVisible, onToggleUndoRedoVisible,
   statusBarVisible, onToggleStatusBar,
   dateStampFmt, onSetDateStampFmt,
   onShowShortcutEditor,
+  onShowToolbarCustomizer,
 }) {
   const [open, setOpen] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
@@ -6063,10 +6129,9 @@ function HamburgerMenu({
               <input type="checkbox" checked=${readingWidth} onChange=${onToggleReadingWidth} />
               <span>Reading width</span>
             </label>
-            <label className="hamburger-menu-option">
-              <input type="checkbox" checked=${undoRedoVisible} onChange=${onToggleUndoRedoVisible} />
-              <span>Show undo/redo buttons</span>
-            </label>
+            <button className="hamburger-about-btn" onClick=${() => { setOpen(false); onShowToolbarCustomizer?.(); }}>
+              Customize Toolbar…
+            </button>
             <div className="hamburger-viewmode-row">
               <span className="hamburger-viewmode-label">Stamp date</span>
               <div className="hamburger-segmented">
@@ -6310,7 +6375,7 @@ function OutlineActionsPanel({ onAction, focusedId, onClose }) {
   `;
 }
 
-function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, undoRedoVisible, onToggleUndoRedoVisible, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions }) {
+function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer }) {
   // Whether the toolbar/search/etc. actually fit is measured, not
   // guessed from viewport width — a long filename or a pile of tags
   // eats into the same space a phone-width media query would assume is
@@ -6375,18 +6440,22 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
       ${currentFile && showFull && html`
         <div className="toolbar-and-search">
         <div className="toolbar">
-          <div className="view-toggle">
-            <button className=${"view-tab" + (homeFile && currentFile === homeFile ? " active" : "") + (!homeFile ? " toolbar-home-unset" : "")}
-                    onClick=${() => homeFile ? onGoHome() : setOpenHamburgerSection("homeFile")}
-                    title=${homeFile ? "Go home: " + homeFile : "No home file set — click to configure"}><${IconHome} /></button>
-          </div>
-          <div className="view-toggle">
-            <button className="view-tab" onClick=${onGoBack} disabled=${!canGoBack}
-                    title="Go back (Alt+←)"><${IconNavBack} /></button>
-            <button className="view-tab" onClick=${onGoForward} disabled=${!canGoForward}
-                    title="Go forward (Alt+→)"><${IconNavForward} /></button>
-          </div>
-          ${view === "outline" && html`
+          ${toolbarConfig.home && html`
+            <div className="view-toggle">
+              <button className=${"view-tab" + (homeFile && currentFile === homeFile ? " active" : "") + (!homeFile ? " toolbar-home-unset" : "")}
+                      onClick=${() => homeFile ? onGoHome() : setOpenHamburgerSection("homeFile")}
+                      title=${homeFile ? "Go home: " + homeFile : "No home file set — click to configure"}><${IconHome} /></button>
+            </div>
+          `}
+          ${toolbarConfig.navArrows && html`
+            <div className="view-toggle">
+              <button className="view-tab" onClick=${onGoBack} disabled=${!canGoBack}
+                      title="Go back (Alt+←)"><${IconNavBack} /></button>
+              <button className="view-tab" onClick=${onGoForward} disabled=${!canGoForward}
+                      title="Go forward (Alt+→)"><${IconNavForward} /></button>
+            </div>
+          `}
+          ${view === "outline" && toolbarConfig.foldLevels && html`
             <div className="view-toggle">
               ${FOLD_LEVELS.map((lvl) => html`
                 <button key=${lvl} className="view-tab"
@@ -6395,6 +6464,8 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
                         title=${textMode ? "Not available in reveal codes mode" : "Fold to level " + lvl + " (Alt+" + lvl + ")"}>${lvl}</button>
               `)}
             </div>
+          `}
+          ${view === "outline" && toolbarConfig.moveGroup && html`
             <div className="view-toggle">
               <button className="view-tab"
                       onClick=${onShowOutlineActions}
@@ -6413,7 +6484,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
               </button>
             </div>
           `}
-          ${undoRedoVisible && html`
+          ${toolbarConfig.undoRedo && html`
             <div className="view-toggle">
               <button className="view-tab" onClick=${onUndo} disabled=${!canUndo || textMode}
                       title=${textMode ? "Not available in text mode" : "Undo (Ctrl+Z)"}><${IconUndo} /></button>
@@ -6421,17 +6492,19 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
                       title=${textMode ? "Not available in text mode" : "Redo (Ctrl+Shift+Z)"}><${IconRedo} /></button>
             </div>
           `}
-          <div className="view-toggle">
-            <button className=${"view-tab" + (view === "outline" ? " active" : "")}
-                    onClick=${() => setView("outline")} title="Outline view"><${IconOutline} /></button>
-            <button className=${"view-tab" + (view === "agenda" ? " active" : "")}
-                    onClick=${() => setView("agenda")} title="Agenda view"><${IconAgenda} /></button>
-            <button className=${"view-tab" + (view === "todo" ? " active" : "")}
-                    onClick=${() => setView("todo")} title="TODO list"><${IconTodo} /></button>
-            <button className=${"view-tab" + (view === "journal" ? " active" : "")}
-                    onClick=${() => setView("journal")} title="Daily journal"><${IconJournal} /></button>
-          </div>
-          ${view === "outline" && html`
+          ${toolbarConfig.viewTabs && html`
+            <div className="view-toggle">
+              <button className=${"view-tab" + (view === "outline" ? " active" : "")}
+                      onClick=${() => setView("outline")} title="Outline view"><${IconOutline} /></button>
+              <button className=${"view-tab" + (view === "agenda" ? " active" : "")}
+                      onClick=${() => setView("agenda")} title="Agenda view"><${IconAgenda} /></button>
+              <button className=${"view-tab" + (view === "todo" ? " active" : "")}
+                      onClick=${() => setView("todo")} title="TODO list"><${IconTodo} /></button>
+              <button className=${"view-tab" + (view === "journal" ? " active" : "")}
+                      onClick=${() => setView("journal")} title="Daily journal"><${IconJournal} /></button>
+            </div>
+          `}
+          ${view === "outline" && toolbarConfig.modeToggle && html`
             <div className="view-toggle">
               <button className=${"view-tab" + (titleFormatMode || textMode ? " active" : "")}
                       onClick=${onCycleViewMode}
@@ -6497,10 +6570,10 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
           bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${onToggleBookmarkPanel}
           homeFile=${homeFile} currentFile=${currentFile} onSetHomeFile=${onSetHomeFile}
           openToSection=${openHamburgerSection} onSectionOpened=${() => setOpenHamburgerSection(null)}
-          undoRedoVisible=${undoRedoVisible} onToggleUndoRedoVisible=${onToggleUndoRedoVisible}
           statusBarVisible=${statusBarVisible} onToggleStatusBar=${onToggleStatusBar}
           dateStampFmt=${dateStampFmt} onSetDateStampFmt=${onSetDateStampFmt}
-          onShowShortcutEditor=${onShowShortcutEditor} />
+          onShowShortcutEditor=${onShowShortcutEditor}
+          onShowToolbarCustomizer=${onShowToolbarCustomizer} />
         <button className="panel-toggle-btn" onClick=${onHelp} title="Command palette — search and run any command (Ctrl+H)"><${IconCommandPalette} /></button>
         ${currentFile && html`
           <button className=${"panel-toggle-btn" + (tagPanelVisible && !textMode ? " active" : "") + (selectedTags.length > 0 ? " has-filter" : "")}
