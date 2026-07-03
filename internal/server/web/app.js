@@ -2550,7 +2550,7 @@ const FILE_SORT_DEFAULT_DIR = { name: "asc", size: "desc", modTime: "desc" };
 const FILE_COL_MIN_WIDTH = 50;
 const FILE_COL_DEFAULTS = { size: 80, date: 170 };
 
-function FilePicker({ files, onSelect, onCreate, onClose, onRename, onDelete }) {
+function FilePicker({ files, onSelect, onCreate, onClose, onRename, onDelete, onChangeHomeFolder }) {
   const [newName, setNewName] = useState("");
   const [sort, setSort] = useState({ column: "name", dir: "asc" });
   const [renamingFile, setRenamingFile] = useState(null);
@@ -2688,6 +2688,14 @@ function FilePicker({ files, onSelect, onCreate, onClose, onRename, onDelete }) 
           if (newName.trim()) { onCreate(newName.trim()); setNewName(""); }
         }}>Create</button>
       </div>
+      ${onChangeHomeFolder && html`
+        <div className="file-picker-footer">
+          <button className="file-picker-change-folder" onClick=${onChangeHomeFolder}
+                  title="Switch to a different workspace folder">
+            ⌂ Change home folder…
+          </button>
+        </div>
+      `}
     </div>
   `;
 }
@@ -3020,7 +3028,60 @@ function FootnoteInsertPopup({ popup, onInsert, onClose }) {
   `;
 }
 
-function StatusBar({ currentFile, homeDir, journalDir, tagListFile }) {
+function WorkspaceSettingsPanel({
+  homeDir, homeFile, journalDir, tagListFile, currentFile,
+  onChangeHomeDir, onChangeJournalDir, onClearJournalDir,
+  onChangeTagListFile, onClearTagListFile,
+  onSetHomeFile,
+  onClose,
+}) {
+  useEffect(() => {
+    const h = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [onClose]);
+
+  const Row = ({ label, value, onPick, onClear, extra }) => html`
+    <div className="wsp-row">
+      <span className="wsp-label">${label}</span>
+      <span className="wsp-value" title=${value || ""}>${value || html`<em>not set</em>`}</span>
+      <div className="wsp-actions">
+        ${extra}
+        ${onPick && html`<button className="wsp-btn" onClick=${onPick}>Change…</button>`}
+        ${onClear && value && html`<button className="wsp-btn wsp-btn-clear" onClick=${onClear} title="Clear">×</button>`}
+      </div>
+    </div>
+  `;
+
+  return html`
+    <div className="wsp-overlay" onClick=${(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="wsp-panel">
+        <div className="wsp-header">
+          <span className="wsp-title">Workspace Settings</span>
+          <button className="oap-close" onClick=${onClose}>×</button>
+        </div>
+        <${Row} label="Home Folder" value=${homeDir} onPick=${onChangeHomeDir} />
+        <${Row} label="Home File" value=${homeFile}
+          extra=${html`
+            <button className="wsp-btn" disabled=${!currentFile}
+                    onClick=${() => { onSetHomeFile(currentFile); onClose(); }}
+                    title=${currentFile ? "Set \"" + currentFile + "\" as home file" : "Open a file first"}>
+              Set current
+            </button>
+          `}
+          onClear=${() => { onSetHomeFile(null); onClose(); }} />
+        <${Row} label="Journal Folder" value=${journalDir || "(same as home folder)"}
+          onPick=${onChangeJournalDir}
+          onClear=${journalDir ? onClearJournalDir : null} />
+        <${Row} label="Tag List File" value=${tagListFile || "(default)"}
+          onPick=${onChangeTagListFile}
+          onClear=${tagListFile ? onClearTagListFile : null} />
+      </div>
+    </div>
+  `;
+}
+
+function StatusBar({ currentFile, homeDir, journalDir, tagListFile, onOpenSettings }) {
   const journalLabel = journalDir ? journalDir : "(workspace default)";
   return html`
     <div className="status-bar">
@@ -3043,6 +3104,7 @@ function StatusBar({ currentFile, homeDir, journalDir, tagListFile }) {
         <span className="status-bar-label">Tag List</span>
         ${tagListFile || "—"}
       </span>
+      <button className="status-bar-settings-btn" onClick=${onOpenSettings} title="Workspace settings">⚙</button>
     </div>
   `;
 }
@@ -3207,6 +3269,7 @@ function App() {
     });
   }, []);
   const [showToolbarCustomizer, setShowToolbarCustomizer] = useState(false);
+  const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
   const [theme, setTheme] = useState(() => {
     try {
       const stored = localStorage.getItem("epicorg.theme");
@@ -4775,7 +4838,8 @@ function App() {
                     theme=${theme} onToggleTheme=${toggleTheme} />
         <${FilePicker} files=${files} onSelect=${loadFile} onCreate=${handleCreateFile}
           onRename=${handleRenameFile} onDelete=${handleDeleteFile}
-          onClose=${currentFile ? () => setShowPicker(false) : null} />
+          onClose=${currentFile ? () => setShowPicker(false) : null}
+          onChangeHomeFolder=${() => setShowFolderPicker(true)} />
       </div>
     `;
   }
@@ -5078,7 +5142,20 @@ function App() {
           textMode=${textMode} selectedTags=${selectedTags} />
       </div>
       ${statusBarVisible && html`
-        <${StatusBar} currentFile=${currentFile} homeDir=${homeDir} journalDir=${journalDir} tagListFile=${tagListFile} />
+        <${StatusBar} currentFile=${currentFile} homeDir=${homeDir} journalDir=${journalDir} tagListFile=${tagListFile}
+          onOpenSettings=${() => setShowWorkspaceSettings(true)} />
+      `}
+      ${showWorkspaceSettings && html`
+        <${WorkspaceSettingsPanel}
+          homeDir=${homeDir} homeFile=${homeFile} journalDir=${journalDir}
+          tagListFile=${tagListFile} currentFile=${currentFile}
+          onChangeHomeDir=${() => { setShowWorkspaceSettings(false); setShowFolderPicker(true); }}
+          onChangeJournalDir=${() => { setShowWorkspaceSettings(false); setShowJournalFolderPicker(true); }}
+          onClearJournalDir=${() => { setShowWorkspaceSettings(false); clearJournalDir(); }}
+          onChangeTagListFile=${() => { setShowWorkspaceSettings(false); setShowTagListFilePicker(true); }}
+          onClearTagListFile=${() => { setShowWorkspaceSettings(false); clearTagListFile(); }}
+          onSetHomeFile=${setHomeFilePersisted}
+          onClose=${() => setShowWorkspaceSettings(false)} />
       `}
     </div>
     ${fnPopup && html`<${FootnotePopup} popup=${fnPopup} onClose=${() => setFnPopup(null)} onSave=${saveFootnoteDef} />`}
