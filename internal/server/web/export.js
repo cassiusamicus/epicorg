@@ -373,6 +373,15 @@ function applyFilters(){
     var tagOk=!curTag||tags.indexOf(curTag)>=0;
     el.hidden=!(levelOk&&searchOk&&tagOk);
   });
+  // Sync each .ch container and its toggle arrow with child visibility so
+  // the arrow accurately reflects whether there is something to expand.
+  document.querySelectorAll('#outline .ch').forEach(function(ch){
+    var hasVisible=!!ch.querySelector(':scope>.ns:not([hidden])');
+    ch.hidden=!hasVisible;
+    var ns=ch.parentElement;
+    var tog=ns&&ns.querySelector(':scope>.nh .tog');
+    if(tog){tog.textContent=ch.hidden?'▶':'▼';tog.title=ch.hidden?'Expand':'Collapse';}
+  });
 }
 
 function navToggle(btn){
@@ -387,9 +396,15 @@ function navToggle(btn){
 function toggleNode(el,chId){
   var ch=document.getElementById(chId);
   if(!ch)return;
+  var expanding=ch.hidden;
   ch.hidden=!ch.hidden;
   el.textContent=ch.hidden?'▶':'▼';
   el.title=ch.hidden?'Expand':'Collapse';
+  if(expanding){
+    // Un-hide direct children that the level filter may have suppressed,
+    // so clicking ▶ actually reveals content rather than showing nothing.
+    ch.querySelectorAll(':scope>.ns').forEach(function(ns){ns.hidden=false;});
+  }
 }
 
 function navClick(e,a){
