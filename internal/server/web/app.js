@@ -2929,7 +2929,7 @@ function SidebarFileRow({ name, active, isFavorite, onSelect, onToggleFavorite, 
   `;
 }
 
-function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavorite, bookmarks, onNavigateToBookmark, onDeleteBookmark, onReorderBookmarks, bookmarkPanelVisible, onToggleBookmarkPanel, textMode, onToggleSidebar, onOpenTodayJournal, onOpenJournalList, onRenameFile }) {
+function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavorite, bookmarks, onNavigateToBookmark, onDeleteBookmark, onReorderBookmarks, bookmarkPanelVisible, onToggleBookmarkPanel, textMode, onToggleSidebar, onOpenTodayJournal, onOpenJournalList, onRenameFile, onClearRecentFiles }) {
   const dragIndexRef = useRef(null);
   const [renameConfirm, setRenameConfirm] = useState(null); // { oldName, newName }
   const [renameBusy, setRenameBusy] = useState(false);
@@ -3016,7 +3016,10 @@ function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavori
       <div className="sidebar-section">
         <div className="sidebar-section-header">
           <span className="sidebar-section-icon">↺</span>
-          <span>Recent</span>
+          <span style=${{flex:1}}>Recent</span>
+          ${recentFiles.length > 0 && html`
+            <button className="sidebar-clear-btn" title="Clear recent file list" onClick=${onClearRecentFiles}>✕</button>
+          `}
         </div>
         ${recentFiles.length === 0
           ? html`<div className="sidebar-empty">No recent files</div>`
@@ -3333,6 +3336,10 @@ function App() {
   const [recentFiles, setRecentFiles] = useState(() => {
     try { return JSON.parse(localStorage.getItem("epicorg.recentFiles") || "[]"); } catch { return []; }
   });
+  const clearRecentFiles = useCallback(() => {
+    setRecentFiles([]);
+    try { localStorage.removeItem("epicorg.recentFiles"); } catch {}
+  }, []);
   const [sidebarVisible, setSidebarVisible] = useState(() => {
     try { return localStorage.getItem("epicorg.sidebarVisible") !== "0"; } catch { return true; }
   });
@@ -5408,6 +5415,7 @@ function App() {
           splitFocusedNode, joinFocusedWithNext,
                 exportToHtml, exportToOrg, currentFile,
           copyAsFormatted, copyAsPlain,
+          clearRecentFiles,
         })} onClose=${() => setShowHelp(false)} />`}
       ${showShortcutEditor && html`
         <${ShortcutEditor}
@@ -5479,7 +5487,8 @@ function App() {
               try { const d = await api.post("/api/journal", {}); loadFile(d.filename); setView("outline"); } catch {}
             }}
             onOpenJournalList=${() => setView("journal")}
-            onRenameFile=${handleRenameFile} />
+            onRenameFile=${handleRenameFile}
+            onClearRecentFiles=${clearRecentFiles} />
         `}
         ${bookmarkPanelVisible && !textMode && html`
           <${BookmarkPanel} globalBMs=${globalBMs}
@@ -7275,6 +7284,7 @@ function buildCommands(ctx) {
     splitFocusedNode, joinFocusedWithNext,
     exportToHtml, exportToOrg, currentFile,
     copyAsFormatted, copyAsPlain,
+    clearRecentFiles,
   } = ctx;
 
   return [
@@ -7325,7 +7335,8 @@ function buildCommands(ctx) {
     // Settings
     { category: "Settings", label: "Toggle Dark/Light Theme", desc: "Switch colour theme",       keys: "",              action: toggleTheme },
     { category: "Settings", label: "Cycle View Mode",       desc: textMode ? "Reveal codes → Plain" : titleFormatMode ? "Formatted → Reveal codes" : "Plain → Formatted titles", keys: "", action: cycleViewMode },
-    { category: "Settings", label: "Change Home Folder…", desc: "Pick a new home org folder",    keys: "",              action: () => setShowFolderPicker(true) },
+    { category: "Settings", label: "Change Home Folder…",    desc: "Pick a new home org folder",  keys: "", action: () => setShowFolderPicker(true) },
+    { category: "Settings", label: "Clear Recent File List", desc: "Remove all entries from the recent files list in the sidebar", keys: "", action: clearRecentFiles },
     // Export / Copy
     { category: "Export", label: "Export to Local Org File", desc: "Use this option to save a local copy of the current org file for backup or other use.", keys: "", action: exportToOrg, disabled: !currentFile },
     { category: "Export", label: "Export to HTML",           desc: "Save standalone HTML file of this document",    keys: "", action: exportToHtml,     disabled: !currentFile },
