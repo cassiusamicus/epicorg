@@ -374,7 +374,13 @@ func (h *handlers) putGlobalBookmarks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) getOrgBookmarks(w http.ResponseWriter, r *http.Request) {
-	bms, err := orgfile.LoadOrgBookmarks(h.store.Dir())
+	var bms []orgfile.OrgBookmark
+	var err error
+	if f := h.store.GetBookmarkListFile(); f != "" {
+		bms, err = orgfile.LoadOrgBookmarksFromFile(f)
+	} else {
+		bms, err = orgfile.LoadOrgBookmarks(h.store.Dir())
+	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -393,11 +399,36 @@ func (h *handlers) putOrgBookmarks(w http.ResponseWriter, r *http.Request) {
 	if req.Bookmarks == nil {
 		req.Bookmarks = []orgfile.OrgBookmark{}
 	}
-	if err := orgfile.SaveOrgBookmarks(h.store.Dir(), req.Bookmarks); err != nil {
+	var err error
+	if f := h.store.GetBookmarkListFile(); f != "" {
+		err = orgfile.SaveOrgBookmarksToFile(f, req.Bookmarks)
+	} else {
+		err = orgfile.SaveOrgBookmarks(h.store.Dir(), req.Bookmarks)
+	}
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	writeJSON(w, map[string]bool{"ok": true})
+}
+
+func (h *handlers) getBookmarkListFile(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]string{"file": h.store.GetBookmarkListFile()})
+}
+
+func (h *handlers) setBookmarkListFile(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		File string `json:"file"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	if err := h.store.SetBookmarkListFile(req.File); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, map[string]string{"file": req.File})
 }
 
 func (h *handlers) getGlobalTags(w http.ResponseWriter, r *http.Request) {

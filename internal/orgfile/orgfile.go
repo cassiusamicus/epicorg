@@ -18,18 +18,20 @@ import (
 
 // Store manages a directory of org files with hash-based change detection.
 type Store struct {
-	dir         string
-	journalDir  string // optional override; empty = dir/journal
-	tagListFile string // optional override full path; empty = {dir}/TagList.org
-	mu          sync.RWMutex
-	active      map[string]*FileState
-	currentFile string // the file currently being edited
+	dir              string
+	journalDir       string // optional override; empty = dir/journal
+	tagListFile      string // optional override full path; empty = {dir}/TagList.org
+	bookmarkListFile string // optional override full path; empty = {dir}/Bookmarks.org
+	mu               sync.RWMutex
+	active           map[string]*FileState
+	currentFile      string // the file currently being edited
 }
 
 // epicorgConfig holds global settings persisted to ~/.config/epicorg/config.json.
 type epicorgConfig struct {
-	JournalDir  string `json:"journalDir,omitempty"`
-	TagListFile string `json:"tagListFile,omitempty"` // full path to the active tag list .org file
+	JournalDir       string `json:"journalDir,omitempty"`
+	TagListFile      string `json:"tagListFile,omitempty"`      // full path to the active tag list .org file
+	BookmarkListFile string `json:"bookmarkListFile,omitempty"` // full path to the active bookmark list .org file
 }
 
 func globalConfigPath() string {
@@ -90,10 +92,11 @@ func NewStore(dir string) (*Store, error) {
 
 	cfg := loadGlobalConfig()
 	return &Store{
-		dir:        dir,
-		journalDir: cfg.JournalDir,
-		tagListFile: cfg.TagListFile,
-		active:     make(map[string]*FileState),
+		dir:              dir,
+		journalDir:       cfg.JournalDir,
+		tagListFile:      cfg.TagListFile,
+		bookmarkListFile: cfg.BookmarkListFile,
+		active:           make(map[string]*FileState),
 	}, nil
 }
 
@@ -152,6 +155,35 @@ func (s *Store) SetTagListFile(path string) error {
 
 	cfg := loadGlobalConfig()
 	cfg.TagListFile = path
+	return saveGlobalConfig(cfg)
+}
+
+// GetBookmarkListFile returns the configured bookmark list file path (empty = default: {workspaceDir}/Bookmarks.org).
+func (s *Store) GetBookmarkListFile() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.bookmarkListFile
+}
+
+// SetBookmarkListFile sets the full path to the active bookmark list .org file, persisting globally.
+// Pass an empty string to revert to {workspaceDir}/Bookmarks.org.
+func (s *Store) SetBookmarkListFile(path string) error {
+	if path != "" {
+		path = filepath.Clean(path)
+		info, err := os.Stat(path)
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("cannot access bookmark list file: %w", err)
+		}
+		if err == nil && info.IsDir() {
+			return fmt.Errorf("%q is a directory, not a file", path)
+		}
+	}
+	s.mu.Lock()
+	s.bookmarkListFile = path
+	s.mu.Unlock()
+
+	cfg := loadGlobalConfig()
+	cfg.BookmarkListFile = path
 	return saveGlobalConfig(cfg)
 }
 

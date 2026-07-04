@@ -954,7 +954,7 @@ function TagList({ tags, onUpdate, depth, selectedTags, onToggleTag, onAddTagToI
   `;
 }
 
-function TagPanel({ globalTags, onUpdateTags, onNestTag, onAddTagToItem, selectedTags, onToggleTag, onClearTags, onEditTagFile, onPickTagListFile, tagListFile, width, onWidthChange, onSearch, onReloadTags }) {
+function TagPanel({ globalTags, onUpdateTags, onNestTag, onAddTagToItem, selectedTags, onToggleTag, onClearTags, onEditTagFile, onPickTagListFile, tagListFile, width, onWidthChange, onSearch, onReloadTags, focusedNode, dispatch, onAddToGlobalTags }) {
   const tagListLabel = tagListFile ? pathBasename(tagListFile) : "TagList.org";
   const [renameConfirm, setRenameConfirm] = useState(null); // { oldName, newName }
   const [renaming, setRenaming] = useState(false);
@@ -998,6 +998,7 @@ function TagPanel({ globalTags, onUpdateTags, onNestTag, onAddTagToItem, selecte
         <span className="detail-gripper-icon" aria-hidden="true"></span>
       </div>
       <div className="tag-panel-content">
+        <${NodeTagsPane} node=${focusedNode} dispatch=${dispatch} onAddToGlobalTags=${onAddToGlobalTags} />
         <div className="tag-panel-header">
           <span>TAG LIST</span>
           ${selectedTags.length > 0 && html`
@@ -1195,7 +1196,7 @@ function BookmarkList({ bms, onUpdate, depth, onAddBMToItem, onNestBM }) {
   `;
 }
 
-function BookmarkPanel({ globalBMs, onUpdateBMs, onNestBM, onAddBMToItem, onEditBookmarkFile, width, onWidthChange }) {
+function BookmarkPanel({ globalBMs, onUpdateBMs, onNestBM, onAddBMToItem, onEditBookmarkFile, onPickBookmarkListFile, bookmarkListFile, width, onWidthChange, focusedNode, dispatch, onAddToGlobalBMs }) {
   const onGripperMouseDown = (e) => {
     e.preventDefault();
     const startX = e.clientX;
@@ -1215,6 +1216,7 @@ function BookmarkPanel({ globalBMs, onUpdateBMs, onNestBM, onAddBMToItem, onEdit
   return html`
     <div className="bookmark-panel" style=${{width: width + "px"}}>
       <div className="bookmark-panel-content">
+        <${ItemBookmarkPane} node=${focusedNode} dispatch=${dispatch} onAddToGlobalBMs=${onAddToGlobalBMs} />
         <div className="tag-panel-header">
           <span>BOOKMARK LIST</span>
         </div>
@@ -1229,7 +1231,10 @@ function BookmarkPanel({ globalBMs, onUpdateBMs, onNestBM, onAddBMToItem, onEdit
             <div className="tag-panel-empty">No bookmarks yet.<br/>Use "add bookmark…" in the item pane.</div>
           `}
         </div>
-        <button className="tag-edit-file-btn" onClick=${onEditBookmarkFile}>Edit Bookmarks.org</button>
+        <div className="tag-panel-footer">
+          <button className="tag-edit-file-btn" onClick=${onEditBookmarkFile}>Edit ${bookmarkListFile ? pathBasename(bookmarkListFile) : "Bookmarks.org"}</button>
+          <button className="tag-edit-file-btn" onClick=${onPickBookmarkListFile} title="Switch to a different bookmark list file">Change</button>
+        </div>
       </div>
       <div className="bookmark-panel-gripper" onMouseDown=${onGripperMouseDown}>
         <span className="detail-gripper-icon" aria-hidden="true"></span>
@@ -2870,6 +2875,8 @@ function SidebarFileRow({ name, active, isFavorite, onSelect, onToggleFavorite, 
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const inputRef = useRef(null);
+  const isExternal = name.startsWith("/");
+  const displayName = isExternal ? pathBasename(name) : name;
 
   const startRename = (e) => {
     e.stopPropagation();
@@ -2899,9 +2906,9 @@ function SidebarFileRow({ name, active, isFavorite, onSelect, onToggleFavorite, 
         : html`
           <span className="sidebar-item-main" onClick=${() => onSelect(name)} title=${name}>
             <span className="sidebar-item-icon"><${IconDoc}/></span>
-            <span className="sidebar-item-name">${name}</span>
+            <span className="sidebar-item-name">${displayName}</span>
           </span>
-          <button className="sidebar-file-rename" onClick=${startRename} title="Rename file">✎</button>
+          ${!isExternal && html`<button className="sidebar-file-rename" onClick=${startRename} title="Rename file">✎</button>`}
           <button className=${"sidebar-star" + (isFavorite ? " sidebar-star-active" : "")}
                   onClick=${(e) => { e.stopPropagation(); onToggleFavorite(name); }}
                   title=${isFavorite ? "Remove from favorites" : "Add to favorites"}>
@@ -3157,9 +3164,10 @@ function FootnoteInsertPopup({ popup, onInsert, onClose }) {
 }
 
 function WorkspaceSettingsPanel({
-  homeDir, homeFile, journalDir, tagListFile, currentFile,
+  homeDir, homeFile, journalDir, tagListFile, bookmarkListFile, currentFile,
   onChangeHomeDir, onChangeJournalDir, onClearJournalDir,
   onChangeTagListFile, onClearTagListFile,
+  onChangeBookmarkListFile, onClearBookmarkListFile,
   onSetHomeFile,
   onClose,
 }) {
@@ -3204,18 +3212,26 @@ function WorkspaceSettingsPanel({
         <${Row} label="Tag List File" value=${tagListFile || "(default)"}
           onPick=${onChangeTagListFile}
           onClear=${tagListFile ? onClearTagListFile : null} />
+        <${Row} label="Bookmark List File" value=${bookmarkListFile || "(default)"}
+          onPick=${onChangeBookmarkListFile}
+          onClear=${bookmarkListFile ? onClearBookmarkListFile : null} />
       </div>
     </div>
   `;
 }
 
-function StatusBar({ currentFile, homeDir, journalDir, tagListFile, onOpenSettings }) {
+function StatusBar({ currentFile, homeDir, journalDir, tagListFile, bookmarkListFile, onOpenSettings }) {
   const journalLabel = journalDir ? journalDir : "(workspace default)";
+  // Build full absolute path: currentFile is relative when opened from the
+  // workspace file list, absolute when opened via the filesystem navigator.
+  const fullFilePath = currentFile
+    ? (currentFile.startsWith("/") ? currentFile : (homeDir ? homeDir + "/" + currentFile : currentFile))
+    : "—";
   return html`
     <div className="status-bar">
       <span className="status-bar-item">
         <span className="status-bar-label">File</span>
-        ${currentFile || "—"}
+        ${fullFilePath}
       </span>
       <span className="status-bar-sep" />
       <span className="status-bar-item">
@@ -3231,6 +3247,11 @@ function StatusBar({ currentFile, homeDir, journalDir, tagListFile, onOpenSettin
       <span className="status-bar-item">
         <span className="status-bar-label">Tag List</span>
         ${tagListFile || "—"}
+      </span>
+      <span className="status-bar-sep" />
+      <span className="status-bar-item">
+        <span className="status-bar-label">Bookmark List</span>
+        ${bookmarkListFile || "—"}
       </span>
       <button className="status-bar-settings-btn" onClick=${onOpenSettings} title="Workspace settings">⚙</button>
     </div>
@@ -3286,9 +3307,11 @@ function App() {
   const [homeDir, setHomeDir] = useState(null);
   const [journalDir, setJournalDir] = useState(null); // null = not yet loaded; "" = default
   const [tagListFile, setTagListFile] = useState(null); // null = not yet loaded; "" = default
+  const [bookmarkListFile, setBookmarkListFile] = useState(null); // null = not yet loaded; "" = default
   const [showFolderPicker, setShowFolderPicker] = useState(false);
   const [showJournalFolderPicker, setShowJournalFolderPicker] = useState(false);
   const [showTagListFilePicker, setShowTagListFilePicker] = useState(false);
+  const [showBookmarkListFilePicker, setShowBookmarkListFilePicker] = useState(false);
   const [showTextSearch, setShowTextSearch] = useState(false);
   // Unified search results: { type: "tag"|"text", query, results } | null
   const [searchResults, setSearchResults] = useState(null);
@@ -4097,7 +4120,7 @@ function App() {
       setFiles(f);
       let lastFile = null;
       try { lastFile = localStorage.getItem("epicorg.lastFile"); } catch {}
-      if (lastFile && f.some((file) => file.name === lastFile)) loadFile(lastFile);
+      if (lastFile && (lastFile.startsWith("/") || f.some((file) => file.name === lastFile))) loadFile(lastFile);
       else if (data.default && f.some((file) => file.name === data.default)) loadFile(data.default);
       else if (f.length === 1) loadFile(f[0].name);
     });
@@ -4108,6 +4131,7 @@ function App() {
     api.get("/api/homedir").then((d) => setHomeDir(d.dir)).catch(() => {});
     api.get("/api/journaldir").then((d) => setJournalDir(d.dir)).catch(() => {});
     api.get("/api/taglistfile").then((d) => setTagListFile(d.file)).catch(() => {});
+    api.get("/api/bookmarklistfile").then((d) => setBookmarkListFile(d.file)).catch(() => {});
   }, []);
 
   const changeHomeDir = useCallback(async (dir) => {
@@ -4168,6 +4192,27 @@ function App() {
     setTagListFile("");
     reloadGlobalTags();
   }, [reloadGlobalTags]);
+
+  const reloadGlobalBMs = useCallback(() => {
+    api.get("/api/bookmarks").then((d) => {
+      const bms = d.bookmarks || [];
+      setGlobalBMs(bms);
+      globalBMsRef.current = bms;
+    }).catch(() => {});
+  }, []);
+
+  const changeBookmarkListFile = useCallback(async (file) => {
+    await api.post("/api/bookmarklistfile", { file });
+    setBookmarkListFile(file);
+    setShowBookmarkListFilePicker(false);
+    reloadGlobalBMs();
+  }, [reloadGlobalBMs]);
+
+  const clearBookmarkListFile = useCallback(async () => {
+    await api.post("/api/bookmarklistfile", { file: "" });
+    setBookmarkListFile("");
+    reloadGlobalBMs();
+  }, [reloadGlobalBMs]);
 
   // Favorites are shared workspace state (stored server-side), unlike
   // Recent Files which is local browsing history.
@@ -5026,7 +5071,15 @@ function App() {
     });
   }, []);
 
-  const openBookmarkFile = useCallback(() => { setCurrentFile("Bookmarks.org"); }, []);
+  const openBookmarkFile = useCallback(() => {
+    if (bookmarkListFile && homeDir && bookmarkListFile.startsWith(homeDir + "/")) {
+      setCurrentFile(bookmarkListFile.slice(homeDir.length + 1));
+    } else if (bookmarkListFile) {
+      setCurrentFile(bookmarkListFile);
+    } else {
+      setCurrentFile("Bookmarks.org");
+    }
+  }, [bookmarkListFile, homeDir]);
 
   const setBookmarkPanelWidthPersisted = useCallback((w) => {
     setBookmarkPanelWidth(w);
@@ -5044,14 +5097,20 @@ function App() {
   // When navigating away from TagList.org or Bookmarks.org, reload so any edits take effect.
   const prevFileRef = useRef(null);
   useEffect(() => {
-    if (prevFileRef.current === "TagList.org" && currentFile !== "TagList.org") {
+    const effectiveTagFile = tagListFile && homeDir && tagListFile.startsWith(homeDir + "/")
+      ? tagListFile.slice(homeDir.length + 1)
+      : "TagList.org";
+    const effectiveBMFile = bookmarkListFile && homeDir && bookmarkListFile.startsWith(homeDir + "/")
+      ? bookmarkListFile.slice(homeDir.length + 1)
+      : "Bookmarks.org";
+    if (prevFileRef.current === effectiveTagFile && currentFile !== effectiveTagFile) {
       api.get("/api/global-tags").then((d) => {
         const tags = d.tags || [];
         setGlobalTags(tags);
         globalTagsRef.current = tags;
       }).catch(() => {});
     }
-    if (prevFileRef.current === "Bookmarks.org" && currentFile !== "Bookmarks.org") {
+    if (prevFileRef.current === effectiveBMFile && currentFile !== effectiveBMFile) {
       api.get("/api/bookmarks").then((d) => {
         const bms = d.bookmarks || [];
         setGlobalBMs(bms);
@@ -5059,7 +5118,7 @@ function App() {
       }).catch(() => {});
     }
     prevFileRef.current = currentFile;
-  }, [currentFile]);
+  }, [currentFile, tagListFile, bookmarkListFile, homeDir]);
 
   const openTagFile = useCallback(() => {
     if (tagListFile && homeDir && tagListFile.startsWith(homeDir + "/")) {
@@ -5128,9 +5187,11 @@ function App() {
   visibleNodesRef.current = visibleNodes;
 
   // Drop favorites/recents for files that no longer exist (renamed/deleted).
+  // Absolute paths (opened via filesystem navigator) are always kept — they
+  // live outside the workspace file list but are still valid.
   const existingNames = new Set((files || []).map((f) => f.name));
-  const validFavorites = favorites.filter((name) => existingNames.has(name));
-  const validRecentFiles = recentFiles.filter((name) => existingNames.has(name));
+  const validFavorites = favorites.filter((name) => name.startsWith("/") || existingNames.has(name));
+  const validRecentFiles = recentFiles.filter((name) => name.startsWith("/") || existingNames.has(name));
 
   // Global bookmark names for current file — used to split sidebar sections and
   // drive the checkbox in the detail pane.
@@ -5172,6 +5233,8 @@ function App() {
                   onClearJournalDir=${clearJournalDir}
                   tagListFile=${tagListFile} onPickTagListFile=${() => setShowTagListFilePicker(true)}
                   onClearTagListFile=${clearTagListFile}
+                  bookmarkListFile=${bookmarkListFile} onPickBookmarkListFile=${() => setShowBookmarkListFilePicker(true)}
+                  onClearBookmarkListFile=${clearBookmarkListFile}
                   onOpenTextSearch=${() => setShowTextSearch(true)}
                   canGoBack=${canGoBack} canGoForward=${canGoForward}
                   onGoBack=${goBack} onGoForward=${goForward}
@@ -5247,6 +5310,12 @@ function App() {
           onSelect=${changeTagListFile}
           onCancel=${() => setShowTagListFilePicker(false)} />
       `}
+      ${showBookmarkListFilePicker && html`
+        <${OrgFilePicker}
+          initialPath=${bookmarkListFile ? pathDirname(bookmarkListFile) : (homeDir || "/")}
+          onSelect=${changeBookmarkListFile}
+          onCancel=${() => setShowBookmarkListFilePicker(false)} />
+      `}
       ${showTextSearch && html`
         <${TextSearchDialog}
           onSearch=${runTextSearch}
@@ -5281,11 +5350,13 @@ function App() {
             onNestBM=${nestBM}
             onAddBMToItem=${addBMToItem}
             onEditBookmarkFile=${openBookmarkFile}
+            onPickBookmarkListFile=${() => setShowBookmarkListFilePicker(true)}
+            bookmarkListFile=${bookmarkListFile}
             width=${bookmarkPanelWidth}
-            onWidthChange=${setBookmarkPanelWidthPersisted} />
-        `}
-        ${bookmarkPanelVisible && !textMode && html`
-          <${ItemBookmarkPane} node=${focusedNode} dispatch=${dispatch} onAddToGlobalBMs=${addToGlobalBMs} />
+            onWidthChange=${setBookmarkPanelWidthPersisted}
+            focusedNode=${focusedNode}
+            dispatch=${dispatch}
+            onAddToGlobalBMs=${addToGlobalBMs} />
         `}
         ${view === "outline" && textMode && html`
           <div className="outline-pane">
@@ -5387,9 +5458,6 @@ function App() {
           </div>
         `}
         ${tagPanelVisible && !textMode && html`
-          <${NodeTagsPane} node=${focusedNode} dispatch=${dispatch} onAddToGlobalTags=${addToGlobalTags} />
-        `}
-        ${tagPanelVisible && !textMode && html`
           <${TagPanel} globalTags=${globalTags}
             onUpdateTags=${updateGlobalTags}
             onNestTag=${nestTag}
@@ -5403,7 +5471,10 @@ function App() {
             width=${tagPanelWidth}
             onWidthChange=${setTagPanelWidthPersisted}
             onSearch=${searchTag}
-            onReloadTags=${reloadGlobalTags} />
+            onReloadTags=${reloadGlobalTags}
+            focusedNode=${focusedNode}
+            dispatch=${dispatch}
+            onAddToGlobalTags=${addToGlobalTags} />
         `}
         <${DetailPane} ref=${detailPaneRef} key=${detailKey} node=${detailNode} isPreamble=${isPreambleFocused}
           dispatch=${dispatch} inputRefs=${inputRefs}
@@ -5417,18 +5488,20 @@ function App() {
           textMode=${textMode} selectedTags=${selectedTags} />
       </div>
       ${statusBarVisible && html`
-        <${StatusBar} currentFile=${currentFile} homeDir=${homeDir} journalDir=${journalDir} tagListFile=${tagListFile}
+        <${StatusBar} currentFile=${currentFile} homeDir=${homeDir} journalDir=${journalDir} tagListFile=${tagListFile} bookmarkListFile=${bookmarkListFile}
           onOpenSettings=${() => setShowWorkspaceSettings(true)} />
       `}
       ${showWorkspaceSettings && html`
         <${WorkspaceSettingsPanel}
           homeDir=${homeDir} homeFile=${homeFile} journalDir=${journalDir}
-          tagListFile=${tagListFile} currentFile=${currentFile}
+          tagListFile=${tagListFile} bookmarkListFile=${bookmarkListFile} currentFile=${currentFile}
           onChangeHomeDir=${() => { setShowWorkspaceSettings(false); setShowFolderPicker(true); }}
           onChangeJournalDir=${() => { setShowWorkspaceSettings(false); setShowJournalFolderPicker(true); }}
           onClearJournalDir=${() => { setShowWorkspaceSettings(false); clearJournalDir(); }}
           onChangeTagListFile=${() => { setShowWorkspaceSettings(false); setShowTagListFilePicker(true); }}
           onClearTagListFile=${() => { setShowWorkspaceSettings(false); clearTagListFile(); }}
+          onChangeBookmarkListFile=${() => { setShowWorkspaceSettings(false); setShowBookmarkListFilePicker(true); }}
+          onClearBookmarkListFile=${() => { setShowWorkspaceSettings(false); clearBookmarkListFile(); }}
           onSetHomeFile=${setHomeFilePersisted}
           onClose=${() => setShowWorkspaceSettings(false)} />
       `}
@@ -6289,6 +6362,7 @@ function HamburgerMenu({
   homeDir, onPickHomeDir,
   journalDir, onPickJournalDir, onClearJournalDir,
   tagListFile, onPickTagListFile, onClearTagListFile,
+  bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile,
   onSetViewMode,
   tagPanelVisible, onToggleTagPanel,
   bookmarkPanelVisible, onToggleBookmarkPanel,
@@ -6457,6 +6531,17 @@ function HamburgerMenu({
                 </button>
                 ${tagListFile && html`
                   <button className="homefile-clear-btn" onClick=${onClearTagListFile} title="Reset to default (TagList.org in Home Folder)">×</button>
+                `}
+              </div>
+            </div>
+            <div className="hamburger-menu-option hamburger-homefolder-row">
+              <span>Bookmark List</span>
+              <div className="homefile-controls">
+                <button className="homefolder-path-btn" title="Click to choose a bookmark list .org file" onClick=${onPickBookmarkListFile}>
+                  ${bookmarkListFile ? pathBasename(bookmarkListFile) : "Bookmarks.org (default)"}
+                </button>
+                ${bookmarkListFile && html`
+                  <button className="homefile-clear-btn" onClick=${onClearBookmarkListFile} title="Reset to default (Bookmarks.org in Home Folder)">×</button>
                 `}
               </div>
             </div>
@@ -6757,7 +6842,7 @@ function OutlineActionsPanel({ onAction, focusedId, onClose }) {
   `;
 }
 
-function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer }) {
+function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer }) {
   // Whether the toolbar/search/etc. actually fit is measured, not
   // guessed from viewport width — a long filename or a pile of tags
   // eats into the same space a phone-width media query would assume is
@@ -6807,8 +6892,8 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
       <div className="header-left">
         <h1>Epicorg</h1>
         ${currentFile && html`
-          <button className="file-back-btn" onClick=${onBack} title="Switch file">
-            ${currentFile}
+          <button className="file-back-btn" onClick=${onBack} title=${currentFile}>
+            ${pathBasename(currentFile)}
           </button>
         `}
       </div>
@@ -6948,6 +7033,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
           homeDir=${homeDir} onPickHomeDir=${onPickHomeDir}
           journalDir=${journalDir} onPickJournalDir=${onPickJournalDir} onClearJournalDir=${onClearJournalDir}
           tagListFile=${tagListFile} onPickTagListFile=${onPickTagListFile} onClearTagListFile=${onClearTagListFile}
+          bookmarkListFile=${bookmarkListFile} onPickBookmarkListFile=${onPickBookmarkListFile} onClearBookmarkListFile=${onClearBookmarkListFile}
           tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${onToggleTagPanel}
           bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${onToggleBookmarkPanel}
           homeFile=${homeFile} currentFile=${currentFile} onSetHomeFile=${onSetHomeFile}

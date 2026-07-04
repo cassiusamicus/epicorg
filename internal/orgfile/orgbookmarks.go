@@ -15,7 +15,11 @@ type OrgBookmark struct {
 const BookmarksFilename = "Bookmarks.org"
 
 func LoadOrgBookmarks(dir string) ([]OrgBookmark, error) {
-	data, err := os.ReadFile(filepath.Join(dir, BookmarksFilename))
+	return LoadOrgBookmarksFromFile(filepath.Join(dir, BookmarksFilename))
+}
+
+func LoadOrgBookmarksFromFile(path string) ([]OrgBookmark, error) {
+	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return []OrgBookmark{}, nil
 	}
@@ -26,9 +30,13 @@ func LoadOrgBookmarks(dir string) ([]OrgBookmark, error) {
 }
 
 func SaveOrgBookmarks(dir string, bms []OrgBookmark) error {
+	return SaveOrgBookmarksToFile(filepath.Join(dir, BookmarksFilename), bms)
+}
+
+func SaveOrgBookmarksToFile(path string, bms []OrgBookmark) error {
 	var buf strings.Builder
 	writeOrgBookmarksOrg(&buf, bms, 1)
-	return os.WriteFile(filepath.Join(dir, BookmarksFilename), []byte(buf.String()), 0644)
+	return os.WriteFile(path, []byte(buf.String()), 0644)
 }
 
 func writeOrgBookmarksOrg(buf *strings.Builder, bms []OrgBookmark, level int) {

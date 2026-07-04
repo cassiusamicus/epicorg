@@ -211,7 +211,9 @@
       "Bash(wmctrl -c \"Translation Prompt for Lucretius.md - Typora\")",
       "Bash(awk '/^\\\\*\\\\*\\\\* U21[0-9]$/,/^\\\\*\\\\*\\\\* U23[0-9]$/' /mnt/DriveD/Nextcloud/Org/Usener-Claude.org)",
       "Bash(awk -F: '$2 > 1340 && $2 < 1500 {print}')",
-      "Bash(./start-epicorg.sh)"
+      "Bash(./start-epicorg.sh)",
+      "Bash(awk -F: '$1 > 7056 && $1 < 8155')",
+      "Bash(awk -F: '$1 > 3913 {print; exit}')"
     ]
   }
 }
