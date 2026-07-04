@@ -799,6 +799,54 @@ header h1 {
   color: var(--text);
 }
 
+/* Outline format selector (global + per-level chips) */
+.hamburger-outline-format {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 4px 8px 2px;
+}
+.hamburger-format-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.hamburger-format-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.hfmt-chip {
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-dim-strong);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.hfmt-chip:hover:not(:disabled) {
+  background: var(--focused-bg);
+  color: var(--text);
+}
+.hfmt-chip.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.hfmt-chip.override {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.hfmt-chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* About modal */
 .about-dialog {
   background: var(--panel-bg);

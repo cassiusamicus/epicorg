@@ -280,9 +280,18 @@ function inlineTagChipsHtml(tags) {
   return tags.map((t) => `<span class="node-tag-chip inline-chip" data-tag="${t}">${t}</span>`).join(" ");
 }
 
-function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, numberedBullets, siblingIndex, verticalLines, showTagChips, tagsOnRight, onSearchTag, bodyEditingId, bodyPreviewId, bodyRefs }) {
+function toLetters(n) {
+  let result = "";
+  while (n > 0) { result = String.fromCharCode(97 + (n - 1) % 26) + result; n = Math.floor((n - 1) / 26); }
+  return result + ".";
+}
+
+function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, outlineFormat, levelFormats, siblingIndex, verticalLines, showTagChips, tagsOnRight, onSearchTag, bodyEditingId, bodyPreviewId, bodyRefs }) {
   const isFocused = focusedId === node.id;
   const hasChildren = node.children?.length > 0;
+  const bulletFmt = (levelFormats && levelFormats[depth]) || outlineFormat || "bullets";
+  const isIndexed = bulletFmt === "numbers" || bulletFmt === "letters";
+  const bulletLabel = bulletFmt === "letters" ? toLetters(siblingIndex) : siblingIndex + ".";
   const titleRef = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
   const pendingEditRef = useRef(false);
@@ -333,15 +342,15 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
         ${verticalLines
           ? Array.from({ length: depth }, (_, i) => html`<span key=${i} className="indent-guide" />`)
           : html`<span style=${{ width: depth * 24, flexShrink: 0 }} />`}
-        <span className=${"bullet" + (hasChildren ? (node.collapsed ? " has-children collapsed" : " has-children expanded") : "") + (numberedBullets ? " numbered" : "")}
+        <span className=${"bullet" + (hasChildren ? (node.collapsed ? " has-children collapsed" : " has-children expanded") : "") + (isIndexed ? " numbered" : "")}
               onMouseDown=${(e) => {
                 e.preventDefault();
                 if (hasChildren) dispatch(node.id, "toggle");
                 else { pendingEditRef.current = true; dispatch(node.id, "edit-title"); }
               }}>
-          ${numberedBullets && html`<span className="bullet-caret">${hasChildren ? (node.collapsed ? "\u25B6" : "\u25BC") : ""}</span>`}
-          ${numberedBullets && html`<span className="bullet-number">${siblingIndex}.</span>`}
-          ${!numberedBullets && (hasChildren ? (node.collapsed ? "\u25B6" : "\u25BC") : html`<span className="bullet-dot" />`)}
+          ${isIndexed && html`<span className="bullet-caret">${hasChildren ? (node.collapsed ? "\u25B6" : "\u25BC") : ""}</span>`}
+          ${isIndexed && html`<span className="bullet-number">${bulletLabel}</span>`}
+          ${!isIndexed && (hasChildren ? (node.collapsed ? "\u25B6" : "\u25BC") : html`<span className="bullet-dot" />`)}
         </span>
         ${showFormatted
           ? html`
@@ -478,7 +487,8 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
             depth=${depth + 1}
             titleFormatMode=${titleFormatMode}
             notesVisible=${notesVisible}
-            numberedBullets=${numberedBullets}
+            outlineFormat=${outlineFormat}
+            levelFormats=${levelFormats}
             siblingIndex=${i + 1}
             verticalLines=${verticalLines}
             showTagChips=${showTagChips}
@@ -3165,6 +3175,7 @@ function FootnoteInsertPopup({ popup, onInsert, onClose }) {
 
 function WorkspaceSettingsPanel({
   homeDir, homeFile, journalDir, tagListFile, bookmarkListFile, currentFile,
+  statusBarVisible, onToggleStatusBar,
   onChangeHomeDir, onChangeJournalDir, onClearJournalDir,
   onChangeTagListFile, onClearTagListFile,
   onChangeBookmarkListFile, onClearBookmarkListFile,
@@ -3215,6 +3226,15 @@ function WorkspaceSettingsPanel({
         <${Row} label="Bookmark List File" value=${bookmarkListFile || "(default)"}
           onPick=${onChangeBookmarkListFile}
           onClear=${bookmarkListFile ? onClearBookmarkListFile : null} />
+        <div className="wsp-row">
+          <span className="wsp-label">Status Bar</span>
+          <span className="wsp-value">${statusBarVisible ? "Visible" : "Hidden"}</span>
+          <div className="wsp-actions">
+            <button className="wsp-btn" onClick=${onToggleStatusBar}>
+              ${statusBarVisible ? "Hide" : "Show"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   `;
@@ -3378,13 +3398,30 @@ function App() {
     });
   }, []);
 
-  const [numberedBullets, setNumberedBullets] = useState(() => {
-    try { return localStorage.getItem("epicorg.numberedBullets") === "1"; } catch { return false; }
+  const [outlineFormat, setOutlineFormatRaw] = useState(() => {
+    try {
+      const saved = localStorage.getItem("epicorg.outlineFormat");
+      if (saved === "numbers" || saved === "letters" || saved === "bullets") return saved;
+      if (localStorage.getItem("epicorg.numberedBullets") === "1") return "numbers";
+    } catch {}
+    return "bullets";
   });
-  const toggleNumberedBullets = useCallback(() => {
-    setNumberedBullets((p) => {
-      const next = !p;
-      try { localStorage.setItem("epicorg.numberedBullets", next ? "1" : "0"); } catch {}
+  const setOutlineFormat = useCallback((fmt) => {
+    setOutlineFormatRaw(fmt);
+    try { localStorage.setItem("epicorg.outlineFormat", fmt); } catch {}
+  }, []);
+
+  const [levelFormats, setLevelFormatsRaw] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("epicorg.levelFormats") || "{}");
+      return typeof saved === "object" && saved !== null ? saved : {};
+    } catch { return {}; }
+  });
+  const setLevelFormat = useCallback((depth, fmt) => {
+    setLevelFormatsRaw(prev => {
+      const next = { ...prev };
+      if (fmt === null) delete next[depth]; else next[depth] = fmt;
+      try { localStorage.setItem("epicorg.levelFormats", JSON.stringify(next)); } catch {}
       return next;
     });
   }, []);
@@ -4308,6 +4345,24 @@ function App() {
     URL.revokeObjectURL(url);
   }, [nodes, preamble, currentFile, theme, topBarColor]);
 
+  const exportToOrg = useCallback(async () => {
+    if (!currentFile || !nodesRef.current) return;
+    try {
+      const result = await api.post("/api/render", {
+        preamble: preambleRef.current,
+        nodes: nodesRef.current,
+      });
+      const content = result.text || "";
+      const blob = new Blob([content], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = pathBasename(currentFile) || "export.org";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {}
+  }, [currentFile]);
+
   // Write text to clipboard with multiple fallbacks so it works across browsers
   // and privacy-hardened Chromium builds (Thorium, Brave, etc.).
   const writeToClipboard = useCallback(async (htmlStr, plainStr) => {
@@ -5159,6 +5214,12 @@ function App() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [dispatch]);
 
+  const focusedDepth = useMemo(() => {
+    if (!focusedId || focusedId === "preamble" || !nodes) return -1;
+    const search = (arr, id, d) => { for (const n of (arr || [])) { if (n.id === id) return d; const r = search(n.children, id, d + 1); if (r >= 0) return r; } return -1; };
+    return search(nodes, focusedId, 0);
+  }, [focusedId, nodes]);
+
   // Loading state
   if (files === null) return html`<div className="empty">Loading...</div>`;
 
@@ -5215,7 +5276,7 @@ function App() {
                   onCycleViewMode=${cycleViewMode} onSetViewMode=${setViewMode}
                   canUndo=${canUndo} canRedo=${canRedo} onUndo=${undo} onRedo=${redo}
                   notesVisible=${notesVisible} onToggleNotesVisible=${toggleNotesVisible}
-                  numberedBullets=${numberedBullets} onToggleNumberedBullets=${toggleNumberedBullets}
+                  outlineFormat=${outlineFormat} onSetOutlineFormat=${setOutlineFormat} levelFormats=${levelFormats} onSetLevelFormat=${setLevelFormat}
                   verticalLines=${verticalLines} onToggleVerticalLines=${toggleVerticalLines}
                   showTagChips=${showTagChips} onToggleShowTagChips=${toggleShowTagChips}
                   tagsOnRight=${tagsOnRight} onToggleTagsOnRight=${toggleTagsOnRight}
@@ -5245,7 +5306,9 @@ function App() {
                   dateStampFmt=${dateStampFmt} onSetDateStampFmt=${setDateStampFmt}
                   onShowShortcutEditor=${() => setShowShortcutEditor(true)}
                   onShowOutlineActions=${() => setShowOutlineActions(true)}
-                  onShowToolbarCustomizer=${() => setShowToolbarCustomizer(true)} />
+                  onShowToolbarCustomizer=${() => setShowToolbarCustomizer(true)}
+                  onExportToOrg=${exportToOrg}
+                  onExportToHtml=${exportToHtml} />
       ${showOutlineActions && html`
         <${OutlineActionsPanel}
           focusedId=${focusedId}
@@ -5257,7 +5320,7 @@ function App() {
           toggleTheme, toggleTitleFormatMode, toggleTextMode, cycleViewMode,
           titleFormatMode, textMode,
           toggleNotesVisible, notesVisible,
-          toggleNumberedBullets, numberedBullets,
+          outlineFormat, setOutlineFormat, levelFormats, setLevelFormat, focusedDepth,
           toggleVerticalLines, verticalLines,
           toggleReadingWidth, readingWidth,
           toggleSidebar, sidebarVisible,
@@ -5269,7 +5332,7 @@ function App() {
           setShowPicker, setShowTextSearch, setShowFolderPicker,
           setShowHelp, insertFootnote, insertDateStamp,
           splitFocusedNode, joinFocusedWithNext,
-          exportToHtml, currentFile,
+                exportToHtml, exportToOrg, currentFile,
           copyAsFormatted, copyAsPlain,
         })} onClose=${() => setShowHelp(false)} />`}
       ${showShortcutEditor && html`
@@ -5393,7 +5456,7 @@ function App() {
                 <${OutlineNode} key=${node.id} node=${node} focusedId=${focusedId}
                   dispatch=${dispatch} inputRefs=${inputRefs} depth=${0}
                   titleFormatMode=${titleFormatMode} notesVisible=${notesVisible}
-                  numberedBullets=${numberedBullets} siblingIndex=${i + 1}
+                  outlineFormat=${outlineFormat} levelFormats=${levelFormats} siblingIndex=${i + 1}
                   verticalLines=${verticalLines} showTagChips=${showTagChips}
                   tagsOnRight=${tagsOnRight} onSearchTag=${searchTag}
                   bodyEditingId=${bodyEditingId} bodyPreviewId=${bodyPreviewId} bodyRefs=${bodyRefs} />
@@ -5495,6 +5558,7 @@ function App() {
         <${WorkspaceSettingsPanel}
           homeDir=${homeDir} homeFile=${homeFile} journalDir=${journalDir}
           tagListFile=${tagListFile} bookmarkListFile=${bookmarkListFile} currentFile=${currentFile}
+          statusBarVisible=${statusBarVisible} onToggleStatusBar=${toggleStatusBarVisible}
           onChangeHomeDir=${() => { setShowWorkspaceSettings(false); setShowFolderPicker(true); }}
           onChangeJournalDir=${() => { setShowWorkspaceSettings(false); setShowJournalFolderPicker(true); }}
           onClearJournalDir=${() => { setShowWorkspaceSettings(false); clearJournalDir(); }}
@@ -6344,10 +6408,22 @@ function ShortcutEditor({ shortcutVer, onUpdate, onReset, onResetAll, onClose })
   `;
 }
 
-// A general options menu, extensible as more entries get added — for now
-// just the one, toggling numbered outline bullets (Dynalist-style).
+function LevelFormatChip({ depth, levelFormats, onSetLevelFormat, textMode }) {
+  const fmt = levelFormats ? levelFormats[depth] : null;
+  const icon = fmt === "numbers" ? "1." : fmt === "letters" ? "a." : fmt === "bullets" ? "•" : "×";
+  const next = !fmt ? "bullets" : fmt === "bullets" ? "numbers" : fmt === "numbers" ? "letters" : null;
+  return html`
+    <button className=${"hfmt-chip hfmt-level-chip" + (fmt ? " override" : "")}
+            title=${"Level " + (depth + 1) + ": " + (fmt || "global")}
+            disabled=${textMode}
+            onClick=${() => onSetLevelFormat(depth, next)}>
+      L${depth + 1}${icon}
+    </button>`;
+}
+
 function HamburgerMenu({
-  numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight,
+  outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat,
+  verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight,
   // Everything below is only rendered when `collapsed` — Header measured
   // that the toolbar/search/etc. don't fit and rendered them away, so
   // their controls are reachable from here instead. On an uncollapsed
@@ -6372,6 +6448,8 @@ function HamburgerMenu({
   dateStampFmt, onSetDateStampFmt,
   onShowShortcutEditor,
   onShowToolbarCustomizer,
+  onExportToOrg,
+  onExportToHtml,
 }) {
   const [open, setOpen] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
@@ -6452,10 +6530,27 @@ function HamburgerMenu({
             <input type="checkbox" checked=${isHoisted} onChange=${onToggleHoist} disabled=${!canToggleHoist || textMode || view !== "outline"} />
             <span>Hoist (isolate focused item)</span>
           </label>
-          <label className="hamburger-menu-option">
-            <input type="checkbox" checked=${numberedBullets} onChange=${onToggleNumberedBullets} disabled=${textMode} />
-            <span>Numbered bullets</span>
-          </label>
+          <div className="hamburger-outline-format">
+            <span className="hamburger-format-label">Globally: bullet style</span>
+            <div className="hamburger-format-chips">
+              ${["bullets", "numbers", "letters"].map((fmt) => html`
+                <button key=${fmt}
+                        className=${"hfmt-chip" + (outlineFormat === fmt ? " active" : "")}
+                        onClick=${() => onSetOutlineFormat(fmt)}
+                        disabled=${textMode}>
+                  ${fmt === "bullets" ? "• Bullets" : fmt === "numbers" ? "1. Numbers" : "a. Letters"}
+                </button>
+              `)}
+            </div>
+          </div>
+          <div className="hamburger-outline-format">
+            <span className="hamburger-format-label">Per level (click to cycle; × = use global)</span>
+            <div className="hamburger-format-chips">
+              ${[0, 1, 2, 3, 4, 5].map((d) => html`
+                <${LevelFormatChip} key=${d} depth=${d} levelFormats=${levelFormats} onSetLevelFormat=${onSetLevelFormat} textMode=${textMode} />
+              `)}
+            </div>
+          </div>
           <label className="hamburger-menu-option">
             <input type="checkbox" checked=${verticalLines} onChange=${onToggleVerticalLines} disabled=${textMode} />
             <span>Vertical lines</span>
@@ -6635,6 +6730,18 @@ function HamburgerMenu({
 
           <!-- ── About / Tools ── -->
           <div className="hamburger-section">
+            <button className="hamburger-about-btn"
+                    title="Use this option to save a local copy of the current org file for backup or other use."
+                    disabled=${!currentFile}
+                    onClick=${() => { setOpen(false); onExportToOrg?.(); }}>
+              Export to Local Org File
+            </button>
+            <button className="hamburger-about-btn"
+                    title="Save a standalone HTML file of this document"
+                    disabled=${!currentFile}
+                    onClick=${() => { setOpen(false); onExportToHtml?.(); }}>
+              Export to HTML
+            </button>
             <button className="hamburger-about-btn" onClick=${() => { setOpen(false); onShowShortcutEditor?.(); }}>
               Keyboard Shortcuts…
             </button>
@@ -6842,7 +6949,7 @@ function OutlineActionsPanel({ onAction, focusedId, onClose }) {
   `;
 }
 
-function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, numberedBullets, onToggleNumberedBullets, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer }) {
+function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer, onExportToOrg, onExportToHtml }) {
   // Whether the toolbar/search/etc. actually fit is measured, not
   // guessed from viewport width — a long filename or a pile of tags
   // eats into the same space a phone-width media query would assume is
@@ -7014,7 +7121,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
         </div>
       `}
       <div className="header-right" ref=${headerRightRef}>
-        <${HamburgerMenu} numberedBullets=${numberedBullets} onToggleNumberedBullets=${onToggleNumberedBullets}
+        <${HamburgerMenu} outlineFormat=${outlineFormat} onSetOutlineFormat=${onSetOutlineFormat} levelFormats=${levelFormats} onSetLevelFormat=${onSetLevelFormat}
           verticalLines=${verticalLines} onToggleVerticalLines=${onToggleVerticalLines}
           showTagChips=${showTagChips} onToggleShowTagChips=${onToggleShowTagChips}
           tagsOnRight=${tagsOnRight} onToggleTagsOnRight=${onToggleTagsOnRight}
@@ -7041,7 +7148,9 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
           statusBarVisible=${statusBarVisible} onToggleStatusBar=${onToggleStatusBar}
           dateStampFmt=${dateStampFmt} onSetDateStampFmt=${onSetDateStampFmt}
           onShowShortcutEditor=${onShowShortcutEditor}
-          onShowToolbarCustomizer=${onShowToolbarCustomizer} />
+          onShowToolbarCustomizer=${onShowToolbarCustomizer}
+          onExportToOrg=${onExportToOrg}
+          onExportToHtml=${onExportToHtml} />
         <button className="panel-toggle-btn" onClick=${onHelp} title="Command palette — search and run any command (Ctrl+H)"><${IconCommandPalette} /></button>
         ${currentFile && html`
           <button className=${"panel-toggle-btn" + (tagPanelVisible && !textMode ? " active" : "") + (selectedTags.length > 0 ? " has-filter" : "")}
@@ -7078,7 +7187,7 @@ function buildCommands(ctx) {
     toggleTheme, toggleTitleFormatMode, toggleTextMode, cycleViewMode,
     titleFormatMode, textMode,
     toggleNotesVisible, notesVisible,
-    toggleNumberedBullets, numberedBullets,
+    outlineFormat, setOutlineFormat, levelFormats, setLevelFormat, focusedDepth,
     toggleVerticalLines, verticalLines,
     toggleReadingWidth, readingWidth,
     toggleSidebar, sidebarVisible,
@@ -7090,7 +7199,7 @@ function buildCommands(ctx) {
     setShowPicker, setShowTextSearch, setShowFolderPicker, setShowHelp,
     insertFootnote, insertDateStamp,
     splitFocusedNode, joinFocusedWithNext,
-    exportToHtml, currentFile,
+    exportToHtml, exportToOrg, currentFile,
     copyAsFormatted, copyAsPlain,
   } = ctx;
 
@@ -7110,7 +7219,13 @@ function buildCommands(ctx) {
     { category: "View", label: "Toggle Notes",             desc: notesVisible ? "Hide inline notes" : "Show inline notes", keys: "", action: toggleNotesVisible },
     { category: "View", label: "Toggle Reading Width",     desc: readingWidth ? "Full width" : "Comfortable reading width", keys: "", action: toggleReadingWidth },
     { category: "View", label: "Toggle Vertical Lines",    desc: verticalLines ? "Hide indent guides" : "Show indent guides", keys: "", action: toggleVerticalLines },
-    { category: "View", label: "Toggle Numbered Bullets",  desc: numberedBullets ? "Switch to dot bullets" : "Switch to numbered bullets", keys: "", action: toggleNumberedBullets },
+    { category: "View", label: "Global: Bullets",          desc: "Set all outline levels to bullet style (globally)",   keys: "", action: () => setOutlineFormat("bullets") },
+    { category: "View", label: "Global: Numbers",          desc: "Set all outline levels to numbered style (globally)", keys: "", action: () => setOutlineFormat("numbers") },
+    { category: "View", label: "Global: Letters",          desc: "Set all outline levels to lettered style (globally)", keys: "", action: () => setOutlineFormat("letters") },
+    { category: "View", label: `Level ${focusedDepth + 1}: Set to Bullets`,  desc: "Set all headings at this depth to bullet style (overrides global)", keys: "", action: () => setLevelFormat(focusedDepth, "bullets"),  disabled: focusedDepth < 0 },
+    { category: "View", label: `Level ${focusedDepth + 1}: Set to Numbers`,  desc: "Set all headings at this depth to numbered style (overrides global)", keys: "", action: () => setLevelFormat(focusedDepth, "numbers"),  disabled: focusedDepth < 0 },
+    { category: "View", label: `Level ${focusedDepth + 1}: Set to Letters`,  desc: "Set all headings at this depth to lettered style (overrides global)", keys: "", action: () => setLevelFormat(focusedDepth, "letters"),  disabled: focusedDepth < 0 },
+    { category: "View", label: `Level ${focusedDepth + 1}: Reset to global`, desc: "Remove per-level override; this depth falls back to global style",   keys: "", action: () => setLevelFormat(focusedDepth, null),       disabled: focusedDepth < 0 || !levelFormats?.[focusedDepth] },
     // Fold
     { category: "Folding", label: "Fold to Level 1",      desc: "Collapse all but top level",     keys: "Alt+1",         action: () => foldToLevel(1) },
     { category: "Folding", label: "Fold to Level 2",      desc: "Expand to level 2",              keys: "Alt+2",         action: () => foldToLevel(2) },
@@ -7136,6 +7251,7 @@ function buildCommands(ctx) {
     { category: "Settings", label: "Cycle View Mode",       desc: textMode ? "Reveal codes → Plain" : titleFormatMode ? "Formatted → Reveal codes" : "Plain → Formatted titles", keys: "", action: cycleViewMode },
     { category: "Settings", label: "Change Home Folder…", desc: "Pick a new home org folder",    keys: "",              action: () => setShowFolderPicker(true) },
     // Export / Copy
+    { category: "Export", label: "Export to Local Org File", desc: "Use this option to save a local copy of the current org file for backup or other use.", keys: "", action: exportToOrg, disabled: !currentFile },
     { category: "Export", label: "Export to HTML",           desc: "Save standalone HTML file of this document",    keys: "", action: exportToHtml,     disabled: !currentFile },
     { category: "Export", label: "Copy as Formatted Text",   desc: "Copy visible outline to clipboard with bold/italic/links preserved (paste into Word, email, etc.)", keys: displayCombo(getShortcutCombo("copyFormatted")), action: copyAsFormatted, disabled: !currentFile },
     { category: "Export", label: "Copy as Plain Text",       desc: "Copy visible outline to clipboard as clean text — no *markup* characters",                        keys: displayCombo(getShortcutCombo("copyPlain")),     action: copyAsPlain,      disabled: !currentFile },
