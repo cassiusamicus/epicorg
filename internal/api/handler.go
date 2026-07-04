@@ -27,8 +27,12 @@ func (h *handlers) listFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := map[string]interface{}{"files": files}
-	if h.defaultFile != "" {
-		resp["default"] = h.defaultFile
+	def := h.defaultFile
+	if def == "" && len(files) == 1 {
+		def = files[0].Name
+	}
+	if def != "" {
+		resp["default"] = def
 	}
 	writeJSON(w, resp)
 }
