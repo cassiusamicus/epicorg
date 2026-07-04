@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Epicorg
-Comment=Open the LMH Org outliner
-Exec=/mnt/DriveD/Nextcloud/epicorg/start-epicorg.sh
-Path=/mnt/DriveD/Nextcloud/epicorg
-Icon=text-editor
-Terminal=true
-Categories=Utility;

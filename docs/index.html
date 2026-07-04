@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>epicorg — Outliner for org-mode files</title>
+  <meta name="description" content="A keyboard-driven outliner backed by org-mode files. Your data stays in plain .org files — editable in Emacs or epicorg." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent:    #3d72a8;
+      --accent-lt: #5b9bf7;
+      --bg:        #fff;
+      --surface:   #f7f8fa;
+      --border:    #e4e6ea;
+      --text:      #1c1c1e;
+      --text-dim:  #6b7280;
+      --code-bg:   #f0f2f5;
+      --shadow:    rgba(0,0,0,0.08);
+      --radius:    10px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --accent:   #5b9bf7;
+        --bg:       #1c1c1e;
+        --surface:  #262628;
+        --border:   #3a3a3c;
+        --text:     #e6e6e6;
+        --text-dim: #8a8a8e;
+        --code-bg:  #333335;
+        --shadow:   rgba(0,0,0,0.4);
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky; top: 0; z-index: 10;
+      display: flex; align-items: center; gap: 1.5rem;
+      padding: 0.75rem 2rem;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo { font-size: 1.1rem; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
+    .nav-logo span { color: var(--accent); }
+    .nav-links { display: flex; gap: 1.25rem; margin-left: auto; font-size: 0.9rem; }
+    .nav-links a { color: var(--text-dim); }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.45rem 1rem; border-radius: 6px; font-size: 0.875rem; font-weight: 500;
+      background: var(--accent); color: #fff; transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.88; text-decoration: none; }
+    .btn-outline {
+      background: transparent; border: 1px solid var(--border);
+      color: var(--text); padding: 0.4rem 0.9rem;
+    }
+    .btn-outline:hover { background: var(--surface); }
+
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      padding: 5rem 2rem 3.5rem;
+      max-width: 760px; margin: 0 auto;
+    }
+    .hero h1 {
+      font-size: clamp(2.2rem, 5vw, 3.2rem);
+      font-weight: 800; letter-spacing: -0.04em; line-height: 1.1;
+      margin-bottom: 1.1rem;
+    }
+    .hero h1 em { color: var(--accent); font-style: normal; }
+    .hero p {
+      font-size: 1.15rem; color: var(--text-dim);
+      max-width: 540px; margin: 0 auto 2rem;
+    }
+    .hero-ctas { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+
+    /* ── Screenshots ── */
+    .screenshots {
+      padding: 1rem 2rem 4rem;
+      max-width: 1060px; margin: 0 auto;
+    }
+    .screenshot-tabs {
+      display: flex; gap: 0.5rem; justify-content: center; margin-bottom: 1.25rem;
+    }
+    .tab-btn {
+      padding: 0.35rem 1rem; border-radius: 20px; font-size: 0.85rem; font-weight: 500;
+      border: 1px solid var(--border); background: transparent; color: var(--text-dim);
+      cursor: pointer; transition: all 0.15s;
+    }
+    .tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .screenshot-frame {
+      border-radius: var(--radius); overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 32px var(--shadow);
+    }
+    .screenshot-frame img { display: block; width: 100%; height: auto; }
+    .ss-panel { display: none; }
+    .ss-panel.active { display: block; }
+
+    /* ── Features ── */
+    .section { padding: 4rem 2rem; }
+    .section-inner { max-width: 980px; margin: 0 auto; }
+    .section-label {
+      font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 0.5rem;
+    }
+    .section h2 {
+      font-size: clamp(1.6rem, 3vw, 2.1rem); font-weight: 700;
+      letter-spacing: -0.03em; margin-bottom: 2.5rem;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.25rem;
+    }
+    .feature-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.25rem 1.5rem;
+    }
+    .feature-icon { font-size: 1.4rem; margin-bottom: 0.6rem; }
+    .feature-card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.3rem; }
+    .feature-card p { font-size: 0.875rem; color: var(--text-dim); line-height: 1.55; }
+
+    /* ── Install ── */
+    .install-section { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .install-cols {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: start;
+    }
+    @media (max-width: 640px) { .install-cols { grid-template-columns: 1fr; } }
+    .install-cols h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; }
+    pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: 7px; padding: 1rem 1.1rem;
+      font-size: 0.85rem; line-height: 1.7; overflow-x: auto;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+    code { font-family: inherit; }
+    .install-note { font-size: 0.8rem; color: var(--text-dim); margin-top: 0.6rem; }
+
+    /* ── Keyboard ── */
+    .kbd-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 2rem;
+    }
+    .kbd-group h3 { font-size: 0.9rem; font-weight: 600; color: var(--text-dim); margin-bottom: 0.75rem; }
+    .kbd-row { display: flex; justify-content: space-between; align-items: center; padding: 0.3rem 0; font-size: 0.875rem; border-bottom: 1px solid var(--border); }
+    .kbd-row:last-child { border-bottom: none; }
+    kbd {
+      display: inline-block; padding: 0.15rem 0.45rem;
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: 4px; font-size: 0.78rem; font-family: inherit;
+      white-space: nowrap;
+    }
+
+    /* ── Org format ── */
+    .org-block {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.5rem 1.75rem;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 0.85rem; line-height: 1.9; overflow-x: auto;
+    }
+    .org-kw  { color: #7c6af5; }
+    .org-h1  { color: var(--accent); font-weight: bold; }
+    .org-h2  { color: #4caf6e; font-weight: bold; }
+    .org-h3  { color: var(--text-dim); }
+    .org-prop{ color: #e0b24a; }
+    .org-kwd { color: #e07878; font-weight: bold; }
+    .org-done{ color: #4caf6e; font-weight: bold; }
+
+    /* ── Footer ── */
+    footer {
+      padding: 2.5rem 2rem; border-top: 1px solid var(--border);
+      display: flex; flex-wrap: wrap; gap: 1rem;
+      justify-content: space-between; align-items: center;
+      font-size: 0.8rem; color: var(--text-dim);
+    }
+    footer a { color: var(--text-dim); }
+    footer a:hover { color: var(--text); }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <span class="nav-logo">epic<span>org</span></span>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#install">Install</a>
+    <a href="#keyboard">Keyboard</a>
+    <a href="https://github.com/cassiusamicus/epicorg">GitHub</a>
+  </div>
+  <a class="btn" href="https://github.com/cassiusamicus/epicorg/releases/tag/nightly">Download</a>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <h1>Your org files.<br><em>Beautifully outlined.</em></h1>
+  <p>A keyboard-driven outliner for <code>.org</code> files. Think Workflowy — but your data stays in plain text on your own machine, editable in Emacs, any text editor, or epicorg itself.</p>
+  <div class="hero-ctas">
+    <a class="btn" href="https://github.com/cassiusamicus/epicorg/releases/tag/nightly">&#8595; Download nightly</a>
+    <a class="btn btn-outline" href="https://github.com/cassiusamicus/epicorg">View on GitHub</a>
+  </div>
+</section>
+
+<!-- Screenshots -->
+<section class="screenshots">
+  <div class="screenshot-tabs">
+    <button class="tab-btn active" onclick="showTab('outline', this)">Outline view</button>
+    <button class="tab-btn" onclick="showTab('agenda', this)">Agenda view</button>
+  </div>
+  <div class="screenshot-frame">
+    <div id="ss-outline" class="ss-panel active">
+      <img src="images/outline-view.png" alt="Epicorg outline view" />
+    </div>
+    <div id="ss-agenda" class="ss-panel">
+      <img src="images/agenda-view.png" alt="Epicorg agenda view" />
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="section" id="features">
+  <div class="section-inner">
+    <div class="section-label">Features</div>
+    <h2>Everything you need, nothing you don't.</h2>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">&#128196;</div>
+        <h3>Plain org files</h3>
+        <p>Your data lives in standard <code>.org</code> files. Open them in Emacs, edit them with any text editor, commit them to git — no lock-in.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#9000;</div>
+        <h3>Keyboard-first</h3>
+        <p>Navigate, create, indent, move, and fold without touching the mouse. A command palette puts every action one keystroke away.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#8226;</div>
+        <h3>Flexible bullet styles</h3>
+        <p>Choose bullets, numbers, or letters (a–z / A–Z) globally or per depth level. Preference is saved into the org file and survives across machines.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#128269;</div>
+        <h3>Full-text search</h3>
+        <p>Search across every org file in your workspace instantly. Jump straight to any matching item.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#128197;</div>
+        <h3>Agenda view</h3>
+        <p>All dated items sorted chronologically with overdue and today indicators — a lightweight daily agenda without leaving the browser.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#127991;</div>
+        <h3>Tags &amp; bookmarks</h3>
+        <p>Tag items and filter the outline by tag. Bookmark any item for instant cross-file navigation. Both can live in dedicated org files.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#9654;</div>
+        <h3>Fold to level</h3>
+        <p>Alt+1 through Alt+9 collapses the entire outline to that depth in one keystroke. Hoist any node to focus on just that subtree.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#9881;</div>
+        <h3>Git-backed conflict merge</h3>
+        <p>External edits are detected via SHA-256 hash and merged automatically with <code>git merge-file</code>. Conflicts surface as standard markers in the UI.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#128190;</div>
+        <h3>Single binary</h3>
+        <p>One Go binary embeds the entire frontend. No npm, no Node.js, no runtime dependencies. Drop it anywhere and run it.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#127758;</div>
+        <h3>HTML export</h3>
+        <p>Export any document as a self-contained HTML file with navigation, tag filter, dark/light toggle, and your chosen bullet style and accent color.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#128336;</div>
+        <h3>TODO &amp; due dates</h3>
+        <p>Clickable TODO/DONE badges stored as standard org keywords. Date picker writes <code>DEADLINE</code> properties — fully Emacs-compatible.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#8644;</div>
+        <h3>Undo / redo</h3>
+        <p>Document-wide undo and redo. Typing coalesces per pause so Ctrl+Z steps back at a natural granularity.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Install -->
+<section class="section install-section" id="install">
+  <div class="section-inner">
+    <div class="section-label">Install</div>
+    <h2>Up and running in seconds.</h2>
+    <div class="install-cols">
+      <div>
+        <h3>Download a binary</h3>
+        <p style="font-size:0.875rem;color:var(--text-dim);margin-bottom:0.75rem;">
+          Pre-built binaries for Linux, macOS, and Windows are published automatically as
+          <a href="https://github.com/cassiusamicus/epicorg/releases/tag/nightly">nightly releases</a>.
+          Download the binary for your platform, make it executable, and run it.
+        </p>
+        <pre><code># Linux example
+chmod +x epicorg-linux-amd64
+./epicorg-linux-amd64 ~/org</code></pre>
+        <p class="install-note">Opens <code>~/org</code> in your browser. The directory is created if it doesn't exist.</p>
+      </div>
+      <div>
+        <h3>Build from source</h3>
+        <p style="font-size:0.875rem;color:var(--text-dim);margin-bottom:0.75rem;">Go 1.21 or later required. No other build-time dependencies.</p>
+        <pre><code>git clone https://github.com/cassiusamicus/epicorg
+cd epicorg
+go build -o epicorg .
+./epicorg ~/org</code></pre>
+        <p class="install-note">Or try the included example: <code>./epicorg examples/</code></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Org format -->
+<section class="section" id="format">
+  <div class="section-inner">
+    <div class="section-label">Org format</div>
+    <h2>Standard org-mode, start to finish.</h2>
+    <p style="max-width:600px;color:var(--text-dim);margin-bottom:2rem;">
+      epicorg reads and writes plain <code>.org</code> files with no proprietary extensions.
+      Bullet-style preferences are stored as a <code>#+EPICORG_FORMAT:</code> keyword so they
+      travel with the file. When format is <em>numbers</em>, epicorg also writes
+      <code>#+STARTUP: num</code> so Emacs <code>org-num-mode</code> activates automatically.
+    </p>
+    <div class="org-block">
+      <span class="org-kw">#+TITLE:</span> My Notes<br>
+      <span class="org-kw">#+EPICORG_FORMAT:</span> numbers<br>
+      <span class="org-kw">#+STARTUP:</span> num<br>
+      <br>
+      <span class="org-h1">* <span class="org-kwd">TODO</span> Inbox</span><br>
+      <span class="org-h2">** <span class="org-done">DONE</span> Buy milk</span><br>
+      &nbsp;&nbsp;<span class="org-prop">:PROPERTIES:</span><br>
+      &nbsp;&nbsp;<span class="org-prop">:DEADLINE:</span> &lt;2026-04-15 Wed&gt;<br>
+      &nbsp;&nbsp;<span class="org-prop">:END:</span><br>
+      <span class="org-h2">** Write README</span><br>
+      &nbsp;&nbsp;Body text goes right here, under the headline.<br>
+      <span class="org-h1">* Projects</span><br>
+      <span class="org-h2">** Build epicorg</span><br>
+      <span class="org-h3">*** Design the API</span><br>
+      <span class="org-h3">*** Implement frontend</span>
+    </div>
+  </div>
+</section>
+
+<!-- Keyboard shortcuts -->
+<section class="section" style="background:var(--surface);border-top:1px solid var(--border);" id="keyboard">
+  <div class="section-inner">
+    <div class="section-label">Keyboard</div>
+    <h2>Fast by default.</h2>
+    <div class="kbd-grid">
+      <div class="kbd-group">
+        <h3>Navigation</h3>
+        <div class="kbd-row"><span>Move focus</span><span><kbd>↑</kbd> <kbd>↓</kbd></span></div>
+        <div class="kbd-row"><span>New sibling item</span><kbd>Enter</kbd></div>
+        <div class="kbd-row"><span>Delete empty item</span><kbd>Backspace</kbd></div>
+        <div class="kbd-row"><span>Edit body note</span><kbd>Shift+Enter</kbd></div>
+        <div class="kbd-row"><span>Return to title</span><kbd>Escape</kbd></div>
+        <div class="kbd-row"><span>Command palette</span><kbd>Ctrl+H</kbd></div>
+      </div>
+      <div class="kbd-group">
+        <h3>Structure</h3>
+        <div class="kbd-row"><span>Outdent (promote)</span><kbd>Alt+←</kbd></div>
+        <div class="kbd-row"><span>Indent (demote)</span><kbd>Alt+→</kbd></div>
+        <div class="kbd-row"><span>Move item up</span><kbd>Alt+↑</kbd></div>
+        <div class="kbd-row"><span>Move item down</span><kbd>Alt+↓</kbd></div>
+      </div>
+      <div class="kbd-group">
+        <h3>Folding</h3>
+        <div class="kbd-row"><span>Fold / unfold</span><kbd>Tab</kbd></div>
+        <div class="kbd-row"><span>Fold to level N</span><kbd>Alt+1</kbd> … <kbd>Alt+9</kbd></div>
+      </div>
+      <div class="kbd-group">
+        <h3>Formatting</h3>
+        <div class="kbd-row"><span><strong>Bold</strong></span><kbd>Ctrl+B</kbd></div>
+        <div class="kbd-row"><span><em>Italic</em></span><kbd>Ctrl+I</kbd></div>
+        <div class="kbd-row"><span><u>Underline</u></span><kbd>Ctrl+U</kbd></div>
+        <div class="kbd-row"><span>Undo / Redo</span><span><kbd>Ctrl+Z</kbd> / <kbd>Ctrl+Shift+Z</kbd></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div>
+    <strong>epicorg</strong> — grew out of <a href="https://github.com/suprjinx/torg">torg</a> by Geoff Russ.
+    Org parsing by <a href="https://github.com/niklasfasching/go-org">niklasfasching/go-org</a>.
+  </div>
+  <div>
+    <a href="https://github.com/cassiusamicus/epicorg/blob/main/LICENSE">GPL-3.0</a> &nbsp;·&nbsp;
+    <a href="https://github.com/cassiusamicus/epicorg">GitHub</a> &nbsp;·&nbsp;
+    <a href="https://github.com/cassiusamicus/epicorg/releases/tag/nightly">Releases</a>
+  </div>
+</footer>
+
+<script>
+  function showTab(name, btn) {
+    document.querySelectorAll('.ss-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('ss-' + name).classList.add('active');
+    btn.classList.add('active');
+  }
+</script>
+
+</body>
+</html>
