@@ -1058,6 +1058,7 @@ header h1 {
   gap: 8px;
   flex-shrink: 1;
   min-width: 0;
+  padding-right: 16px;
 }
 .toolbar {
   display: flex;
@@ -1649,7 +1650,8 @@ header.header-tinted {
 .cp-input-row:active { cursor: grabbing; }
 .cp-input-row .cp-input,
 .cp-input-row .cp-search-icon,
-.cp-input-row .cp-close { cursor: auto; user-select: text; }
+.cp-input-row .cp-close,
+.cp-input-row .pin-btn { cursor: auto; user-select: text; }
 
 .cp-search-icon {
   width: 16px;
@@ -5315,6 +5317,21 @@ a.org-file-link {
   padding: 0 2px;
 }
 .oap-close:hover { color: var(--text); }
+
+.pin-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0 2px;
+  display: flex;
+  align-items: center;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+.pin-btn:hover { opacity: 1; color: var(--text); }
+.pin-btn.pinned { color: var(--accent); opacity: 1; }
+
 .oap-no-focus {
   padding: 10px 14px;
   font-size: 12px;

@@ -885,12 +885,12 @@ function TagList({ tags, onUpdate, depth, selectedTags, onToggleTag, onAddTagToI
                     onClick=${(e) => { e.stopPropagation(); if (hasChildren) toggleCollapsed(); }}>
               ${hasChildren ? (tag.collapsed ? "▶" : "▼") : ""}
             </button>
+            <button className="tag-add-to-item-btn" title="Add this tag to the focused item"
+                    onClick=${(e) => { e.stopPropagation(); onAddTagToItem(tag.name); }}>+</button>
             <button className="tag-search-btn" title=${"Search all files for :" + tag.name + ":"}
                     onClick=${(e) => { e.stopPropagation(); onSearch(tag.name); }}><${IconSearch} /></button>
             <span className="tag-panel-drag-icon">⠿</span>
             <span className="tag-panel-name" onClick=${() => onToggleTag(tag.name)}>${tag.name}</span>
-            <button className="tag-add-to-item-btn" title="Add this tag to the focused item"
-                    onClick=${(e) => { e.stopPropagation(); onAddTagToItem(tag.name); }}>+</button>
             <button className="tag-add-child-btn" title="Add sub-tag"
                     onClick=${(e) => { e.stopPropagation(); setAddingChildFor(i); setNewChildName(""); }}>↳</button>
             <button className="tag-rename-btn" title="Rename this tag"
@@ -2347,6 +2347,7 @@ const SHORTCUT_DEFS = [
   { id: "moveDownOnly",    cat: "Outline",    label: "Move Heading Down",     def: "Alt+Shift+ArrowDown" },
   { id: "indentOnly",      cat: "Outline",    label: "Demote Heading",        def: "Alt+Shift+ArrowRight" },
   { id: "outdentOnly",     cat: "Outline",    label: "Promote Heading",       def: "Alt+Shift+ArrowLeft" },
+  { id: "hoist",           cat: "Outline",    label: "Hoist / Unhoist",       def: "Ctrl+Shift+H" },
   { id: "commandPalette",  cat: "Navigation", label: "Command Palette",       def: "Ctrl+H" },
   { id: "textSearch",      cat: "Navigation", label: "Full-text Search",      def: "Ctrl+Shift+F" },
   { id: "copyFormatted",   cat: "Export",     label: "Copy as Formatted Text", def: "Ctrl+Shift+C" },
@@ -2436,16 +2437,26 @@ function formatMarkerForKey(e) {
   return null;
 }
 
-// Apply an org inline marker to whichever textarea currently has focus,
-// used by the command palette where there's no keyboard event to anchor to.
+// Tracks the last textarea inside an outline/preamble row that received focus.
+// Clicking the command palette or OAP moves focus away from the textarea, so
+// document.activeElement is no longer useful — this lets applyMarkerToFocused
+// still find the right element. Updated by a global focusin listener in App.
+let _lastOutlineTextarea = null;
+export function _setLastOutlineTextarea(el) { _lastOutlineTextarea = el; }
+
+// Apply an org inline marker to the last focused outline textarea.
+// selectionStart/selectionEnd survive blur in all modern browsers, so the
+// user's selected range is still intact even after focus moved to the palette.
 function applyMarkerToFocused(marker) {
-  const el = document.activeElement;
+  const el = (document.activeElement?.tagName === "TEXTAREA" ? document.activeElement : null)
+             || _lastOutlineTextarea;
   if (!el || el.tagName !== "TEXTAREA") return;
   const { selectionStart: start, selectionEnd: end, value } = el;
   const newVal = value.slice(0, start) + marker + value.slice(start, end) + marker + value.slice(end);
   const nativeSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set;
   nativeSetter.call(el, newVal);
   el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.focus();
   requestAnimationFrame(() => el.setSelectionRange(start + marker.length, end + marker.length));
 }
 
@@ -3897,6 +3908,9 @@ function App() {
       if (matchShortcut("copyPlain", e)) {
         e.preventDefault(); copyPlainRef.current?.(); return;
       }
+      if (matchShortcut("hoist", e)) {
+        e.preventDefault(); toggleHoistRef.current?.(); return;
+      }
       if (e.altKey && e.key === "ArrowLeft") { e.preventDefault(); goBackRef.current?.(); return; }
       if (e.altKey && e.key === "ArrowRight") { e.preventDefault(); goForwardRef.current?.(); return; }
       if (e.altKey && e.key >= "1" && e.key <= "9" && !textModeRef.current) {
@@ -4393,6 +4407,8 @@ function App() {
   const copyPlainRef = useRef(null);
   useEffect(() => { copyFormattedRef.current = copyAsFormatted; }, [copyAsFormatted]);
   useEffect(() => { copyPlainRef.current = copyAsPlain; }, [copyAsPlain]);
+  const toggleHoistRef = useRef(null);
+  useEffect(() => { toggleHoistRef.current = toggleHoist; }, [toggleHoist]);
 
   const enterTextMode = useCallback(async () => {
     if (!nodesRef.current) return;
@@ -4633,6 +4649,18 @@ function App() {
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+
+  // Track the last outline textarea that had focus so applyMarkerToFocused
+  // can target it even after the command palette or OAP has stolen focus.
+  useEffect(() => {
+    const onFocusIn = (e) => {
+      if (e.target.tagName === "TEXTAREA" && e.target.closest(".node-row, .preamble-row")) {
+        _setLastOutlineTextarea(e.target);
+      }
+    };
+    document.addEventListener("focusin", onFocusIn);
+    return () => document.removeEventListener("focusin", onFocusIn);
   }, []);
 
   // Keep a stable ref to loadFile so the delegated link handler below always
@@ -5739,6 +5767,15 @@ function IconWidth() {
   `;
 }
 
+function IconPin() {
+  return html`
+    <svg ...${ICON_PROPS} viewBox="0 0 24 24">
+      <line x1="12" y1="17" x2="12" y2="22" />
+      <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
+    </svg>
+  `;
+}
+
 // File link picker — triggered by typing [[ in a node title or body.
 // Shows a filterable list of org files; selecting one inserts an org link.
 function FileLinkPicker({ files, onSelect, onCreate, onCancel }) {
@@ -6610,7 +6647,21 @@ function TagFilterButton({ allTags, selectedTags, onToggleTag, onClearTags }) {
 
 function OutlineActionsPanel({ onAction, focusedId, onClose }) {
   const canAct = focusedId && focusedId !== "preamble";
-  const act = (action) => { if (!canAct) return; onAction(action); };
+
+  const [pinned, setPinned] = useState(() => {
+    try { return localStorage.getItem("epicorg.oap.pinned") === "1"; } catch { return false; }
+  });
+  const togglePin = () => setPinned((p) => {
+    const next = !p;
+    try { localStorage.setItem("epicorg.oap.pinned", next ? "1" : "0"); } catch {}
+    return next;
+  });
+
+  const act = (action) => {
+    if (!canAct) return;
+    onAction(action);
+    if (!pinned) onClose();
+  };
 
   // Drag state: null = centered via CSS, {left, top} = user has moved it
   const [pos, setPos] = useState(null);
@@ -6672,6 +6723,12 @@ function OutlineActionsPanel({ onAction, focusedId, onClose }) {
       <div ref=${panelRef} className="oap-panel" style=${panelStyle}>
         <div className="oap-header" onMouseDown=${onHeaderMouseDown}>
           <span className="oap-title">Outline Move</span>
+          <button className=${"pin-btn" + (pinned ? " pinned" : "")}
+                  onClick=${togglePin}
+                  onMouseDown=${(e) => e.stopPropagation()}
+                  title=${pinned ? "Pinned — panel stays open after action (click to unpin)" : "Pin — keep panel open after action"}>
+            <${IconPin} />
+          </button>
           <button className="oap-close" onClick=${onClose} onMouseDown=${(e) => e.stopPropagation()} title="Close">×</button>
         </div>
         ${!canAct && html`<div className="oap-no-focus">Select a node first</div>`}
@@ -6714,18 +6771,26 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
   const [openHamburgerSection, setOpenHamburgerSection] = useState(null);
   const headerRef = useRef(null);
   const probeRef = useRef(null);
+  const headerRightRef = useRef(null);
 
   useLayoutEffect(() => {
     const header = headerRef.current;
     const probe = probeRef.current;
     if (!header || !probe || typeof ResizeObserver === "undefined") return;
-    // header.clientWidth is inflated by 64px when the tinted-header bleed
-    // margins are active. Use the parent's clientWidth (= true content area).
-    const check = () => setCollapsed(probe.scrollWidth + 80 > header.parentElement.clientWidth);
+    // header.clientWidth is inflated by 64px from the tinted-header bleed
+    // margins, so compare probe width against the parent's (true) content width.
+    // Buffer of 100px pre-emptively collapses before the toolbar can overflow.
+    const check = () => {
+      const parentW = header.parentElement.clientWidth;
+      setCollapsed(probe.scrollWidth + 100 > parentW);
+    };
     check();
     const ro = new ResizeObserver(check);
     ro.observe(header);
     ro.observe(probe);
+    // Also watch header-right: its button count changes when a file is opened,
+    // altering available space without a probe width change.
+    if (headerRightRef.current) ro.observe(headerRightRef.current);
     return () => ro.disconnect();
   }, []);
 
@@ -6752,16 +6817,6 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
           ${canGoBack && html`
             <button className="view-tab" onClick=${onGoBack} title="Go back (Alt+←)"><${IconNavBack} /></button>
           `}
-          <div className="view-toggle">
-            <button className=${"view-tab" + (view === "outline" ? " active" : "")}
-                    onClick=${() => setView("outline")} title="Outline view"><${IconOutline} /></button>
-            <button className=${"view-tab" + (view === "agenda" ? " active" : "")}
-                    onClick=${() => setView("agenda")} title="Agenda view"><${IconAgenda} /></button>
-            <button className=${"view-tab" + (view === "todo" ? " active" : "")}
-                    onClick=${() => setView("todo")} title="TODO list"><${IconTodo} /></button>
-            <button className=${"view-tab" + (view === "journal" ? " active" : "")}
-                    onClick=${() => setView("journal")} title="Daily journal"><${IconJournal} /></button>
-          </div>
         </div>
       `}
       ${currentFile && showFull && html`
@@ -6873,7 +6928,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
         </div>
         </div>
       `}
-      <div className="header-right">
+      <div className="header-right" ref=${headerRightRef}>
         <${HamburgerMenu} numberedBullets=${numberedBullets} onToggleNumberedBullets=${onToggleNumberedBullets}
           verticalLines=${verticalLines} onToggleVerticalLines=${onToggleVerticalLines}
           showTagChips=${showTagChips} onToggleShowTagChips=${onToggleShowTagChips}
@@ -6987,7 +7042,7 @@ function buildCommands(ctx) {
     { category: "Edit", label: "Insert Date Stamp",       desc: "Insert formatted date/time at cursor", keys: displayCombo(getShortcutCombo("insertDateStamp")), action: insertDateStamp },
     { category: "Edit", label: "Split Node at Cursor",    desc: "Split title at cursor into two sibling nodes", keys: displayCombo(getShortcutCombo("splitNode")), action: splitFocusedNode },
     { category: "Edit", label: "Join with Next Node",     desc: "Merge this node with the next sibling",        keys: displayCombo(getShortcutCombo("joinNode")),   action: joinFocusedWithNext },
-    { category: "Edit", label: "Hoist / Unhoist",         desc: isHoisted ? "Unhoist — show full tree" : "Hoist focused item", keys: "", action: toggleHoist },
+    { category: "Edit", label: "Hoist / Unhoist",         desc: isHoisted ? "Unhoist — show full tree" : "Hoist focused item", keys: displayCombo(getShortcutCombo("hoist")), action: toggleHoist },
     // Search
     { category: "Search", label: "Full-text Search…",    desc: "Search across all org files",    keys: displayCombo(getShortcutCombo("textSearch")),      action: () => setShowTextSearch(true) },
     // Settings
@@ -7013,8 +7068,9 @@ function cpSaveRecent(labels) {
   try { localStorage.setItem(CP_RECENT_KEY, JSON.stringify(labels)); } catch {}
 }
 
-const CP_POS_KEY  = "epicorg.cp.pos";
-const CP_SIZE_KEY = "epicorg.cp.size";
+const CP_POS_KEY    = "epicorg.cp.pos";
+const CP_SIZE_KEY   = "epicorg.cp.size";
+const CP_PINNED_KEY = "epicorg.cp.pinned";
 
 function CommandPalette({ commands, onClose }) {
   const [query, setQuery] = useState("");
@@ -7024,6 +7080,15 @@ function CommandPalette({ commands, onClose }) {
   const listRef  = useRef(null);
   const dialogRef = useRef(null);
   const dragState = useRef(null);
+
+  const [pinned, setPinned] = useState(() => {
+    try { return localStorage.getItem(CP_PINNED_KEY) === "1"; } catch { return false; }
+  });
+  const togglePin = () => setPinned((p) => {
+    const next = !p;
+    try { localStorage.setItem(CP_PINNED_KEY, next ? "1" : "0"); } catch {}
+    return next;
+  });
 
   // Drag position \u2014 null = use CSS default (centered)
   const [pos, setPos] = useState(() => {
@@ -7115,15 +7180,17 @@ function CommandPalette({ commands, onClose }) {
     items?.[highlighted]?.scrollIntoView({ block: "nearest" });
   }, [highlighted]);
 
-  // Sticky: run the command but do NOT close the palette automatically.
-  // The user closes it explicitly with X or Escape.
   const run = (cmd) => {
     const next = [cmd.label, ...recentLabels.filter((l) => l !== cmd.label)].slice(0, CP_RECENT_MAX);
     setRecentLabels(next);
     cpSaveRecent(next);
     cmd.action();
-    // Refocus search so the user can immediately run another command
-    requestAnimationFrame(() => inputRef.current?.focus());
+    if (pinned) {
+      // Stay open; refocus search for the next command
+      requestAnimationFrame(() => inputRef.current?.focus());
+    } else {
+      onClose();
+    }
   };
 
   const onKeyDown = (e) => {
@@ -7160,6 +7227,11 @@ function CommandPalette({ commands, onClose }) {
                placeholder="Search commands\u2026"
                value=${query} onInput=${(e) => setQuery(e.target.value)}
                onKeyDown=${onKeyDown} />
+        <button className=${"pin-btn" + (pinned ? " pinned" : "")}
+                onClick=${togglePin}
+                title=${pinned ? "Pinned \u2014 stays open after running a command (click to unpin)" : "Pin \u2014 keep open after running a command"}>
+          <${IconPin} />
+        </button>
         <button className="cp-close" onClick=${onClose}>\u00D7</button>
       </div>
       <div ref=${listRef} className="cp-list">

@@ -491,7 +491,7 @@ export function orgifyPaths(text) {
 // Single combined pass: scanning left-to-right for whichever marker comes
 // first avoids re-scanning HTML tags already emitted for an earlier match
 // (e.g. italic's "/" matching inside a just-inserted "</strong>").
-const MARKUP_RE = /\*([^\s*][^*]*?)\*|\/([^\s/][^/]*?)\/|_([^\s_][^_]*?)_|=([^\s=][^=]*?)=/g;
+const MARKUP_RE = /\*([^\s*][^*]*?)\*|\/([^\s/][^/]*?)\/|_([^\s_][^_]*?)_|=([^\s=][^=]*?)=|\+([^\s+][^+]*?)\+/g;
 
 // Sentinel char (not producible by escapeHtml or normal text) used to mark
 // link placeholders so the markup regex above doesn't reprocess link content.
@@ -548,11 +548,12 @@ export function renderOrgInline(text) {
     return LINK_PLACEHOLDER + links.length + LINK_PLACEHOLDER;
   });
 
-  result = result.replace(MARKUP_RE, (match, bold, italic, underline, code) => {
-    if (bold !== undefined) return `<strong>${bold}</strong>`;
+  result = result.replace(MARKUP_RE, (match, bold, italic, underline, code, strike) => {
+    if (bold !== undefined)   return `<strong>${bold}</strong>`;
     if (italic !== undefined) return `<em>${italic}</em>`;
     if (underline !== undefined) return `<u>${underline}</u>`;
-    return `<code>${code}</code>`;
+    if (code !== undefined)   return `<code>${code}</code>`;
+    return `<del>${strike}</del>`;
   });
 
   const placeholderRe = new RegExp(LINK_PLACEHOLDER + "(\\d+)" + LINK_PLACEHOLDER, "g");
@@ -677,11 +678,12 @@ export function stripOrgMarkup(text) {
   s = s.replace(/\[\[([^\]]+)\]\]/g, (_, url) => url);
   // Footnote refs [fn:label]
   s = s.replace(/\[fn:[^\]]+\]/g, "");
-  // Inline markup *b* /i/ _u_ =c=
+  // Inline markup *b* /i/ _u_ =c= +s+
   s = s.replace(/\*([^\s*][^*]*?)\*/g, "$1");
   s = s.replace(/\/([^\s/][^/]*?)\//g, "$1");
   s = s.replace(/_([^\s_][^_]*?)_/g, "$1");
   s = s.replace(/=([^\s=][^=]*?)=/g, "$1");
+  s = s.replace(/\+([^\s+][^+]*?)\+/g, "$1");
   return s;
 }
 
