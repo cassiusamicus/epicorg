@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"flag"
 	"fmt"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
@@ -19,6 +21,9 @@ import (
 	"epicorg/internal/orgfile"
 	"epicorg/internal/server"
 )
+
+//go:embed examples/Outline.org
+var embeddedOutline []byte
 
 // reorderArgs moves recognized flags (and their values) ahead of positional
 // arguments. The standard flag package stops parsing at the first
@@ -91,6 +96,14 @@ func main() {
 	store, err := orgfile.NewStore(dir)
 	if err != nil {
 		log.Fatalf("failed to open directory: %v", err)
+	}
+
+	// On first run (empty directory), seed with the built-in example outline.
+	if files, _ := store.ListFiles(); len(files) == 0 {
+		dest := filepath.Join(dir, "Outline.org")
+		if err := os.WriteFile(dest, embeddedOutline, 0644); err != nil {
+			log.Printf("warning: could not write example outline: %v", err)
+		}
 	}
 
 	// Idle commit timer — fires after 20 minutes of no saves
