@@ -3278,6 +3278,55 @@ function StatusBar({ currentFile, homeDir, journalDir, tagListFile, bookmarkList
   `;
 }
 
+function parseFormatFromPreamble(text) {
+  const fmtMatch = (text || "").match(/^#\+EPICORG_FORMAT:\s*(\S+)/mi);
+  const lvlMatch = (text || "").match(/^#\+EPICORG_LEVEL_FORMATS:\s*(.+)/mi);
+  const fmt = fmtMatch ? fmtMatch[1].trim() : null;
+  const levelFmts = {};
+  if (lvlMatch) {
+    lvlMatch[1].trim().split(",").forEach(pair => {
+      const [d, f] = pair.trim().split(":");
+      const depth = parseInt(d, 10);
+      if (!isNaN(depth) && f) levelFmts[depth] = f.trim();
+    });
+  }
+  return { fmt, levelFmts };
+}
+
+function applyFormatToPreamble(text, outlineFormat, levelFormats) {
+  let result = (text || "")
+    .replace(/^#\+EPICORG_FORMAT:[^\n]*\n?/mi, "")
+    .replace(/^#\+EPICORG_LEVEL_FORMATS:[^\n]*\n?/mi, "");
+
+  // Keep #+STARTUP: num in sync with the numbers format for Emacs org-num-mode.
+  const startupMatch = result.match(/^#\+STARTUP:([ \t]*)(.*)$/mi);
+  if (outlineFormat === "numbers") {
+    if (startupMatch) {
+      const tokens = startupMatch[2].trim().split(/\s+/).filter(Boolean);
+      if (!tokens.includes("num"))
+        result = result.replace(/^#\+STARTUP:.*$/mi, `#+STARTUP: ${[...tokens, "num"].join(" ")}`);
+    } else {
+      result = "#+STARTUP: num\n" + result;
+    }
+  } else if (startupMatch) {
+    const tokens = startupMatch[2].trim().split(/\s+/).filter(t => t !== "num");
+    result = tokens.length === 0
+      ? result.replace(/^#\+STARTUP:[^\n]*\n?/mi, "")
+      : result.replace(/^#\+STARTUP:.*$/mi, `#+STARTUP: ${tokens.join(" ")}`);
+  }
+
+  const lines = [];
+  if (outlineFormat && outlineFormat !== "bullets") lines.push(`#+EPICORG_FORMAT: ${outlineFormat}`);
+  const hasLvl = levelFormats && Object.keys(levelFormats).length > 0;
+  if (hasLvl) {
+    const lvlStr = Object.entries(levelFormats)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([d, f]) => `${d}:${f}`).join(",");
+    lines.push(`#+EPICORG_LEVEL_FORMATS: ${lvlStr}`);
+  }
+  return lines.length > 0 ? lines.join("\n") + "\n" + result : result;
+}
+
 function App() {
   const [files, setFiles] = useState(null);
   const [favorites, setFavorites] = useState([]);
@@ -3398,30 +3447,46 @@ function App() {
     });
   }, []);
 
+  const outlineFormatRef = useRef("bullets");
   const [outlineFormat, setOutlineFormatRaw] = useState(() => {
     try {
       const saved = localStorage.getItem("epicorg.outlineFormat");
-      if (saved === "numbers" || saved === "letters" || saved === "bullets") return saved;
-      if (localStorage.getItem("epicorg.numberedBullets") === "1") return "numbers";
+      if (saved === "numbers" || saved === "letters" || saved === "upper" || saved === "bullets") {
+        outlineFormatRef.current = saved;
+        return saved;
+      }
+      if (localStorage.getItem("epicorg.numberedBullets") === "1") {
+        outlineFormatRef.current = "numbers";
+        return "numbers";
+      }
     } catch {}
     return "bullets";
   });
   const setOutlineFormat = useCallback((fmt) => {
     setOutlineFormatRaw(fmt);
+    outlineFormatRef.current = fmt;
     try { localStorage.setItem("epicorg.outlineFormat", fmt); } catch {}
+    setPreamble(p => applyFormatToPreamble(p, fmt, levelFormatsRef.current));
   }, []);
 
+  const levelFormatsRef = useRef({});
   const [levelFormats, setLevelFormatsRaw] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("epicorg.levelFormats") || "{}");
-      return typeof saved === "object" && saved !== null ? saved : {};
-    } catch { return {}; }
+      if (typeof saved === "object" && saved !== null) {
+        levelFormatsRef.current = saved;
+        return saved;
+      }
+    } catch {}
+    return {};
   });
   const setLevelFormat = useCallback((depth, fmt) => {
     setLevelFormatsRaw(prev => {
       const next = { ...prev };
       if (fmt === null) delete next[depth]; else next[depth] = fmt;
+      levelFormatsRef.current = next;
       try { localStorage.setItem("epicorg.levelFormats", JSON.stringify(next)); } catch {}
+      setPreamble(p => applyFormatToPreamble(p, outlineFormatRef.current, next));
       return next;
     });
   }, []);
@@ -4277,6 +4342,15 @@ function App() {
     setNodes(data.nodes || []);
     setPreamble(data.preamble || "");
     setHash(data.hash || "");
+    // Restore format settings from file (overrides localStorage).
+    const { fmt, levelFmts } = parseFormatFromPreamble(data.preamble || "");
+    const resolvedFmt = fmt || "bullets";
+    setOutlineFormatRaw(resolvedFmt);
+    outlineFormatRef.current = resolvedFmt;
+    try { localStorage.setItem("epicorg.outlineFormat", resolvedFmt); } catch {}
+    setLevelFormatsRaw(levelFmts);
+    levelFormatsRef.current = levelFmts;
+    try { localStorage.setItem("epicorg.levelFormats", JSON.stringify(levelFmts)); } catch {}
     dirtyRef.current = false;
     // Merge any new tags from this file into the global tag list.
     const fileTags = tree.collectAllTags(data.nodes || []);
@@ -4335,7 +4409,7 @@ function App() {
 
   const exportToHtml = useCallback(() => {
     if (!currentFile) return;
-    const html = generateExportHtml(nodes, preamble, currentFile, theme, topBarColor);
+    const html = generateExportHtml(nodes, preamble, currentFile, theme, resolveTopBarColor(topBarColor), outlineFormat, levelFormats);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

@@ -1,6 +1,10 @@
 import { renderOrgInline } from "./tree.js";
 
-const TOPBAR_COLORS = { green: "#166534", blue: "#3d72a8", red: "#991b1b" };
+function toLetters(n, upper) {
+  let result = "";
+  while (n > 0) { result = String.fromCharCode((upper ? 65 : 97) + (n - 1) % 26) + result; n = Math.floor((n - 1) / 26); }
+  return result + ".";
+}
 
 function esc(s) {
   return String(s || "")
@@ -22,9 +26,11 @@ function collectAllTags(nodes) {
   return [...tags].sort();
 }
 
-function renderNodesHtml(nodes, depth) {
+function renderNodesHtml(nodes, depth, outlineFormat, levelFormats) {
   let out = "";
-  for (const node of nodes || []) {
+  for (let i = 0; i < (nodes || []).length; i++) {
+    const node = nodes[i];
+    const siblingIndex = i + 1;
     const tags = (node.tags || []).join(",");
     const titleHtml = renderOrgInline(node.title || "");
     const bodyHtml = node.body ? renderOrgInline(node.body) : "";
@@ -37,12 +43,26 @@ function renderNodesHtml(nodes, depth) {
     const hasKids = node.children?.length > 0;
     const chId = `ch-${esc(node.id || "")}`;
 
+    // depth is 1-based here; levelFormats keys are 0-based (matching app.js OutlineNode depth)
+    const fmt = (levelFormats && levelFormats[depth - 1]) || outlineFormat || "bullets";
+    const isIndexed = fmt === "numbers" || fmt === "letters" || fmt === "upper";
+    const label = fmt === "letters" ? toLetters(siblingIndex) : fmt === "upper" ? toLetters(siblingIndex, true) : siblingIndex + ".";
+
     out += `<div class="ns" data-level="${depth}" data-tags="${esc(tags)}" id="n-${esc(node.id || "")}">`;
     out += `<div class="nh${isDone ? " done" : ""}">`;
-    if (hasKids) {
-      out += `<span class="nb tog" onclick="toggleNode(this,'${chId}')" title="Collapse">▼</span>`;
+    if (isIndexed) {
+      if (hasKids) {
+        out += `<span class="nb-caret tog" onclick="toggleNode(this,'${chId}')" title="Collapse">▼</span>`;
+      } else {
+        out += `<span class="nb-caret"></span>`;
+      }
+      out += `<span class="nb-idx">${esc(label)}</span>`;
     } else {
-      out += `<span class="nb"></span>`;
+      if (hasKids) {
+        out += `<span class="nb tog" onclick="toggleNode(this,'${chId}')" title="Collapse">▼</span>`;
+      } else {
+        out += `<span class="nb"></span>`;
+      }
     }
     if (status) out += `<span class="sbadge s-${status.toLowerCase()}">${esc(status)}</span>`;
     out += `<span class="nt">${titleHtml}</span>`;
@@ -55,7 +75,7 @@ function renderNodesHtml(nodes, depth) {
 
     if (hasKids) {
       out += `<div class="ch" id="${chId}">`;
-      out += renderNodesHtml(node.children, depth + 1);
+      out += renderNodesHtml(node.children, depth + 1, outlineFormat, levelFormats);
       out += `</div>`;
     }
 
@@ -93,10 +113,10 @@ function extractOrgTitle(preamble) {
   return m ? m[1].trim() : null;
 }
 
-export function generateExportHtml(nodes, preamble, filename, theme, topBarColor) {
-  const accentBg = topBarColor ? TOPBAR_COLORS[topBarColor] : null;
+export function generateExportHtml(nodes, preamble, filename, theme, accentColor, outlineFormat, levelFormats) {
+  const accentBg = accentColor || null;
   const allTags = collectAllTags(nodes);
-  const contentHtml = renderNodesHtml(nodes, 1);
+  const contentHtml = renderNodesHtml(nodes, 1, outlineFormat, levelFormats);
   const navHtml = buildNavHtml(nodes);
   const fileTitle = (filename || "Document").replace(/\.org$/, "");
   const orgTitle = extractOrgTitle(preamble) || fileTitle;
@@ -278,6 +298,12 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 /* Depth-based bullet sizes */
 .ns[data-level="1"]>.nh>.nb:not(.tog)::before{width:8px;height:8px}
 .ns[data-level="2"]>.nh>.nb:not(.tog)::before{width:7px;height:7px}
+
+/* Indexed (numbered/lettered) nodes */
+.nb-caret{width:14px;height:14px;flex-shrink:0;align-self:flex-start;margin-top:3px;display:flex;align-items:center;justify-content:center;color:var(--bullet);font-size:11px;user-select:none;transition:color .1s}
+.nb-caret.tog{cursor:pointer}
+.nb-caret.tog:hover{color:var(--text)}
+.nb-idx{font-size:12px;color:var(--dim);flex-shrink:0;padding-right:4px;align-self:flex-start;margin-top:2px;font-variant-numeric:tabular-nums}
 
 /* STATUS BADGES */
 .sbadge{font-size:11px;font-weight:700;padding:1px 5px;border-radius:3px;flex-shrink:0;letter-spacing:.03em}
