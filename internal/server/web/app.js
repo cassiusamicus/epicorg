@@ -280,9 +280,9 @@ function inlineTagChipsHtml(tags) {
   return tags.map((t) => `<span class="node-tag-chip inline-chip" data-tag="${t}">${t}</span>`).join(" ");
 }
 
-function toLetters(n) {
+function toLetters(n, upper) {
   let result = "";
-  while (n > 0) { result = String.fromCharCode(97 + (n - 1) % 26) + result; n = Math.floor((n - 1) / 26); }
+  while (n > 0) { result = String.fromCharCode((upper ? 65 : 97) + (n - 1) % 26) + result; n = Math.floor((n - 1) / 26); }
   return result + ".";
 }
 
@@ -290,8 +290,8 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
   const isFocused = focusedId === node.id;
   const hasChildren = node.children?.length > 0;
   const bulletFmt = (levelFormats && levelFormats[depth]) || outlineFormat || "bullets";
-  const isIndexed = bulletFmt === "numbers" || bulletFmt === "letters";
-  const bulletLabel = bulletFmt === "letters" ? toLetters(siblingIndex) : siblingIndex + ".";
+  const isIndexed = bulletFmt === "numbers" || bulletFmt === "letters" || bulletFmt === "upper";
+  const bulletLabel = bulletFmt === "letters" ? toLetters(siblingIndex) : bulletFmt === "upper" ? toLetters(siblingIndex, true) : siblingIndex + ".";
   const titleRef = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
   const pendingEditRef = useRef(false);
@@ -6410,8 +6410,8 @@ function ShortcutEditor({ shortcutVer, onUpdate, onReset, onResetAll, onClose })
 
 function LevelFormatChip({ depth, levelFormats, onSetLevelFormat, textMode }) {
   const fmt = levelFormats ? levelFormats[depth] : null;
-  const icon = fmt === "numbers" ? "1." : fmt === "letters" ? "a." : fmt === "bullets" ? "•" : "×";
-  const next = !fmt ? "bullets" : fmt === "bullets" ? "numbers" : fmt === "numbers" ? "letters" : null;
+  const icon = fmt === "numbers" ? "1." : fmt === "letters" ? "a." : fmt === "upper" ? "A." : fmt === "bullets" ? "•" : "×";
+  const next = !fmt ? "bullets" : fmt === "bullets" ? "numbers" : fmt === "numbers" ? "upper" : fmt === "upper" ? "letters" : null;
   return html`
     <button className=${"hfmt-chip hfmt-level-chip" + (fmt ? " override" : "")}
             title=${"Level " + (depth + 1) + ": " + (fmt || "global")}
@@ -6533,12 +6533,12 @@ function HamburgerMenu({
           <div className="hamburger-outline-format">
             <span className="hamburger-format-label">Globally: bullet style</span>
             <div className="hamburger-format-chips">
-              ${["bullets", "numbers", "letters"].map((fmt) => html`
+              ${["bullets", "numbers", "letters", "upper"].map((fmt) => html`
                 <button key=${fmt}
                         className=${"hfmt-chip" + (outlineFormat === fmt ? " active" : "")}
                         onClick=${() => onSetOutlineFormat(fmt)}
                         disabled=${textMode}>
-                  ${fmt === "bullets" ? "• Bullets" : fmt === "numbers" ? "1. Numbers" : "a. Letters"}
+                  ${fmt === "bullets" ? "• Bullets" : fmt === "numbers" ? "1. Numbers" : fmt === "letters" ? "a. Letters" : "A. Letters"}
                 </button>
               `)}
             </div>
@@ -7219,13 +7219,15 @@ function buildCommands(ctx) {
     { category: "View", label: "Toggle Notes",             desc: notesVisible ? "Hide inline notes" : "Show inline notes", keys: "", action: toggleNotesVisible },
     { category: "View", label: "Toggle Reading Width",     desc: readingWidth ? "Full width" : "Comfortable reading width", keys: "", action: toggleReadingWidth },
     { category: "View", label: "Toggle Vertical Lines",    desc: verticalLines ? "Hide indent guides" : "Show indent guides", keys: "", action: toggleVerticalLines },
-    { category: "View", label: "Global: Bullets",          desc: "Set all outline levels to bullet style (globally)",   keys: "", action: () => setOutlineFormat("bullets") },
-    { category: "View", label: "Global: Numbers",          desc: "Set all outline levels to numbered style (globally)", keys: "", action: () => setOutlineFormat("numbers") },
-    { category: "View", label: "Global: Letters",          desc: "Set all outline levels to lettered style (globally)", keys: "", action: () => setOutlineFormat("letters") },
-    { category: "View", label: `Level ${focusedDepth + 1}: Set to Bullets`,  desc: "Set all headings at this depth to bullet style (overrides global)", keys: "", action: () => setLevelFormat(focusedDepth, "bullets"),  disabled: focusedDepth < 0 },
-    { category: "View", label: `Level ${focusedDepth + 1}: Set to Numbers`,  desc: "Set all headings at this depth to numbered style (overrides global)", keys: "", action: () => setLevelFormat(focusedDepth, "numbers"),  disabled: focusedDepth < 0 },
-    { category: "View", label: `Level ${focusedDepth + 1}: Set to Letters`,  desc: "Set all headings at this depth to lettered style (overrides global)", keys: "", action: () => setLevelFormat(focusedDepth, "letters"),  disabled: focusedDepth < 0 },
-    { category: "View", label: `Level ${focusedDepth + 1}: Reset to global`, desc: "Remove per-level override; this depth falls back to global style",   keys: "", action: () => setLevelFormat(focusedDepth, null),       disabled: focusedDepth < 0 || !levelFormats?.[focusedDepth] },
+    { category: "View", label: "Global: Bullets",           desc: "Set all outline levels to bullet style (globally)",          keys: "", action: () => setOutlineFormat("bullets") },
+    { category: "View", label: "Global: Numbers",           desc: "Set all outline levels to numbered style (globally)",         keys: "", action: () => setOutlineFormat("numbers") },
+    { category: "View", label: "Global: Letters (a b c…)", desc: "Set all outline levels to lowercase letters (globally)",      keys: "", action: () => setOutlineFormat("letters") },
+    { category: "View", label: "Global: Letters (A B C…)", desc: "Set all outline levels to uppercase letters (globally)",      keys: "", action: () => setOutlineFormat("upper") },
+    { category: "View", label: `Level ${focusedDepth + 1}: Set to Bullets`,          desc: "Set all headings at this depth to bullet style (overrides global)",           keys: "", action: () => setLevelFormat(focusedDepth, "bullets"),  disabled: focusedDepth < 0 },
+    { category: "View", label: `Level ${focusedDepth + 1}: Set to Numbers`,          desc: "Set all headings at this depth to numbered style (overrides global)",          keys: "", action: () => setLevelFormat(focusedDepth, "numbers"),  disabled: focusedDepth < 0 },
+    { category: "View", label: `Level ${focusedDepth + 1}: Set to Letters (a b c…)`, desc: "Set all headings at this depth to lowercase letters (overrides global)",      keys: "", action: () => setLevelFormat(focusedDepth, "letters"),  disabled: focusedDepth < 0 },
+    { category: "View", label: `Level ${focusedDepth + 1}: Set to Letters (A B C…)`, desc: "Set all headings at this depth to uppercase letters (overrides global)",      keys: "", action: () => setLevelFormat(focusedDepth, "upper"),    disabled: focusedDepth < 0 },
+    { category: "View", label: `Level ${focusedDepth + 1}: Reset to global`,         desc: "Remove per-level override; this depth falls back to global style",            keys: "", action: () => setLevelFormat(focusedDepth, null),       disabled: focusedDepth < 0 || !levelFormats?.[focusedDepth] },
     // Fold
     { category: "Folding", label: "Fold to Level 1",      desc: "Collapse all but top level",     keys: "Alt+1",         action: () => foldToLevel(1) },
     { category: "Folding", label: "Fold to Level 2",      desc: "Expand to level 2",              keys: "Alt+2",         action: () => foldToLevel(2) },
