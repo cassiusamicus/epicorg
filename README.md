@@ -1,8 +1,6 @@
 # epicorg
 
-A keyboard-driven outliner with an org-mode file backend. Think Workflowy meets Todoist, backed by plain text.
-
-Your data lives in a standard `.org` file — edit it in epicorg, Emacs, or any text editor. No database, no proprietary format.
+A keyboard-driven outliner backed by org-mode files. Think Workflowy or Dynalist, but your data stays in standard `.org` files on your own machine — editable in Emacs, any text editor, or epicorg itself.
 
 ![Outline view](docs/images/outline-view.png)
 
@@ -10,41 +8,52 @@ Your data lives in a standard `.org` file — edit it in epicorg, Emacs, or any 
 
 ## Features
 
-- **Infinite nesting** — create deeply nested outlines with headings, sub-headings, and body text
-- **Keyboard-first** — navigate, create, indent, move, and fold items without touching the mouse
-- **Inline notes** — body text shows directly under its bullet, not tucked away in a side panel; toggle them all off for a quick scan, with a `…` marker (org-mode style) on items with notes hidden
-- **Text mode** — toggle to the raw org source (asterisks, tags, `:PROPERTIES:` drawers and all) to fix anything the structured view can't, then toggle back to reparse
+- **Infinite nesting** — headings, sub-headings, and body text to any depth
+- **Keyboard-first** — navigate, create, indent, move, and fold without touching the mouse
+- **Bullet styles** — choose Bullets, Numbers, or Letters (a–z / A–Z) globally or per level; preference saved to the org file so it survives across machines and browsers
+- **Inline notes** — body text under each bullet; toggle all off for a quick scan, with a `…` marker on items with hidden notes
+- **Text mode** — view and edit the raw org source (asterisks, tags, `:PROPERTIES:` drawers) then toggle back to reparse
 - **Detail pane** — status, due dates, tags, and custom properties for the focused item
-- **Tag filter** — toggle one or more tags from a popup to narrow the outline (OR within tags, AND with the text filter)
-- **TODO/DONE status** — clickable badges on each item, stored as standard org-mode status keywords
+- **Tag panel** — sidebar showing all tags; click to filter the outline; tag list can live in a dedicated `.org` file
+- **Bookmark panel** — global bookmarks visible across all files; list can live in a dedicated `.org` file
+- **TODO/DONE status** — clickable badges stored as standard org-mode keywords
 - **Due dates** — date picker stored as `DEADLINE` in org properties
-- **Agenda view** — see all dated items sorted chronologically, grouped by date, with overdue/today indicators
-- **Fold to level** — Alt+1 through Alt+9 to collapse the entire outline to a specific depth
-- **Numbered bullets** — Dynalist-style "1. 2. 3." numbering per level, toggled from the hamburger menu
-- **Vertical guide lines** — optional Dynalist-style lines connecting a parent to its children, toggled from the hamburger menu
-- **Hoist** — isolate the focused item and its children, hiding the rest of the outline; toggle back to restore the full view
-- **Responsive header** — when the toolbar/search/etc. don't actually fit (measured, not a fixed breakpoint — a long filename or many tags can trigger this even on a wide screen), it collapses to just the logo, filename, and both sidebar toggles, with everything else folded into the hamburger menu
-- **Undo/redo** — Ctrl+Z / Ctrl+Shift+Z, document-wide; typing coalesces into one step per pause, structural edits each get their own
-- **Preamble editing** — file-level content (like `#+TITLE`) editable via a dedicated preamble node
-- **Multi-file** — point epicorg at a directory of `.org` files, switch between them with a file picker; rename or delete files from there too (hover a row for the actions)
-- **Local-first editing** — all changes are instant; background sync pushes to disk every few seconds
-- **Git-backed merge** — the directory is a git repo; external edits are three-way merged via `git merge-file`
-- **Auto-commit** — git commits on load, after 20 minutes idle, and on shutdown
-- **Single binary** — one Go binary, no npm, no build step for the frontend
+- **Agenda view** — all dated items sorted chronologically with overdue/today indicators
+- **Fold to level** — Alt+1 through Alt+9 collapses the outline to a given depth
+- **Hoist** — isolate the focused item and its children, hiding the rest
+- **Full-text search** — search across all org files in the workspace
+- **Multi-file** — point epicorg at a directory; switch files from the picker; rename or delete from there too
+- **Export to HTML** — self-contained HTML file with navigation panel, tag filter, dark/light toggle, and reading-width toggle; respects your bullet style and accent color
+- **Export to org** — save a local copy of any file for backup or use outside epicorg
+- **Undo/redo** — Ctrl+Z / Ctrl+Shift+Z, document-wide; typing coalesces per pause
+- **Git-backed merge** — external edits are three-way merged via `git merge-file`; conflicts surface in the UI
+- **Auto-commit** — snapshots on file load, after 20 minutes idle, and on shutdown
+- **Single binary** — one Go binary embeds the entire frontend; no npm, no bundler, no runtime dependencies
 
 ## Quick start
 
-```
+```bash
 go build -o epicorg .
 ./epicorg ~/org
 ```
 
-Opens the `~/org` directory (created if it doesn't exist) and launches a browser. If the directory isn't a git repo, epicorg initializes one.
+Opens `~/org` (created if it doesn't exist) and launches a browser tab. If the directory isn't a git repo epicorg initializes one.
 
-| Argument | Default | Description |
-|----------|---------|-------------|
-| `[directory]` | `.` | Directory containing `.org` files |
+To try the included example (an outline of Epicurean philosophy):
+
+```bash
+./epicorg examples/
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `[directory]` | `.` | Directory of `.org` files to serve |
 | `-addr` | `:8080` | Listen address |
+| `-file` | _(none)_ | Open this file automatically on startup |
+
+## Download
+
+Pre-built binaries for Linux, macOS, and Windows are published automatically as [nightly releases](../../releases/tag/nightly) from the main branch.
 
 ## Keyboard shortcuts
 
@@ -52,11 +61,12 @@ Opens the `~/org` directory (created if it doesn't exist) and launches a browser
 
 | Key | Action |
 |-----|--------|
-| `Up` / `Down` | Move between items |
-| `Enter` | Create new sibling item |
+| `↑` / `↓` | Move focus |
+| `Enter` | New sibling item |
 | `Backspace` | Delete empty item |
-| `Shift+Enter` | Add/edit notes inline under the item |
-| `Escape` | Return to the title from notes/detail pane |
+| `Shift+Enter` | Edit notes under item |
+| `Escape` | Return to title |
+| `Alt+←` / `Alt+→` | Navigate history |
 
 ### Structure
 
@@ -71,47 +81,32 @@ Opens the `~/org` directory (created if it doesn't exist) and launches a browser
 
 | Key | Action |
 |-----|--------|
-| `Tab` | Fold/unfold children |
-| `Alt+1` through `Alt+9` | Fold entire outline to level N |
+| `Tab` | Fold / unfold children |
+| `Alt+1` … `Alt+9` | Fold entire outline to level N |
 
 ### Formatting
 
 | Key | Action |
 |-----|--------|
-| `Ctrl+B` | Wrap selection in `*bold*` |
-| `Ctrl+I` | Wrap selection in `/italic/` |
-| `Ctrl+U` | Wrap selection in `_underline_` |
+| `Ctrl+B` | `*bold*` |
+| `Ctrl+I` | `/italic/` |
+| `Ctrl+U` | `_underline_` |
 
 ### Other
 
 | Key | Action |
 |-----|--------|
 | `Ctrl+Z` | Undo |
-| `Ctrl+Shift+Z` (or `Ctrl+Y`) | Redo |
-
-## Architecture
-
-```
-browser (React)          Go server           disk
-  local JSON tree  --->  PUT /api/doc  --->   .org file
-  instant edits          JSON <-> org         plain text
-                         version check
-```
-
-**Frontend** owns the document as a JSON tree. All editing — typing, indenting, moving, folding — happens as instant local state mutations. No network round-trip for any operation. A background sync pushes the full document to the server every 3 seconds when dirty.
-
-**Backend** translates between JSON and org-mode format. Endpoints: `GET /api/files` lists org files, `GET /api/doc/:file` loads a file, `PUT /api/doc/:file` saves it. Parsing uses [go-org](https://github.com/niklasfasching/go-org). The frontend is pure ES modules with [htm](https://github.com/developit/htm) loaded from CDN — no npm, no bundler.
-
-**Merge** uses SHA-256 hashes for change detection. On save, epicorg checks if the file changed on disk since it was last loaded. If so, it runs `git merge-file` for a three-way merge. Clean merges apply automatically; conflicts produce standard markers in the file.
-
-**Git** auto-commits at three points: on file load (snapshot base), after 20 minutes of idle, and on server shutdown. Collapsed state is stored in a `.meta.json` sidecar so it doesn't clutter the org file.
+| `Ctrl+Shift+Z` | Redo |
+| `Ctrl+H` | Command palette |
 
 ## Org file format
 
-epicorg reads and writes standard org-mode:
+epicorg reads and writes standard org-mode files:
 
 ```org
-#+EPICORG_VERSION: 5
+#+TITLE: My Notes
+#+EPICORG_FORMAT: numbers
 * TODO Inbox
 ** DONE Buy milk
 :PROPERTIES:
@@ -119,23 +114,52 @@ epicorg reads and writes standard org-mode:
 :END:
 ** Write README
 Body text goes here.
-Multiple lines supported.
 * Projects
 ** Build epicorg
 :PROPERTIES:
 :PRIORITY: high
 :END:
+*** Design the API
+*** Implement frontend
 ```
 
-## Development
+`#+EPICORG_FORMAT` stores your bullet-style preference (bullets / numbers / letters / upper) so it opens the same way everywhere. When set to `numbers`, epicorg also writes `#+STARTUP: num` so Emacs `org-num-mode` activates automatically.
 
-The frontend lives in `internal/server/web/` and is embedded at compile time. Edit the HTML/CSS/JS, rebuild with `go build`, and refresh.
+## Architecture
 
 ```
-go build -o epicorg .
-./epicorg .
+browser (React/htm)       Go server              disk
+  local JSON tree  ──►  PUT /api/doc  ──►   .org file
+  instant edits          JSON ↔ org            plain text
+                         hash check + merge
 ```
+
+**Frontend** owns the document as a JSON tree. All editing is instant local state — no network round-trip. A background sync pushes to the server every 3 seconds when dirty. Built with React and [htm](https://github.com/developit/htm) loaded from CDN; no npm, no bundler.
+
+**Backend** (Go) translates between JSON and org-mode. Parsing uses [niklasfasching/go-org](https://github.com/niklasfasching/go-org). The compiled frontend is embedded in the binary via `//go:embed`.
+
+**Conflict resolution** uses SHA-256 hashes. If the file changed on disk since last load, epicorg runs `git merge-file` for a three-way merge. Clean merges apply automatically; conflicts produce standard markers surfaced in the UI.
+
+## Building
+
+```bash
+make build        # go build -o epicorg .
+make test         # go test ./...
+make run          # build + run in current directory
+```
+
+Go 1.21 or later required. No other build-time dependencies.
+
+## Contributing
+
+Bug reports and pull requests are welcome. Please open an issue before starting significant work so we can discuss the approach.
+
+Unit tests live alongside the code they test. New functionality should include tests.
+
+## Credits
+
+epicorg grew out of [torg](https://github.com/suprjinx/torg) by [Geoff Russ](https://github.com/suprjinx). The org-mode parsing engine is [niklasfasching/go-org](https://github.com/niklasfasching/go-org).
 
 ## License
 
-MIT
+GNU General Public License v3.0 — see [LICENSE](LICENSE) for the full text.

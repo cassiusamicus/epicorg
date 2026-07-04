@@ -2,3 +2,7 @@ epicorg
 *.org
 *.meta.json
 !test.org
+!examples/*.org
+.claude/
+*.backup.*
+READMELOCAL.MD
