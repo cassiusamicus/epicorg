@@ -42,7 +42,7 @@ Opens `~/org` (created if it doesn't exist) and launches a browser tab. If the d
 To try the included example (an outline of Epicurean philosophy):
 
 ```bash
-./epicorg examples/
+./epicorg examples/ -file Outline.org
 ```
 
 | Flag | Default | Description |

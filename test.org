@@ -1,65 +1,40 @@
-#+TORG_VERSION: 30
+#+TITLE: Epicorg Test File
+#+AUTHOR: epicorg
 
-Here's some header material!
-Ignore 
-at your peril
-* Inbox
-here's something else
-** some more items
+* TODO Inbox
+  A place for quick capture.
+** DONE Write unit tests
 :PROPERTIES:
-:DEADLINE: <2026-04-09 Thu>
+:DEADLINE: <2026-05-01 Thu>
 :END:
-** another
-here's a note for me
-** back in the outline
-adding a body note
-*** new item
-
-* Buy groceries
-Some notes about what to buy:
-- [x ] Milk
-- [ x] Eggs
-- [X] Bread
-* Projects
-** Build tor
+All core tree operations covered.
+** Research org-mode spec
 :PROPERTIES:
-:DEADLINE: 2026-04-15
+:DEADLINE: <2026-06-15 Mon>
+:END:
+* Projects
+** Build epicorg                                                      :dev:
+:PROPERTIES:
 :PRIORITY: high
 :END:
-Adding some additional. Are you staing here or going out? can i do new lines here?
-*** I want a new subitem
-:PROPERTIES:
-:AND: props
-:OR: props
-:END:
-Here's some body info
-I have multiple lines
-**** which also has a sub
-** Design API
-** Hows this?
-*** can i add some more here?
-*** here's another
-** with comment
-:PROPERTIES:
-:ADD: another
-:END:
+The main project.
+*** Design the API
 *** Implement frontend
+**** Detail pane
+**** Tag panel
+*** Write documentation
+** Side experiments                                                    :dev:
+*** Try a new color scheme
+*** Test HTML export
 
-* starting some new stuff
-** I want to know
-** how well
-** this will 
-** do with 
-*** outling?
-*** note taking?
-*** setting schedules?
-:PROPERTIES:
-:DEADLINE: <2026-04-15 Wed>
-:END:
+* Someday / Maybe
+** Learn more Emacs Lisp
+** Read SICP cover to cover
+** Set up a home server
 
-* TODO
-** pay taxes 
-:PROPERTIES:
-:DEADLINE: <2026-04-15 Wed>
-:END:
-** whaat happens with really long lines? I need to make sure I'm wrapping correctly. so let's go! next line that's not great but okay now what happens?
+* Reference
+Some notes live here permanently.
+** Keyboard shortcuts
+   See the README for the full list.
+** Org file format
+   Standard ~.org~ files — editable anywhere.
