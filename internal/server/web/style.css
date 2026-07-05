@@ -3253,6 +3253,31 @@ header.header-tinted {
 }
 .body-fn-btn:hover { opacity: 1; background: var(--focused-bg); }
 
+.note-ctx-menu {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 4px 0;
+  box-shadow: 0 4px 18px var(--shadow);
+  min-width: 130px;
+}
+.note-ctx-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 5px 14px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.note-ctx-item:hover:not(:disabled) { background: var(--focused-bg); }
+.note-ctx-item:disabled { color: var(--text-dim); cursor: default; }
+.note-ctx-sep { height: 1px; background: var(--border); margin: 3px 0; }
+
 .node-body-preview {
   flex: 1;
   min-width: 0;

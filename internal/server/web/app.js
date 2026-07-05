@@ -213,8 +213,55 @@ function triggerLinkPicker(textarea, e) {
 // being edited, so empty items don't clutter the outline. Mirrors the
 // title's formatted-preview/edit-textarea split, governed by the same
 // titleFormatMode toggle.
+function NoteContextMenu({ x, y, sel, textarea, onCommit, onClose }) {
+  const menuRef = useRef(null);
+  const hasSel = sel.start !== sel.end;
+
+  useEffect(() => {
+    const down = (e) => { if (!menuRef.current?.contains(e.target)) onClose(); };
+    const key  = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("mousedown", down);
+    document.addEventListener("keydown", key, true);
+    return () => { document.removeEventListener("mousedown", down); document.removeEventListener("keydown", key, true); };
+  }, [onClose]);
+
+  const commit = (newVal, cursor) => { onCommit(newVal, cursor); onClose(); };
+
+  const doCut = async () => {
+    if (!hasSel) return onClose();
+    const text = sel.value.slice(sel.start, sel.end);
+    await navigator.clipboard.writeText(text).catch(() => {});
+    commit(sel.value.slice(0, sel.start) + sel.value.slice(sel.end), sel.start);
+  };
+  const doCopy = async () => {
+    if (hasSel) await navigator.clipboard.writeText(sel.value.slice(sel.start, sel.end)).catch(() => {});
+    onClose();
+  };
+  const doPaste = async () => {
+    const text = await navigator.clipboard.readText().catch(() => "");
+    const newVal = sel.value.slice(0, sel.start) + text + sel.value.slice(sel.end);
+    commit(newVal, sel.start + text.length);
+  };
+  const doSelectAll = () => {
+    textarea.select();
+    onClose();
+  };
+
+  const style = { position: "fixed", left: x, top: y, zIndex: 9999 };
+  return html`
+    <div ref=${menuRef} className="note-ctx-menu" style=${style}>
+      <button className="note-ctx-item" disabled=${!hasSel} onClick=${doCut}>Cut</button>
+      <button className="note-ctx-item" disabled=${!hasSel} onClick=${doCopy}>Copy</button>
+      <button className="note-ctx-item" onClick=${doPaste}>Paste</button>
+      <div className="note-ctx-sep" />
+      <button className="note-ctx-item" onClick=${doSelectAll}>Select All</button>
+    </div>
+  `;
+}
+
 function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notesVisible, depth, bodyRefs }) {
   const localRef = useRef(null);
+  const [ctxMenu, setCtxMenu] = useState(null);
 
   useEffect(() => {
     adjustTextareaHeight(localRef.current);
@@ -256,6 +303,12 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
             value=${node.body || ""}
             placeholder="Add notes..."
             onChange=${(e) => { dispatch(node.id, "change-body", tree.orgifyPaths(e.target.value)); triggerLinkPicker(e.target, e); }}
+            onContextMenu=${(e) => {
+              e.preventDefault();
+              const ta = e.target;
+              setCtxMenu({ x: e.clientX, y: e.clientY, textarea: ta,
+                sel: { start: ta.selectionStart, end: ta.selectionEnd, value: ta.value } });
+            }}
             onBlur=${() => {
               dispatch(node.id, "stop-edit-body");
               // If the blur was caused by tab-switching (not clicking elsewhere in
@@ -273,6 +326,17 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
                   onMouseDown=${(e) => { e.preventDefault(); localRef.current?.focus(); triggerInsertFootnote(); }}>fn</button>
         `}
     </div>
+    ${ctxMenu && html`<${NoteContextMenu}
+      x=${ctxMenu.x} y=${ctxMenu.y}
+      sel=${ctxMenu.sel} textarea=${ctxMenu.textarea}
+      onCommit=${(newVal, cursor) => {
+        dispatch(node.id, "change-body", tree.orgifyPaths(newVal));
+        requestAnimationFrame(() => {
+          ctxMenu.textarea.focus();
+          ctxMenu.textarea.setSelectionRange(cursor, cursor);
+        });
+      }}
+      onClose=${() => setCtxMenu(null)} />`}
   `;
 }
 
