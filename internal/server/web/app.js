@@ -350,7 +350,7 @@ function toLetters(n, upper) {
   return result + ".";
 }
 
-function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, outlineFormat, levelFormats, siblingIndex, verticalLines, showTagChips, tagsOnRight, onSearchTag, bodyEditingId, bodyPreviewId, bodyRefs }) {
+function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, outlineFormat, levelFormats, siblingIndex, verticalLines, showTagChips, tagsOnRight, onSearchTag, bodyEditingId, bodyPreviewId, bodyRefs, onBulletMouseDown }) {
   const isFocused = focusedId === node.id;
   const hasChildren = node.children?.length > 0;
   const bulletFmt = (levelFormats && levelFormats[depth]) || outlineFormat || "bullets";
@@ -408,9 +408,9 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
           : html`<span style=${{ width: depth * 24, flexShrink: 0 }} />`}
         <span className=${"bullet" + (hasChildren ? (node.collapsed ? " has-children collapsed" : " has-children expanded") : "") + (isIndexed ? " numbered" : "")}
               onMouseDown=${(e) => {
+                if (e.button !== 0) return;
                 e.preventDefault();
-                if (hasChildren) dispatch(node.id, "toggle");
-                else { pendingEditRef.current = true; dispatch(node.id, "edit-title"); }
+                onBulletMouseDown?.(node.id, hasChildren, e);
               }}>
           ${isIndexed && html`<span className="bullet-caret">${hasChildren ? (node.collapsed ? "\u25B6" : "\u25BC") : ""}</span>`}
           ${isIndexed && html`<span className="bullet-number">${bulletLabel}</span>`}
@@ -561,6 +561,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
             bodyEditingId=${bodyEditingId}
             bodyPreviewId=${bodyPreviewId}
             bodyRefs=${bodyRefs}
+            onBulletMouseDown=${onBulletMouseDown}
           />
         `
       )}
@@ -3866,6 +3867,12 @@ function App() {
   const pendingCursorPosRef = useRef(null);
   const inputRefs = useRef({});
   const bodyRefs = useRef({});
+  const nodesRef = useRef(null);
+  useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+  const dragStateRef = useRef(null);  // { nodeId, hasChildren, startX, startY, pending }
+  const dragVisualRef = useRef(null);
+  const [dragVisual, setDragVisual] = useState(null);
+  useEffect(() => { dragVisualRef.current = dragVisual; }, [dragVisual]);
   // Which node's inline body/notes textarea is currently open for editing —
   // body text now lives under each bullet rather than in the detail pane.
   const [bodyEditingId, setBodyEditingId] = useState(null);
@@ -3995,6 +4002,109 @@ function App() {
     dirtyRef.current = true;
     setSyncStatus(SYNC_DIRTY);
   }, []);
+
+  const onBulletMouseDown = useCallback((nodeId, hasChildren, e) => {
+    dragStateRef.current = { nodeId, hasChildren, startX: e.clientX, startY: e.clientY, pending: true };
+  }, []);
+
+  useEffect(() => {
+    const INDENT = 24;
+    let rafId = null;
+    let lastX = 0, lastY = 0;
+
+    const computeDrop = (mouseX, mouseY) => {
+      const content = document.querySelector(".outline-content");
+      if (!content || !dragStateRef.current) return null;
+      const cr = content.getBoundingClientRect();
+      const rows = [...document.querySelectorAll(".node-row[data-node-id]")];
+      if (!rows.length) return null;
+      const ns = nodesRef.current;
+      const dragId = dragStateRef.current.nodeId;
+
+      const vis = rows.filter(r => !tree.isDescendantOrSelf(ns, dragId, r.dataset.nodeId));
+      let afterEl = null;
+      for (const row of vis) {
+        const r = row.getBoundingClientRect();
+        if (mouseY > r.top + r.height / 2) afterEl = row;
+        else break;
+      }
+
+      const afterId = afterEl ? afterEl.dataset.nodeId : null;
+      const afterDepth = afterEl ? parseInt(afterEl.dataset.depth) : -1;
+      const afterIdx = afterEl ? vis.indexOf(afterEl) : -1;
+      const belowEl = vis[afterIdx + 1] || null;
+      const belowDepth = belowEl ? parseInt(belowEl.dataset.depth) : 0;
+
+      const maxDepth = afterDepth + 1;
+      const minDepth = belowEl ? belowDepth : 0;
+      const rawDepth = Math.round((mouseX - cr.left - 16) / INDENT);
+      const targetDepth = Math.max(minDepth, Math.min(maxDepth, Math.max(0, rawDepth)));
+
+      let lineY;
+      if (afterEl) {
+        const ar = afterEl.getBoundingClientRect();
+        lineY = belowEl ? (ar.bottom + belowEl.getBoundingClientRect().top) / 2 : ar.bottom + 4;
+      } else {
+        const br = vis[0]?.getBoundingClientRect();
+        lineY = br ? br.top - 4 : cr.top;
+      }
+
+      return { afterId, targetDepth, lineY, lineLeft: cr.left + targetDepth * INDENT + 16 };
+    };
+
+    const onMove = (e) => {
+      if (!dragStateRef.current) return;
+      lastX = e.clientX; lastY = e.clientY;
+      const ds = dragStateRef.current;
+
+      if (ds.pending) {
+        if (Math.hypot(e.clientX - ds.startX, e.clientY - ds.startY) < 5) return;
+        ds.pending = false;
+        document.body.classList.add("dnd-dragging");
+      }
+
+      const pane = document.querySelector(".outline-pane");
+      if (pane) {
+        const pr = pane.getBoundingClientRect();
+        if (e.clientY < pr.top + 60) pane.scrollBy(0, -8);
+        else if (e.clientY > pr.bottom - 60) pane.scrollBy(0, 8);
+      }
+
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        if (!dragStateRef.current || dragStateRef.current.pending) return;
+        const drop = computeDrop(lastX, lastY);
+        const dragNode = tree.findNode(nodesRef.current, dragStateRef.current.nodeId);
+        setDragVisual(drop ? { ghostTitle: dragNode?.title || "", ghostX: lastX, ghostY: lastY, ...drop } : null);
+      });
+    };
+
+    const onUp = () => {
+      if (!dragStateRef.current) return;
+      const ds = dragStateRef.current;
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+      document.body.classList.remove("dnd-dragging");
+
+      if (ds.pending) {
+        if (ds.hasChildren) dispatch(ds.nodeId, "toggle");
+        else { dispatch(ds.nodeId, "focus"); dispatch(ds.nodeId, "edit-title"); }
+      } else {
+        const dv = dragVisualRef.current;
+        if (dv) { setNodes(prev => tree.moveDragNode(prev, ds.nodeId, dv.afterId, dv.targetDepth)); markDirty(); }
+      }
+      dragStateRef.current = null;
+      setDragVisual(null);
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      document.body.classList.remove("dnd-dragging");
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [dispatch, markDirty]);
 
   const [apptDialog, setApptDialog] = useState(null); // null or { defaultDate: "YYYY-MM-DD" }
 
@@ -5606,7 +5716,8 @@ function App() {
                   outlineFormat=${outlineFormat} levelFormats=${levelFormats} siblingIndex=${i + 1}
                   verticalLines=${verticalLines} showTagChips=${showTagChips}
                   tagsOnRight=${tagsOnRight} onSearchTag=${searchTag}
-                  bodyEditingId=${bodyEditingId} bodyPreviewId=${bodyPreviewId} bodyRefs=${bodyRefs} />
+                  bodyEditingId=${bodyEditingId} bodyPreviewId=${bodyPreviewId} bodyRefs=${bodyRefs}
+                  onBulletMouseDown=${onBulletMouseDown} />
               `)}
             </div>
           </div>
@@ -5719,6 +5830,12 @@ function App() {
     </div>
     ${fnPopup && html`<${FootnotePopup} popup=${fnPopup} onClose=${() => setFnPopup(null)} onSave=${saveFootnoteDef} />`}
     ${fnInsertPopup && html`<${FootnoteInsertPopup} popup=${fnInsertPopup} onInsert=${confirmInsertFootnote} onClose=${() => setFnInsertPopup(null)} />`}
+    ${dragVisual && html`
+      <div className="dnd-ghost" style=${{ left: dragVisual.ghostX + 14, top: dragVisual.ghostY }}>
+        ${dragVisual.ghostTitle || html`<em>untitled</em>`}
+      </div>
+      <div className="dnd-drop-line" style=${{ top: dragVisual.lineY, left: dragVisual.lineLeft }} />
+    `}
     <${Toast} message=${toastMsg} />
   `;
 }

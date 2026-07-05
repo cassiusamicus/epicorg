@@ -24,6 +24,60 @@ export function newNode(title = "") {
 
 // --- Query helpers ---
 
+export function isDescendantOrSelf(nodes, ancestorId, testId) {
+  if (ancestorId === testId) return true;
+  const anc = findNode(nodes, ancestorId);
+  if (!anc) return false;
+  return !!findNode(anc.children || [], testId);
+}
+
+export function flattenAll(nodes, depth = 0) {
+  const out = [];
+  for (const n of (nodes || [])) {
+    out.push({ id: n.id, node: n, depth });
+    if (n.children?.length > 0) for (const x of flattenAll(n.children, depth + 1)) out.push(x);
+  }
+  return out;
+}
+
+function buildTreeFromFlat(flat) {
+  const root = [];
+  const stack = [];
+  for (const { node, depth } of flat) {
+    const n = { ...node, children: [] };
+    while (stack.length && stack[stack.length - 1].depth >= depth) stack.pop();
+    if (!stack.length) root.push(n);
+    else stack[stack.length - 1].node.children.push(n);
+    stack.push({ node: n, depth });
+  }
+  return root;
+}
+
+export function moveDragNode(nodes, dragId, afterId, targetDepth) {
+  const full = flattenAll(nodes);
+  const dragIdx = full.findIndex(x => x.id === dragId);
+  if (dragIdx < 0) return nodes;
+  const dragDepth = full[dragIdx].depth;
+  let end = dragIdx + 1;
+  while (end < full.length && full[end].depth > dragDepth) end++;
+  const subtree = full.slice(dragIdx, end);
+  const rem = [...full.slice(0, dragIdx), ...full.slice(end)];
+
+  let insertAt;
+  if (afterId === null) {
+    insertAt = 0;
+  } else {
+    const ai = rem.findIndex(x => x.id === afterId);
+    if (ai < 0) return nodes;
+    insertAt = ai + 1;
+    while (insertAt < rem.length && rem[insertAt].depth > rem[ai].depth) insertAt++;
+  }
+
+  const delta = targetDepth - dragDepth;
+  const shifted = subtree.map(x => ({ ...x, depth: x.depth + delta }));
+  return buildTreeFromFlat([...rem.slice(0, insertAt), ...shifted, ...rem.slice(insertAt)]);
+}
+
 export function flattenVisible(nodes) {
   const result = [];
   function walk(list) {

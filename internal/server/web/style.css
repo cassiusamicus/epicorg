@@ -2955,7 +2955,7 @@ header.header-tinted {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  cursor: pointer;
+  cursor: grab;
   border-radius: 50%;
   font-size: 14px;
   color: var(--bullet);
@@ -3034,6 +3034,49 @@ header.header-tinted {
 
 .focused .bullet {
   color: var(--bullet-active);
+}
+
+body.dnd-dragging, body.dnd-dragging * { cursor: grabbing !important; user-select: none !important; }
+
+.dnd-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9100;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 10px;
+  font-size: 13px;
+  color: var(--text);
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.88;
+  box-shadow: 0 4px 16px var(--shadow);
+  transform: translateY(-50%);
+}
+
+.dnd-drop-line {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9101;
+  right: 24px;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+  transform: translateY(-50%);
+}
+.dnd-drop-line::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
 }
 
 /* Status badge */
