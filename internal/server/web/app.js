@@ -3867,8 +3867,6 @@ function App() {
   const pendingCursorPosRef = useRef(null);
   const inputRefs = useRef({});
   const bodyRefs = useRef({});
-  const nodesRef = useRef(null);
-  useEffect(() => { nodesRef.current = nodes; }, [nodes]);
   const dragStateRef = useRef(null);  // { nodeId, hasChildren, startX, startY, pending }
   const dragVisualRef = useRef(null);
   const [dragVisual, setDragVisual] = useState(null);
