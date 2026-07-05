@@ -37,9 +37,7 @@ go build -o epicorg .
 ./epicorg ~/org
 ```
 
-Opens `~/org` (created if it doesn't exist) and launches a browser tab. If the directory isn't a git repo epicorg initializes one.
-
-To try the included example (an outline of Epicurean philosophy):
+Opens `~/org` (created if it doesn't exist) and launches a browser tab. If the directory isn't a git repo epicorg initializes one.  On first run, if there are no other files in the ~org folder, the program will load Outline.org as a sample of what Epicorg can do.  If the included sample does not run, start the program:
 
 ```bash
 ./epicorg examples/
@@ -152,13 +150,19 @@ Go 1.21 or later required. No other build-time dependencies.
 
 ## Contributing
 
-Bug reports and pull requests are welcome. Please open an issue before starting significant work so we can discuss the approach.
+Cassius Amicus is the developer but the heavy lifting here has been done by Claude.  It is not the intent of Epicorg to compete with Emacs, Workflowy, Dynalist, Obsidian, or Logseq, and there are no plans to do so in the future.  Epicorg is designed to assist one user working closely with one of a few outlines for focused - close-in use.  To-do and agenda functionality have been included experimentally, but Epicorg is not intended to serve as a primary calendaring system, nor will it likely ever sync to Google or anything else.  All non-outlining functions are strictly secondary to the purpose of the program.  
+
+Cassius himself uses Epicorgover a local network an with an org folder stored on the server (backed up by Nextcloud), and this allows easy editing of a single outline from multiple computers.  With the addition of Tailscale this works from outside the local LAN as well.
+
+Bug reports and pull requests are welcome. Please open an issue before starting significant work so we can discuss the approach.  But a word to the wise:  I used Claude to produce this, and if Claude can't handle the proposed change I likely won't be able to implement it myself.
 
 Unit tests live alongside the code they test. New functionality should include tests.
 
 ## Credits
 
-epicorg grew out of [torg](https://github.com/suprjinx/torg) by [Geoff Russ](https://github.com/suprjinx). The org-mode parsing engine is [niklasfasching/go-org](https://github.com/niklasfasching/go-org).
+Epicorg has been developed by Cassius Amicus for his own use in studying Epicurean philosophy.  You are welcome to use it for your own purposes.  You are also welcome to learn more about Epicurus by visiting [EpicureanFriends.com](https://epicureanfriends.com) and [EpicurusToday.com](https://epicurustoday.com)
+
+Epicorg grew out of [torg](https://github.com/suprjinx/torg) by [Geoff Russ](https://github.com/suprjinx). The org-mode parsing engine is that of [niklasfasching/go-org](https://github.com/niklasfasching/go-org).
 
 ## License
 
