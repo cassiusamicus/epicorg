@@ -3243,7 +3243,7 @@ function SidebarFileRow({ name, active, isFavorite, onSelect, onToggleFavorite, 
   `;
 }
 
-function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavorite, bookmarks, onNavigateToBookmark, onDeleteBookmark, onReorderBookmarks, bookmarkPanelVisible, onToggleBookmarkPanel, textMode, onToggleSidebar, onOpenTodayJournal, onOpenJournalList, onRenameFile, onClearRecentFiles, onOpenQuickSwitcher }) {
+function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavorite, bookmarks, onNavigateToBookmark, onDeleteBookmark, onReorderBookmarks, bookmarkPanelVisible, onToggleBookmarkPanel, textMode, onToggleSidebar, onOpenTodayJournal, onOpenJournalList, onRenameFile, onClearRecentFiles, onOpenQuickSwitcher, onOpenTextSearch }) {
   const dragIndexRef = useRef(null);
   const [renameConfirm, setRenameConfirm] = useState(null); // { oldName, newName }
   const [renameBusy, setRenameBusy] = useState(false);
@@ -3272,6 +3272,8 @@ function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavori
                 title=${textMode ? "Not available in reveal codes mode" : "Bookmark panel"}><${IconBookmark} /></button>
         <button className="panel-toggle-btn" onClick=${onOpenQuickSwitcher}
                 title="Quick switcher (Ctrl+K)"><${IconLightning} /></button>
+        <button className="panel-toggle-btn" onClick=${onOpenTextSearch}
+                title="Full-text search across all files (Ctrl+Shift+F)"><${IconSearch} /></button>
       </div>
       <div className="sidebar-section">
         <div className="sidebar-section-header">
@@ -3724,6 +3726,356 @@ function applyColorsToPreamble(text, globalColor, levelColors) {
   return result;
 }
 
+function findInNodes(nodes, query) {
+  const q = query.toLowerCase();
+  const ids = [];
+  const walk = (list) => {
+    for (const node of list) {
+      if ((node.title || "").toLowerCase().includes(q) || (node.body || "").toLowerCase().includes(q)) ids.push(node.id);
+      if (node.children?.length) walk(node.children);
+    }
+  };
+  walk(nodes);
+  return ids;
+}
+
+function highlightMatch(text, query) {
+  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  if (!text || !query.trim()) return esc(text || "");
+  const q = query.toLowerCase();
+  const parts = [];
+  let i = 0;
+  while (i < text.length) {
+    const idx = text.toLowerCase().indexOf(q, i);
+    if (idx === -1) { parts.push(esc(text.slice(i))); break; }
+    parts.push(esc(text.slice(i, idx)));
+    parts.push(`<mark class="sp-mark">${esc(text.slice(idx, idx + query.length))}</mark>`);
+    i = idx + query.length;
+  }
+  return parts.join("");
+}
+
+function buildSnippet(text, query) {
+  if (!text) return "";
+  const q = query.toLowerCase();
+  const idx = text.toLowerCase().indexOf(q);
+  if (idx === -1) return text.slice(0, 120) + (text.length > 120 ? "…" : "");
+  const start = Math.max(0, idx - 40);
+  const end = Math.min(text.length, idx + query.length + 60);
+  return (start > 0 ? "…" : "") + text.slice(start, end) + (end < text.length ? "…" : "");
+}
+
+function findNodeWithAncestors(nodes, predicate, ancestors = []) {
+  for (const node of nodes) {
+    if (predicate(node)) return { node, ancestors };
+    if (node.children?.length) {
+      const found = findNodeWithAncestors(node.children, predicate, [...ancestors, node]);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+// Search panel — sticky top section with three clearly-labelled mode tabs.
+// Mode bar stays visible regardless of which tab is active.
+// Find tab embeds the FindBar; Search tab shows a compact results list;
+// Filter tab focuses the header search and shows a hint.
+function SearchPanel({ nodes, currentFile,
+  findQuery, setFindQuery, findMatchIds, findIdx, findNavigate, findInputRef, setFindOpen,
+  filterQuery, setFilterQuery, onFoldToLevel,
+  onNavigate, onJumpToNode, onClose }) {
+  const [tab, setTab] = useState("search");
+  const [query, setQuery] = useState("");
+  const [scope, setScope] = useState("note");
+  const [results, setResults] = useState([]);
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [contextNodes, setContextNodes] = useState(null);
+  const [contextLoading, setContextLoading] = useState(false);
+  const [panelHeight, setPanelHeight] = useState(380);
+  const searchInputRef = useRef(null);
+  const filterInputRef = useRef(null);
+  const resultsRef = useRef(null);
+  const debounceRef = useRef(null);
+  const ctxCacheRef = useRef(new Map());
+  const isDragging = useRef(false);
+  const dragStartY = useRef(0);
+  const heightAtDrag = useRef(0);
+
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!isDragging.current) return;
+      const delta = e.clientY - dragStartY.current;
+      setPanelHeight(Math.max(120, Math.min(window.innerHeight * 0.88, heightAtDrag.current + delta)));
+    };
+    const onUp = () => { isDragging.current = false; };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+  }, []);
+
+  const onResizeStart = (e) => {
+    isDragging.current = true;
+    dragStartY.current = e.clientY;
+    heightAtDrag.current = panelHeight;
+    e.preventDefault();
+  };
+
+  const switchTab = (t) => {
+    if (t === tab) return;
+    // Carry the current search term into the destination tab
+    const carry = tab === "filter" ? filterQuery : tab === "find" ? findQuery : query;
+    if (tab === "find") { setFindOpen(false); setFindQuery(""); }
+    setTab(t);
+    if (t === "find") {
+      if (carry) setFindQuery(carry);
+      setFindOpen(true);
+      requestAnimationFrame(() => findInputRef.current?.focus());
+    }
+    if (t === "filter") {
+      if (carry) setFilterQuery(carry);
+      requestAnimationFrame(() => filterInputRef.current?.focus());
+    }
+    if (t === "search") {
+      if (carry) setQuery(carry);
+      requestAnimationFrame(() => searchInputRef.current?.focus());
+    }
+  };
+
+  useEffect(() => { requestAnimationFrame(() => searchInputRef.current?.focus()); }, []);
+
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    if (tab !== "search" || !query.trim()) { setResults([]); setSelectedIdx(0); return; }
+    if (scope === "note") {
+      const matches = [];
+      const q = query.toLowerCase();
+      const walk = (list, ancestors) => {
+        for (const node of list) {
+          const inTitle = (node.title || "").toLowerCase().includes(q);
+          const inBody = (node.body || "").toLowerCase().includes(q);
+          if (inTitle || inBody) {
+            matches.push({
+              nodeId: node.id,
+              file: currentFile,
+              title: node.title || "",
+              breadcrumb: ancestors.map((a) => a.title),
+              snippet: buildSnippet(inTitle ? node.title : node.body, query),
+            });
+          }
+          if (node.children?.length) walk(node.children, [...ancestors, node]);
+        }
+      };
+      walk(nodes, []);
+      setResults(matches);
+      setSelectedIdx(0);
+    } else {
+      debounceRef.current = setTimeout(() => {
+        setLoading(true);
+        api.get(`/api/search/text?q=${encodeURIComponent(query)}`)
+          .then((data) => {
+            setResults((data.results || []).map((r) => ({
+              nodeId: null,
+              file: r.file,
+              title: r.title || "",
+              breadcrumb: r.ancestors || [],
+              snippet: r.context || "",
+            })));
+            setSelectedIdx(0);
+          })
+          .catch(() => setResults([]))
+          .finally(() => setLoading(false));
+      }, 280);
+      return () => clearTimeout(debounceRef.current);
+    }
+  }, [tab, query, scope, nodes, currentFile]);
+
+  useEffect(() => {
+    resultsRef.current?.children[selectedIdx]?.scrollIntoView({ block: "nearest" });
+  }, [selectedIdx]);
+
+  const selected = results[selectedIdx] ?? null;
+
+  useEffect(() => {
+    if (!selected) { setContextNodes(null); return; }
+    if (scope === "note") { setContextNodes(nodes); return; }
+    if (ctxCacheRef.current.has(selected.file)) {
+      setContextNodes(ctxCacheRef.current.get(selected.file)); return;
+    }
+    setContextLoading(true);
+    api.get(`/api/doc/${encodeURIComponent(selected.file)}`)
+      .then((d) => { const n = d.nodes || []; ctxCacheRef.current.set(selected.file, n); setContextNodes(n); })
+      .catch(() => setContextNodes([]))
+      .finally(() => setContextLoading(false));
+  }, [selected?.nodeId, selected?.file, scope, nodes]);
+
+  const ctxFound = contextNodes && selected
+    ? findNodeWithAncestors(contextNodes,
+        selected.nodeId ? (n) => n.id === selected.nodeId : (n) => n.title === selected.title)
+    : null;
+
+  const openResult = (r) => {
+    if (!r) return;
+    onClose();
+    if (scope === "all") { onNavigate(r.file); }
+    else if (r.nodeId) { requestAnimationFrame(() => onJumpToNode(r.nodeId)); }
+  };
+
+  const openSelected = () => openResult(selected);
+
+  const onSearchKeyDown = (e) => {
+    if (e.key === "Escape") { e.preventDefault(); onClose(); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); setSelectedIdx((i) => Math.min(i + 1, results.length - 1)); return; }
+    if (e.key === "ArrowUp") { e.preventDefault(); setSelectedIdx((i) => Math.max(i - 1, 0)); return; }
+    if (e.key === "Enter") { e.preventDefault(); openResult(results[selectedIdx]); return; }
+  };
+
+  return html`
+    <div className="search-panel" style=${{ height: panelHeight + "px" }}>
+      <div className="sp-mode-bar">
+        <button className=${"sp-mode-btn" + (tab === "filter" ? " sp-mode-active" : "")}
+                onClick=${() => switchTab("filter")}>
+          <span className="sp-mode-name">⊟ Filter this file</span>
+          <span className="sp-mode-hint">collapses non-matching headings · depth 1|2|3|4</span>
+        </button>
+        <button className=${"sp-mode-btn" + (tab === "find" ? " sp-mode-active" : "")}
+                onClick=${() => switchTab("find")}>
+          <span className="sp-mode-name">⌕ Find in this file</span>
+          <span className="sp-mode-hint">highlights every match · navigate with ↑↓ · Ctrl+F</span>
+        </button>
+        <button className=${"sp-mode-btn" + (tab === "search" ? " sp-mode-active" : "")}
+                onClick=${() => switchTab("search")}>
+          <span className="sp-mode-name">≡ Search all files</span>
+          <span className="sp-mode-hint">full-text across every file in this workspace</span>
+        </button>
+        <button className="sp-close-btn" onClick=${() => { if (tab === "find") { setFindOpen(false); setFindQuery(""); } onClose(); }}>×</button>
+      </div>
+
+      ${tab === "filter" && html`
+        <div className="sp-tab-body sp-filter-body">
+          <div className="sp-filter-row">
+            <input ref=${filterInputRef} type="search" className="sp-input"
+                   placeholder="Filter headings…"
+                   value=${filterQuery}
+                   autoComplete="off" data-form-type="other" data-bwignore="true"
+                   onInput=${(e) => setFilterQuery(e.target.value)}
+                   onKeyDown=${(e) => { if (e.key === "Escape") { setFilterQuery(""); onClose(); } }} />
+            ${filterQuery && html`
+              <button className="sp-filter-clear" onClick=${() => setFilterQuery("")} title="Clear filter">×</button>
+            `}
+          </div>
+          <div className="sp-filter-depth">
+            <span className="sp-filter-depth-label">Fold to depth:</span>
+            ${[1, 2, 3, 4].map((d) => html`
+              <button key=${d} className="sp-depth-btn" onClick=${() => onFoldToLevel(d)}
+                      title=${"Collapse outline to level " + d + " headings (Alt+" + d + ")"}>${d}</button>
+            `)}
+          </div>
+        </div>
+      `}
+
+      ${tab === "find" && html`
+        <${FindBar}
+          query=${findQuery}
+          matchCount=${findMatchIds.length}
+          matchIdx=${findIdx}
+          onQuery=${setFindQuery}
+          onNext=${() => findNavigate(1)}
+          onPrev=${() => findNavigate(-1)}
+          onClose=${() => { switchTab("search"); }}
+          inputRef=${findInputRef} />
+      `}
+
+      ${tab === "search" && html`
+        <div className="sp-tab-body sp-search-body">
+          <div className="sp-input-row">
+            <input ref=${searchInputRef} type="search" className="sp-input"
+                   placeholder="Search…"
+                   value=${query}
+                   autoComplete="off" data-form-type="other" data-bwignore="true"
+                   onInput=${(e) => setQuery(e.target.value)}
+                   onKeyDown=${onSearchKeyDown} />
+            <div className="sp-scope">
+              <button className=${"sp-scope-btn" + (scope === "note" ? " active" : "")}
+                      onClick=${() => setScope("note")}>This file</button>
+              <button className=${"sp-scope-btn" + (scope === "all" ? " active" : "")}
+                      onClick=${() => setScope("all")}>All files</button>
+            </div>
+          </div>
+          <div className="sp-split">
+            <div className="sp-results" ref=${resultsRef}>
+              ${loading && html`<div className="sp-status">Searching…</div>`}
+              ${!loading && !query.trim() && html`<div className="sp-status sp-status-idle">Type to search ${scope === "note" ? "this file" : "all files"}</div>`}
+              ${!loading && query.trim() && results.length === 0 && html`<div className="sp-status">No matches</div>`}
+              ${results.map((r, i) => html`
+                <div key=${i}
+                     className=${"sp-result" + (i === selectedIdx ? " selected" : "")}
+                     onClick=${() => setSelectedIdx(i)}>
+                  <div className="sp-result-body">
+                    <div className="sp-result-crumb">
+                      ${scope === "all" ? r.file.replace(/\.org$/, "") + (r.breadcrumb.length ? " › " : "") : ""}${r.breadcrumb.join(" › ")}
+                    </div>
+                    <div className="sp-result-title"
+                         dangerouslySetInnerHTML=${{ __html: highlightMatch(r.title, query) }} />
+                    ${r.snippet && r.snippet !== r.title && html`
+                      <div className="sp-result-snippet"
+                           dangerouslySetInnerHTML=${{ __html: highlightMatch(r.snippet, query) }} />
+                    `}
+                  </div>
+                  <button className="sp-result-open" title="Open and close search panel"
+                          onClick=${(e) => { e.stopPropagation(); openResult(r); }}>↗</button>
+                </div>
+              `)}
+            </div>
+            <div className="sp-context">
+              ${!selected && html`<div className="sp-ctx-empty">Select a result to see it in context</div>`}
+              ${selected && contextLoading && html`<div className="sp-ctx-empty">Loading…</div>`}
+              ${selected && !contextLoading && !ctxFound && html`<div className="sp-ctx-empty">Node not found in current view</div>`}
+              ${selected && ctxFound && html`
+                <div className="sp-ctx-inner">
+                  <div className="sp-ctx-topbar">
+                    ${scope === "all" && html`<span className="sp-ctx-file">${selected.file.replace(/\.org$/, "")}</span>`}
+                    <button className="sp-ctx-open" onClick=${openSelected}>
+                      ${scope === "all" ? "Open note →" : "Jump to →"}
+                    </button>
+                  </div>
+                  ${ctxFound.ancestors.map((a, i) => html`
+                    <div key=${i} className="sp-ctx-row sp-ctx-ancestor">
+                      ${"  ".repeat(i)}<span className="sp-ctx-bullet">▸</span>
+                      <span dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(a.title) }} />
+                    </div>
+                  `)}
+                  <div className="sp-ctx-row sp-ctx-node">
+                    ${"  ".repeat(ctxFound.ancestors.length)}<span className="sp-ctx-bullet sp-ctx-cur-bullet">▶</span>
+                    <div className="sp-ctx-node-body">
+                      <div className="sp-ctx-title"
+                           dangerouslySetInnerHTML=${{ __html: highlightMatch(ctxFound.node.title, query) }} />
+                      ${ctxFound.node.body && html`
+                        <div className="sp-ctx-body"
+                             dangerouslySetInnerHTML=${{ __html: highlightMatch(ctxFound.node.body, query) }} />
+                      `}
+                    </div>
+                  </div>
+                  ${(ctxFound.node.children || []).slice(0, 8).map((ch, i) => html`
+                    <div key=${i} className="sp-ctx-row sp-ctx-child">
+                      ${"  ".repeat(ctxFound.ancestors.length + 1)}<span className="sp-ctx-bullet">▸</span>
+                      <span dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(ch.title) }} />
+                    </div>
+                  `)}
+                  ${(ctxFound.node.children || []).length > 8 && html`
+                    <div className="sp-ctx-more">…${ctxFound.node.children.length - 8} more children</div>
+                  `}
+                </div>
+              `}
+            </div>
+          </div>
+        </div>
+      `}
+      <div className="sp-resize-handle" onMouseDown=${onResizeStart} />
+    </div>
+  `;
+}
+
 function App() {
   const [files, setFiles] = useState(null);
   const [favorites, setFavorites] = useState([]);
@@ -3792,9 +4144,15 @@ function App() {
   const [wikiEntries, setWikiEntries] = useState([]);
   const wikiEntriesRef = useRef([]);
   const [showQuickSwitcher, setShowQuickSwitcher] = useState(false);
+  const [searchPanelOpen, setSearchPanelOpen] = useState(false);
   const [hoverPopup, setHoverPopup] = useState(null);
   const hoverTimerRef = useRef(null);
   const previewCacheRef = useRef(new Map());
+  const [findOpen, setFindOpen] = useState(false);
+  const [findQuery, setFindQuery] = useState("");
+  const [findMatchIds, setFindMatchIds] = useState([]);
+  const [findIdx, setFindIdx] = useState(0);
+  const findInputRef = useRef(null);
   const [navState, navDispatch] = useReducer(navReducer, { history: [], index: -1 });
   const histNavRef = useRef(false); // true while back/forward is in progress (suppresses push)
   const [searchQuery, setSearchQuery] = useState("");
@@ -3805,7 +4163,7 @@ function App() {
   }, []);
   const clearTags = useCallback(() => setSelectedTags([]), []);
   const [titleFormatMode, setTitleFormatMode] = useState(() => {
-    try { return localStorage.getItem("epicorg.titleFormatMode") === "1"; } catch { return false; }
+    try { const v = localStorage.getItem("epicorg.titleFormatMode"); return v === null ? true : v === "1"; } catch { return true; }
   });
   const toggleTitleFormatMode = useCallback(() => {
     setTitleFormatMode((p) => {
@@ -4723,6 +5081,17 @@ function App() {
     insertWikiLink(title);
   }, [insertWikiLink]);
 
+  const createAndLoadNote = useCallback(async (title) => {
+    const filename = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") + ".org";
+    try {
+      await api.post("/api/files", { filename, title });
+      const data = await api.get("/api/files");
+      setFiles(data.files || []);
+      setShowQuickSwitcher(false);
+      loadFileRef.current?.(filename);
+    } catch {}
+  }, []);
+
   // Navigate to a note when a wiki-link is clicked in any body preview.
   // Uses the existing loadFileRef (declared later, kept in sync there) — the closure
   // captures the binding without triggering TDZ; the ref is set before any click can fire.
@@ -4776,6 +5145,58 @@ function App() {
     document.addEventListener("keydown", handler, true);
     return () => document.removeEventListener("keydown", handler, true);
   }, []);
+
+  // Ctrl+F find in note.
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === "f" && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        setFindOpen(true);
+        requestAnimationFrame(() => findInputRef.current?.focus());
+      }
+      if (e.key === "Escape" && findOpen) {
+        setFindOpen(false);
+        setFindQuery("");
+      }
+    };
+    document.addEventListener("keydown", handler, true);
+    return () => document.removeEventListener("keydown", handler, true);
+  }, [findOpen]);
+
+  // Recompute matches when query or nodes change.
+  useEffect(() => {
+    document.querySelectorAll(".node-row.find-match, .node-row.find-match-current").forEach((el) => {
+      el.classList.remove("find-match", "find-match-current");
+    });
+    if (!findOpen || !findQuery.trim()) { setFindMatchIds([]); setFindIdx(0); return; }
+    const ids = findInNodes(nodes, findQuery.trim());
+    setFindMatchIds(ids);
+    setFindIdx(0);
+  }, [findOpen, findQuery, nodes]);
+
+  // Highlight current match in DOM.
+  useEffect(() => {
+    document.querySelectorAll(".node-row.find-match, .node-row.find-match-current").forEach((el) => {
+      el.classList.remove("find-match", "find-match-current");
+    });
+    for (const id of findMatchIds) {
+      document.querySelector(`.node-row[data-node-id="${id}"]`)?.classList.add("find-match");
+    }
+    if (findMatchIds[findIdx]) {
+      const el = document.querySelector(`.node-row[data-node-id="${findMatchIds[findIdx]}"]`);
+      el?.classList.add("find-match-current");
+      el?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  }, [findMatchIds, findIdx]);
+
+  const findNavigate = useCallback((dir) => {
+    setFindIdx((i) => {
+      const next = i + dir;
+      if (next < 0) return findMatchIds.length - 1;
+      if (next >= findMatchIds.length) return 0;
+      return next;
+    });
+  }, [findMatchIds]);
 
   const runTextSearch = useCallback(async (query) => {
     setShowTextSearch(false);
@@ -6064,6 +6485,8 @@ function App() {
                   bookmarkListFile=${bookmarkListFile} onPickBookmarkListFile=${() => setShowBookmarkListFilePicker(true)}
                   onClearBookmarkListFile=${clearBookmarkListFile}
                   onOpenTextSearch=${() => setShowTextSearch(true)}
+                  onOpenSearchPanel=${() => setSearchPanelOpen((v) => !v)}
+                  searchPanelOpen=${searchPanelOpen}
                   canGoBack=${canGoBack} canGoForward=${canGoForward}
                   onGoBack=${goBack} onGoForward=${goForward}
                   homeFile=${homeFile} onGoHome=${() => { if (homeFile) { loadFile(homeFile); setView("outline"); } }}
@@ -6172,6 +6595,7 @@ function App() {
           entries=${wikiEntries}
           currentFile=${currentFile}
           onSelect=${(file) => { setShowQuickSwitcher(false); loadFile(file); }}
+          onCreate=${createAndLoadNote}
           onCancel=${() => setShowQuickSwitcher(false)} />
       `}
       ${hoverPopup && html`
@@ -6196,7 +6620,8 @@ function App() {
             onOpenJournalList=${() => setView("journal")}
             onRenameFile=${handleRenameFile}
             onClearRecentFiles=${clearRecentFiles}
-            onOpenQuickSwitcher=${() => setShowQuickSwitcher(true)} />
+            onOpenQuickSwitcher=${() => setShowQuickSwitcher(true)}
+            onOpenTextSearch=${() => setShowTextSearch(true)} />
         `}
         ${bookmarkPanelVisible && !textMode && html`
           <${BookmarkPanel} globalBMs=${globalBMs}
@@ -6235,6 +6660,35 @@ function App() {
               setFocusedId(null);
             }
           }}>
+            ${searchPanelOpen && html`
+              <${SearchPanel}
+                nodes=${nodes}
+                currentFile=${currentFile}
+                findQuery=${findQuery}
+                setFindQuery=${setFindQuery}
+                findMatchIds=${findMatchIds}
+                findIdx=${findIdx}
+                findNavigate=${findNavigate}
+                findInputRef=${findInputRef}
+                setFindOpen=${setFindOpen}
+                filterQuery=${searchQuery}
+                setFilterQuery=${setSearchQuery}
+                onFoldToLevel=${foldToLevel}
+                onNavigate=${loadFile}
+                onJumpToNode=${jumpToNode}
+                onClose=${() => setSearchPanelOpen(false)} />
+            `}
+            ${!searchPanelOpen && findOpen && html`
+              <${FindBar}
+                query=${findQuery}
+                matchCount=${findMatchIds.length}
+                matchIdx=${findIdx}
+                onQuery=${setFindQuery}
+                onNext=${() => findNavigate(1)}
+                onPrev=${() => findNavigate(-1)}
+                onClose=${() => { setFindOpen(false); setFindQuery(""); }}
+                inputRef=${findInputRef} />
+            `}
             <div className=${"outline-content" + (readingWidth ? " reading-width" : "")}>
               ${!isFiltering && !isHoisted && html`<${PreambleRow} focused=${isPreambleFocused} preamble=${preamble} dispatch=${dispatch} inputRefs=${inputRefs} />`}
               ${visibleNodes.length === 0 ? html`
@@ -6623,6 +7077,19 @@ function IconLightning() {
   </svg>`;
 }
 
+function IconSearchPanel() {
+  return html`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="12" y1="6" x2="6" y2="1"/>
+    <line x1="12" y1="6" x2="12" y2="1"/>
+    <line x1="12" y1="6" x2="18" y2="1"/>
+    <line x1="9" y1="7.5" x2="3" y2="7.5"/>
+    <line x1="15" y1="7.5" x2="21" y2="7.5"/>
+    <rect x="9" y="6" width="6" height="3" rx="0.5"/>
+    <path d="M10 9 L8 21 L16 21 L14 9 Z"/>
+    <line x1="6" y1="21" x2="18" y2="21"/>
+  </svg>`;
+}
+
 // Hoist: corners point inward (toward each other) when off — clicking
 // narrows the view. Once hoisted, they point outward — clicking expands
 // back to the full outline. Same convention as a fullscreen toggle, just
@@ -6793,8 +7260,34 @@ function WikiHoverPopup({ popup, onMouseEnter, onMouseLeave }) {
   `;
 }
 
+// Find in note bar — Ctrl+F, sticky at top of outline pane.
+function FindBar({ query, matchCount, matchIdx, onQuery, onNext, onPrev, onClose, inputRef }) {
+  return html`
+    <div className="find-bar">
+      <input ref=${inputRef} type="search" className="find-bar-input"
+             placeholder="Find in note…"
+             value=${query}
+             autoComplete="off"
+             data-form-type="other"
+             data-bwignore="true"
+             onInput=${(e) => onQuery(e.target.value)}
+             onKeyDown=${(e) => {
+               if (e.key === "Escape") { e.preventDefault(); onClose(); }
+               else if (e.key === "Enter") { e.preventDefault(); e.shiftKey ? onPrev() : onNext(); }
+               else if (e.key === "F3") { e.preventDefault(); e.shiftKey ? onPrev() : onNext(); }
+             }} />
+      <span className="find-bar-count">
+        ${matchCount > 0 ? `${matchIdx + 1} / ${matchCount}` : query.trim() ? "No matches" : ""}
+      </span>
+      <button className="find-bar-nav" onClick=${onPrev} disabled=${matchCount === 0} title="Previous (Shift+Enter)">↑</button>
+      <button className="find-bar-nav" onClick=${onNext} disabled=${matchCount === 0} title="Next (Enter)">↓</button>
+      <button className="find-bar-close" onClick=${onClose} title="Close (Esc)">×</button>
+    </div>
+  `;
+}
+
 // Quick switcher — Ctrl+K opens a modal to jump to any note by title.
-function QuickSwitcher({ entries, currentFile, onSelect, onCancel }) {
+function QuickSwitcher({ entries, currentFile, onSelect, onCreate, onCancel }) {
   const [filter, setFilter] = useState("");
   const [highlighted, setHighlighted] = useState(0);
   const inputRef = useRef(null);
@@ -6809,6 +7302,11 @@ function QuickSwitcher({ entries, currentFile, onSelect, onCancel }) {
     );
   }, [entries, filter]);
 
+  const trimmed = filter.trim();
+  const exactMatch = filtered.some((e) => e.title.toLowerCase() === trimmed.toLowerCase());
+  const showCreate = !!trimmed && !exactMatch;
+  const totalItems = filtered.length + (showCreate ? 1 : 0);
+
   useEffect(() => { setHighlighted(0); }, [filter]);
 
   useEffect(() => {
@@ -6817,9 +7315,14 @@ function QuickSwitcher({ entries, currentFile, onSelect, onCancel }) {
 
   const onKeyDown = (e) => {
     if (e.key === "Escape") { e.preventDefault(); onCancel(); return; }
-    if (e.key === "ArrowDown") { e.preventDefault(); setHighlighted((h) => Math.min(h + 1, filtered.length - 1)); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); setHighlighted((h) => Math.min(h + 1, totalItems - 1)); return; }
     if (e.key === "ArrowUp") { e.preventDefault(); setHighlighted((h) => Math.max(h - 1, 0)); return; }
-    if (e.key === "Enter") { e.preventDefault(); if (filtered[highlighted]) onSelect(filtered[highlighted].file); return; }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (highlighted < filtered.length) { onSelect(filtered[highlighted].file); return; }
+      if (showCreate && highlighted === filtered.length) { onCreate(trimmed); return; }
+      return;
+    }
   };
 
   return html`
@@ -6845,7 +7348,14 @@ function QuickSwitcher({ entries, currentFile, onSelect, onCancel }) {
               <span className="qs-file">${entry.file}</span>
             </div>
           `)}
-          ${filtered.length === 0 && html`<div className="qs-empty">No notes match</div>`}
+          ${showCreate && html`
+            <div className=${"qs-item qs-create" + (highlighted === filtered.length ? " highlighted" : "")}
+                 onClick=${() => onCreate(trimmed)}
+                 onMouseEnter=${() => setHighlighted(filtered.length)}>
+              <span className="qs-create-label">+ Create note "${trimmed}"</span>
+            </div>
+          `}
+          ${!showCreate && filtered.length === 0 && html`<div className="qs-empty">Type to search notes</div>`}
         </div>
         <div className="qs-hint">↑↓ navigate · Enter open · Esc dismiss · Ctrl+K toggle</div>
       </div>
@@ -8245,7 +8755,7 @@ function OutlineActionsPanel({ onAction, focusedId, onClose }) {
   `;
 }
 
-function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat, globalFont, onSetGlobalFont, levelFonts, onSetLevelFont, globalColor, onSetGlobalColor, levelColors, onSetLevelColor, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer, onExportToOrg, onExportToHtml, onOpenSettings }) {
+function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat, globalFont, onSetGlobalFont, levelFonts, onSetLevelFont, globalColor, onSetGlobalColor, levelColors, onSetLevelColor, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, onOpenSearchPanel, searchPanelOpen, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer, onExportToOrg, onExportToHtml, onOpenSettings }) {
   // Whether the toolbar/search/etc. actually fit is measured, not
   // guessed from viewport width — a long filename or a pile of tags
   // eats into the same space a phone-width media query would assume is
@@ -8390,8 +8900,10 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
           `}
         </div>
         <div className="view-toggle" style=${{ opacity: textMode ? 0.4 : 1, pointerEvents: textMode ? "none" : "auto" }}>
-          <button className="view-tab" title="Search all files (Ctrl+Shift+F)" onClick=${onOpenTextSearch}>
-            <${IconSearch} />
+          <button className=${"view-tab" + (searchPanelOpen ? " active" : "")}
+                  title=${searchPanelOpen ? "Close search panel" : "Search panel — filter, find, search all files"}
+                  onClick=${onOpenSearchPanel}>
+            <${IconSearchPanel} />
           </button>
         </div>
         <div className="search-box" style=${{ opacity: textMode ? 0.4 : 1, pointerEvents: textMode ? "none" : "auto" }}>
