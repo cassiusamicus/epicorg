@@ -1,7 +1,6 @@
 package orgfile
 
 import (
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,40 +17,26 @@ type TagSearchResult struct {
 	InSubdir  bool     `json:"inSubdir"` // true when file is not in the root dir
 }
 
-// SearchTag walks the entire home directory tree and returns all outline nodes
-// whose tag list contains tag (case-insensitive). Hidden directories are skipped.
+// SearchTagWorkspace walks the workspace described by cfg and returns all outline
+// nodes whose tag list contains tag (case-insensitive). Hidden directories are skipped.
 // Files are read directly without updating per-file merge-base state.
-func (s *Store) SearchTag(tag string) ([]TagSearchResult, error) {
-	dir := s.Dir() // uses the read-lock accessor
+// For homeDir files (rootLabel == ""), File is the relative displayName.
+// For other-root files, File is the absolute path.
+func (s *Store) SearchTagWorkspace(tag string, cfg *WorkspaceConfig) ([]TagSearchResult, error) {
 	lowerTag := strings.ToLower(tag)
 	var results []TagSearchResult
 
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, werr error) error {
-		if werr != nil {
-			return nil // skip unreadable entries without aborting
-		}
-		if d.IsDir() {
-			// Skip hidden directories (e.g. .git)
-			if d.Name() != "." && strings.HasPrefix(d.Name(), ".") {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !strings.HasSuffix(d.Name(), ".org") {
-			return nil
+	err := WalkWorkspace(cfg, func(absPath, displayName, rootLabel string) error {
+		fileID := displayName
+		if rootLabel != "" {
+			fileID = absPath
 		}
 
-		rel, err := filepath.Rel(dir, path)
+		data, err := readFileSafe(absPath)
 		if err != nil {
 			return nil
 		}
-		rel = filepath.ToSlash(rel) // use forward slashes in results
-
-		data, err := readFileSafe(path)
-		if err != nil {
-			return nil
-		}
-		doc := parseOrg(string(data), d.Name())
+		doc := parseOrg(string(data), filepath.Base(absPath))
 		items := model.FromDocument(doc)
 		for i, item := range items {
 			if item.IsBody || !containsTagCI(item.Tags, lowerTag) {
@@ -71,16 +56,24 @@ func (s *Store) SearchTag(tag string) ([]TagSearchResult, error) {
 				}
 			}
 			results = append(results, TagSearchResult{
-				File:     rel,
+				File:     fileID,
 				Title:    item.Title,
 				Context:  context,
 				Tags:     item.Tags,
-				InSubdir: strings.Contains(rel, "/"),
+				InSubdir: strings.Contains(displayName, "/"),
 			})
 		}
 		return nil
 	})
 	return results, err
+}
+
+// SearchTag walks the entire home directory tree and returns all outline nodes
+// whose tag list contains tag (case-insensitive). Hidden directories are skipped.
+// Files are read directly without updating per-file merge-base state.
+// Delegates to SearchTagWorkspace with the default (homeDir-only) workspace.
+func (s *Store) SearchTag(tag string) ([]TagSearchResult, error) {
+	return s.SearchTagWorkspace(tag, DefaultWorkspace(s.Dir()))
 }
 
 func readFileSafe(path string) ([]byte, error) { return os.ReadFile(path) }

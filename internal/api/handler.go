@@ -21,7 +21,11 @@ type handlers struct {
 }
 
 func (h *handlers) listFiles(w http.ResponseWriter, r *http.Request) {
-	files, err := h.store.ListFiles()
+	cfg, err := orgfile.LoadWorkspace(h.store.Dir())
+	if err != nil {
+		cfg = orgfile.DefaultWorkspace(h.store.Dir())
+	}
+	files, err := h.store.ListFilesWorkspace(cfg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -35,6 +39,28 @@ func (h *handlers) listFiles(w http.ResponseWriter, r *http.Request) {
 		resp["default"] = def
 	}
 	writeJSON(w, resp)
+}
+
+func (h *handlers) getWorkspace(w http.ResponseWriter, r *http.Request) {
+	cfg, err := orgfile.LoadWorkspace(h.store.Dir())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, cfg)
+}
+
+func (h *handlers) putWorkspace(w http.ResponseWriter, r *http.Request) {
+	var cfg orgfile.WorkspaceConfig
+	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := orgfile.SaveWorkspace(&cfg); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, cfg)
 }
 
 func (h *handlers) createFile(w http.ResponseWriter, r *http.Request) {
@@ -604,7 +630,11 @@ func (h *handlers) searchText(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing q parameter", http.StatusBadRequest)
 		return
 	}
-	results, err := h.store.SearchText(q)
+	cfg, err := orgfile.LoadWorkspace(h.store.Dir())
+	if err != nil {
+		cfg = orgfile.DefaultWorkspace(h.store.Dir())
+	}
+	results, err := h.store.SearchTextWorkspace(q, cfg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -621,7 +651,11 @@ func (h *handlers) searchTag(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing q parameter", http.StatusBadRequest)
 		return
 	}
-	results, err := h.store.SearchTag(tag)
+	cfg, err := orgfile.LoadWorkspace(h.store.Dir())
+	if err != nil {
+		cfg = orgfile.DefaultWorkspace(h.store.Dir())
+	}
+	results, err := h.store.SearchTagWorkspace(tag, cfg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

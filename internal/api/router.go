@@ -249,6 +249,18 @@ func Register(mux *http.ServeMux, store *orgfile.Store, onSave func(), defaultFi
 		h.renameTag(w, r)
 	})
 
+	// Workspace config — defines which folders are included/excluded from listing and search.
+	mux.HandleFunc("/api/workspace", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			h.getWorkspace(w, r)
+		case http.MethodPut:
+			h.putWorkspace(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	// Workspace-wide agenda scan — returns all nodes with SCHEDULED or DEADLINE across all files.
 	mux.HandleFunc("/api/agenda", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {

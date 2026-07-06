@@ -3243,7 +3243,7 @@ function SidebarFileRow({ name, active, isFavorite, onSelect, onToggleFavorite, 
   `;
 }
 
-function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavorite, bookmarks, onNavigateToBookmark, onDeleteBookmark, onReorderBookmarks, bookmarkPanelVisible, onToggleBookmarkPanel, textMode, onToggleSidebar, onOpenTodayJournal, onOpenJournalList, onRenameFile, onClearRecentFiles, onOpenQuickSwitcher, onOpenTextSearch }) {
+function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavorite, bookmarks, onNavigateToBookmark, onDeleteBookmark, onReorderBookmarks, bookmarkPanelVisible, onToggleBookmarkPanel, textMode, onToggleSidebar, onOpenTodayJournal, onOpenJournalList, onRenameFile, onClearRecentFiles, onOpenQuickSwitcher, onOpenTextSearch, onOpenWorkspace }) {
   const dragIndexRef = useRef(null);
   const [renameConfirm, setRenameConfirm] = useState(null); // { oldName, newName }
   const [renameBusy, setRenameBusy] = useState(false);
@@ -3274,6 +3274,8 @@ function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavori
                 title="Quick switcher (Ctrl+K)"><${IconLightning} /></button>
         <button className="panel-toggle-btn" onClick=${onOpenTextSearch}
                 title="Full-text search across all files (Ctrl+Shift+F)"><${IconSearch} /></button>
+        <button className="panel-toggle-btn" onClick=${onOpenWorkspace}
+                title="Workspace paths — configure included/excluded folders"><${IconWorkspace} /></button>
       </div>
       <div className="sidebar-section">
         <div className="sidebar-section-header">
@@ -4135,6 +4137,8 @@ function App() {
   const [showTagListFilePicker, setShowTagListFilePicker] = useState(false);
   const [showBookmarkListFilePicker, setShowBookmarkListFilePicker] = useState(false);
   const [showTextSearch, setShowTextSearch] = useState(false);
+  const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
+  const [workspaceConfig, setWorkspaceConfig] = useState(null);
   // Unified search results: { type: "tag"|"text", query, results } | null
   const [searchResults, setSearchResults] = useState(null);
   const [showLinkPicker, setShowLinkPicker] = useState(false);
@@ -5232,6 +5236,7 @@ function App() {
     api.get("/api/journaldir").then((d) => setJournalDir(d.dir)).catch(() => {});
     api.get("/api/taglistfile").then((d) => setTagListFile(d.file)).catch(() => {});
     api.get("/api/bookmarklistfile").then((d) => setBookmarkListFile(d.file)).catch(() => {});
+    api.get("/api/workspace").then((d) => setWorkspaceConfig(d)).catch(() => {});
   }, []);
 
   const changeHomeDir = useCallback(async (dir) => {
@@ -5263,6 +5268,15 @@ function App() {
     setLevelFontsRaw({}); levelFontsRef.current = {};
     setGlobalColorRaw(null); globalColorRef.current = null;
     setLevelColorsRaw({}); levelColorsRef.current = {};
+  }, []);
+
+  const saveWorkspace = useCallback(async (cfg) => {
+    const saved = await api.put("/api/workspace", cfg);
+    setWorkspaceConfig(saved);
+    setShowWorkspaceModal(false);
+    // Reload file list so workspace changes take effect immediately.
+    const data = await api.get("/api/files");
+    setFiles(data.files || []);
   }, []);
 
   const changeJournalDir = useCallback(async (dir) => {
@@ -6576,6 +6590,13 @@ function App() {
           onSearch=${runTextSearch}
           onCancel=${() => setShowTextSearch(false)} />
       `}
+      ${showWorkspaceModal && html`
+        <${WorkspaceModal}
+          workspaceConfig=${workspaceConfig}
+          homeDir=${homeDir}
+          onSave=${saveWorkspace}
+          onCancel=${() => setShowWorkspaceModal(false)} />
+      `}
       ${showLinkPicker && html`
         <${FileLinkPicker}
           files=${files}
@@ -6621,7 +6642,8 @@ function App() {
             onRenameFile=${handleRenameFile}
             onClearRecentFiles=${clearRecentFiles}
             onOpenQuickSwitcher=${() => setShowQuickSwitcher(true)}
-            onOpenTextSearch=${() => setShowTextSearch(true)} />
+            onOpenTextSearch=${() => setShowTextSearch(true)}
+            onOpenWorkspace=${() => setShowWorkspaceModal(true)} />
         `}
         ${bookmarkPanelVisible && !textMode && html`
           <${BookmarkPanel} globalBMs=${globalBMs}
@@ -7164,6 +7186,20 @@ function IconSearch() {
   `;
 }
 
+function IconWorkspace() {
+  return html`
+    <svg ...${ICON_PROPS}>
+      <rect x="3" y="3" width="7" height="5" rx="1"/>
+      <rect x="14" y="3" width="7" height="5" rx="1"/>
+      <line x1="6.5" y1="8" x2="6.5" y2="12"/>
+      <line x1="17.5" y1="8" x2="17.5" y2="12"/>
+      <line x1="6.5" y1="12" x2="17.5" y2="12"/>
+      <line x1="12" y1="12" x2="12" y2="16"/>
+      <rect x="8" y="16" width="8" height="5" rx="1"/>
+    </svg>
+  `;
+}
+
 function IconInfo() {
   return html`
     <svg ...${ICON_PROPS}>
@@ -7660,6 +7696,150 @@ function TextSearchDialog({ onSearch, onCancel }) {
             </p>
             <p>Case-insensitive. Results show the matching node and a context snippet.</p>
           </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// WorkspaceModal — lets the user configure which folders are included or
+// excluded from the workspace (file listing and search).
+function WorkspaceModal({ workspaceConfig, homeDir, onSave, onCancel }) {
+  const [localCfg, setLocalCfg] = useState(() => {
+    if (workspaceConfig && workspaceConfig.paths && workspaceConfig.paths.length > 0) {
+      return { paths: workspaceConfig.paths.map((p) => ({ ...p })) };
+    }
+    return { paths: [{ path: homeDir || "/", included: true }] };
+  });
+  const [browsePath, setBrowsePath] = useState(homeDir || "/");
+  const [dirs, setDirs] = useState([]);
+  const [parent, setParent] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const fetchDirs = useCallback(async (path) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await api.get("/api/browse?path=" + encodeURIComponent(path));
+      setBrowsePath(data.path);
+      setDirs(data.dirs || []);
+      setParent(data.parent || null);
+    } catch (e) {
+      setError("Cannot read directory.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchDirs(homeDir || "/"); }, []);
+
+  const addPath = (path, included) => {
+    setLocalCfg((prev) => ({
+      paths: [...prev.paths.filter((p) => p.path !== path), { path, included }],
+    }));
+  };
+
+  const removePath = (path) => {
+    setLocalCfg((prev) => ({ paths: prev.paths.filter((p) => p.path !== path) }));
+  };
+
+  const getPathStatus = (path) => {
+    const found = localCfg.paths.find((p) => p.path === path);
+    return found ? (found.included ? "included" : "excluded") : null;
+  };
+
+  const includedPaths = localCfg.paths.filter((p) => p.included);
+  const excludedPaths = localCfg.paths.filter((p) => !p.included);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try { await onSave(localCfg); } finally { setSaving(false); }
+  };
+
+  return html`
+    <div className="folder-picker-overlay"
+         onMouseDown=${(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="workspace-modal">
+        <div className="text-search-header">
+          <span className="text-search-title">Workspace Paths</span>
+          <button className="folder-picker-close" onClick=${onCancel}>×</button>
+        </div>
+        <div className="ws-body">
+          <div className="ws-panel ws-left">
+            <div className="ws-panel-title">Browse Filesystem</div>
+            <div className="folder-picker-path">
+              ${parent !== null && html`
+                <button className="folder-picker-up" onClick=${() => fetchDirs(parent)}>↑ Up</button>
+              `}
+              <span className="folder-picker-path-text" title=${browsePath}>${browsePath}</span>
+            </div>
+            <div className="ws-tree">
+              ${loading && html`<div className="folder-picker-loading">Loading…</div>`}
+              ${error && html`<div className="folder-picker-error">${error}</div>`}
+              ${!loading && !error && dirs.length === 0 && html`
+                <div className="folder-picker-empty">No subdirectories</div>
+              `}
+              ${!loading && dirs.map((d) => {
+                const fullPath = browsePath.replace(/\/$/, "") + "/" + d;
+                const status = getPathStatus(fullPath);
+                return html`
+                  <div key=${d} className="ws-tree-item">
+                    <span className="folder-picker-dir-icon"
+                          onClick=${() => fetchDirs(fullPath)}>📁</span>
+                    <span className="ws-tree-name"
+                          onClick=${() => fetchDirs(fullPath)}>${d}</span>
+                    <div className="ws-tree-actions">
+                      <button className=${"ws-btn" + (status === "included" ? " ws-btn-active-inc" : "")}
+                              title="Add as included root"
+                              onClick=${() => addPath(fullPath, true)}>+</button>
+                      <button className=${"ws-btn" + (status === "excluded" ? " ws-btn-active-exc" : "")}
+                              title="Exclude from workspace"
+                              onClick=${() => addPath(fullPath, false)}>−</button>
+                    </div>
+                  </div>
+                `;
+              })}
+            </div>
+            <div className="ws-add-root">
+              <button className="ws-add-root-btn" onClick=${() => addPath(browsePath, true)}>
+                + Add as root: <span className="ws-add-root-path">${browsePath}</span>
+              </button>
+            </div>
+          </div>
+          <div className="ws-panel ws-right">
+            <div className="ws-summary">
+              <div className="ws-section-label">Included roots</div>
+              ${includedPaths.length === 0
+                ? html`<div className="ws-empty-hint">No included paths — add at least one root.</div>`
+                : includedPaths.map((p) => html`
+                    <div key=${p.path} className="ws-path-item ws-included">
+                      <span className="ws-path-name" title=${p.path}>${p.path}</span>
+                      <button className="ws-path-remove" onClick=${() => removePath(p.path)}
+                              title="Remove">×</button>
+                    </div>
+                  `)
+              }
+              <div className="ws-section-label ws-section-label-2">Excluded paths</div>
+              ${excludedPaths.length === 0
+                ? html`<div className="ws-empty-hint">No excluded paths.</div>`
+                : excludedPaths.map((p) => html`
+                    <div key=${p.path} className="ws-path-item ws-excluded">
+                      <span className="ws-path-name" title=${p.path}>${p.path}</span>
+                      <button className="ws-path-remove" onClick=${() => removePath(p.path)}
+                              title="Remove">×</button>
+                    </div>
+                  `)
+              }
+            </div>
+          </div>
+        </div>
+        <div className="ws-footer">
+          <button className="folder-picker-cancel" onClick=${onCancel}>Cancel</button>
+          <button className="folder-picker-select" onClick=${handleSave} disabled=${saving}>
+            ${saving ? "Saving…" : "Save Workspace"}
+          </button>
         </div>
       </div>
     </div>

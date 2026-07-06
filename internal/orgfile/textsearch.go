@@ -1,7 +1,6 @@
 package orgfile
 
 import (
-	"io/fs"
 	"path/filepath"
 	"strings"
 	"unicode"
@@ -17,43 +16,30 @@ type TextSearchResult struct {
 	InSubdir bool   `json:"inSubdir"`
 }
 
-// SearchText walks the entire home directory tree and returns nodes whose
+// SearchTextWorkspace walks the workspace described by cfg and returns nodes whose
 // title or body text contains all of the space-separated terms in query
 // (case-insensitive). Quoted phrases are matched as a unit.
-func (s *Store) SearchText(query string) ([]TextSearchResult, error) {
+// For homeDir files (rootLabel == ""), File is the relative displayName.
+// For other-root files, File is the absolute path.
+func (s *Store) SearchTextWorkspace(query string, cfg *WorkspaceConfig) ([]TextSearchResult, error) {
 	terms := parseTerms(query)
 	if len(terms) == 0 {
 		return nil, nil
 	}
 
-	dir := s.Dir()
 	var results []TextSearchResult
 
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, werr error) error {
-		if werr != nil {
-			return nil
-		}
-		if d.IsDir() {
-			if d.Name() != "." && strings.HasPrefix(d.Name(), ".") {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !strings.HasSuffix(d.Name(), ".org") {
-			return nil
+	err := WalkWorkspace(cfg, func(absPath, displayName, rootLabel string) error {
+		fileID := displayName
+		if rootLabel != "" {
+			fileID = absPath
 		}
 
-		rel, err := filepath.Rel(dir, path)
+		data, err := readFileSafe(absPath)
 		if err != nil {
 			return nil
 		}
-		rel = filepath.ToSlash(rel)
-
-		data, err := readFileSafe(path)
-		if err != nil {
-			return nil
-		}
-		doc := parseOrg(string(data), d.Name())
+		doc := parseOrg(string(data), filepath.Base(absPath))
 		items := model.FromDocument(doc)
 
 		for i, item := range items {
@@ -73,15 +59,23 @@ func (s *Store) SearchText(query string) ([]TextSearchResult, error) {
 
 			context := buildContext(terms, item.Title, body)
 			results = append(results, TextSearchResult{
-				File:     rel,
+				File:     fileID,
 				Title:    item.Title,
 				Context:  context,
-				InSubdir: strings.Contains(rel, "/"),
+				InSubdir: strings.Contains(displayName, "/"),
 			})
 		}
 		return nil
 	})
 	return results, err
+}
+
+// SearchText walks the entire home directory tree and returns nodes whose
+// title or body text contains all of the space-separated terms in query
+// (case-insensitive). Quoted phrases are matched as a unit.
+// Delegates to SearchTextWorkspace with the default (homeDir-only) workspace.
+func (s *Store) SearchText(query string) ([]TextSearchResult, error) {
+	return s.SearchTextWorkspace(query, DefaultWorkspace(s.Dir()))
 }
 
 // parseTerms splits a query into terms, honouring "quoted phrases".

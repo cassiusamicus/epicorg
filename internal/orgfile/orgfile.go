@@ -232,31 +232,47 @@ func (s *Store) SetDir(dir string) error {
 // FileInfo describes a single org file for the file picker.
 type FileInfo struct {
 	Name    string    `json:"name"`
+	Root    string    `json:"root,omitempty"` // display label for the root; empty for homeDir files
 	Size    int64     `json:"size"`
 	ModTime time.Time `json:"modTime"`
+}
+
+// ListFilesWorkspace returns .org file info for all included workspace paths, sorted by name.
+// For homeDir files (rootLabel == ""), Name is the displayName relative to the root.
+// For files from other roots, Name is the absolute path and Root is the root folder name.
+func (s *Store) ListFilesWorkspace(cfg *WorkspaceConfig) ([]FileInfo, error) {
+	var files []FileInfo
+
+	err := WalkWorkspace(cfg, func(absPath, displayName, rootLabel string) error {
+		info, err := os.Stat(absPath)
+		if err != nil {
+			return nil
+		}
+		name := displayName
+		if rootLabel != "" {
+			name = absPath
+		}
+		files = append(files, FileInfo{
+			Name:    name,
+			Root:    rootLabel,
+			Size:    info.Size(),
+			ModTime: info.ModTime(),
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(files, func(i, j int) bool { return files[i].Name < files[j].Name })
+	return files, nil
 }
 
 // ListFiles returns .org file info for the directory, sorted by name.
 // The frontend re-sorts client-side, so the exact order here only matters
 // for determinism.
+// Delegates to ListFilesWorkspace with the default (homeDir-only) workspace.
 func (s *Store) ListFiles() ([]FileInfo, error) {
-	entries, err := os.ReadDir(s.dir)
-	if err != nil {
-		return nil, err
-	}
-	var files []FileInfo
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".org") {
-			continue
-		}
-		info, err := e.Info()
-		if err != nil {
-			continue
-		}
-		files = append(files, FileInfo{Name: e.Name(), Size: info.Size(), ModTime: info.ModTime()})
-	}
-	sort.Slice(files, func(i, j int) bool { return files[i].Name < files[j].Name })
-	return files, nil
+	return s.ListFilesWorkspace(DefaultWorkspace(s.Dir()))
 }
 
 // LoadFile reads and parses an org file, storing its content as the merge base.
