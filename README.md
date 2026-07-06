@@ -14,6 +14,7 @@ This program was developed by Cassius Amicus for his own use in the study of Epi
 - **Keyboard-first** — navigate, create, indent, move, and fold without touching the mouse
 - **Drag-and-drop reorder** — drag any bullet to reorder it; the entire subtree moves with it; a drop-line shows exactly where it will land
 - **Bullet styles** — choose Bullets, Numbers, or Letters (a–z / A–Z) globally or per level; preference saved to the org file so it survives across machines and browsers
+- **Wiki-links** — type `[[` in any body note to get a title-picker that inserts a `[[Note Title]]` link; clicking it in preview navigates to that note; a **Linked References** panel at the bottom of each note lists every other note that links to it (matches both `[[Title]]` wiki-links and `[[file:...]]` file links)
 - **Inline notes** — body text under each bullet; toggle all off for a quick scan, with a `…` marker on items with hidden notes
 - **Text mode** — view and edit the raw org source (asterisks, tags, `:PROPERTIES:` drawers) then toggle back to reparse
 - **Detail pane** — status, due dates, tags, and custom properties for the focused item
