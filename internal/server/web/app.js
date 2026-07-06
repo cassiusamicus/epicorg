@@ -2,7 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMe
 import { createRoot } from "react-dom/client";
 import htm from "htm";
 import * as tree from "./tree.js";
-import { generateExportHtml } from "./export.js";
+import { generateExportHtml, generateMarkdown } from "./export.js";
 
 const html = htm.bind(React.createElement);
 
@@ -1896,10 +1896,13 @@ const TODO_SORT_OPTIONS = [
 
 const TODO_STATUS_FILTERS = ["TODO", "NEXT", "URGENT", "WAITING"];
 
-function TodoView({ nodes, onSelect, searchQuery, selectedTags }) {
+function TodoView({ nodes, currentFile, onSelect, searchQuery, selectedTags }) {
   const [sortBy, setSortBy] = useState("priority");
   const [statusFilter, setStatusFilter] = useState(new Set());
   const [priorityFilter, setPriorityFilter] = useState(new Set());
+  const [allFiles, setAllFiles] = useState(false);
+  const [allFileItems, setAllFileItems] = useState(null); // null=not fetched, []+=fetched
+  const [allFilesLoading, setAllFilesLoading] = useState(false);
 
   const toggleStatus = (s) => setStatusFilter((prev) => {
     const next = new Set(prev); next.has(s) ? next.delete(s) : next.add(s); return next;
@@ -1909,8 +1912,39 @@ function TodoView({ nodes, onSelect, searchQuery, selectedTags }) {
   });
   const clearAll = () => { setStatusFilter(new Set()); setPriorityFilter(new Set()); };
 
-  const isFiltering = !!searchQuery || (selectedTags && selectedTags.length > 0) || statusFilter.size > 0 || priorityFilter.size > 0;
-  let items = collectTodoItems(nodes);
+  const toggleAllFiles = () => {
+    const next = !allFiles;
+    setAllFiles(next);
+    if (next && allFileItems === null) {
+      setAllFilesLoading(true);
+      api.get("/api/todos")
+        .then((d) => setAllFileItems(d.items || []))
+        .catch(() => setAllFileItems([]))
+        .finally(() => setAllFilesLoading(false));
+    }
+  };
+
+  const localItems = collectTodoItems(nodes);
+
+  let items;
+  if (!allFiles) {
+    items = localItems;
+  } else {
+    // Merge: local items from current file + external items from other files.
+    const externalItems = (allFileItems || [])
+      .filter((it) => it.file !== currentFile)
+      .map((it) => ({
+        id: null,
+        title: it.nodeTitle,
+        status: it.status,
+        priority: it.priority || "",
+        tags: it.tags || [],
+        ancestors: it.ancestors || [],
+        file: it.file,
+      }));
+    items = [...localItems, ...externalItems];
+  }
+
   if (searchQuery) items = items.filter((item) => tree.matchesQuery(searchQuery, item.title));
   if (selectedTags && selectedTags.length > 0) {
     items = items.filter((item) => item.tags.some((t) => selectedTags.includes(t)));
@@ -1936,6 +1970,8 @@ function TodoView({ nodes, onSelect, searchQuery, selectedTags }) {
     return a.title.localeCompare(b.title);
   });
 
+  const isFiltering = !!searchQuery || (selectedTags && selectedTags.length > 0) || statusFilter.size > 0 || priorityFilter.size > 0;
+
   return html`
     <div className="agenda-view todo-view">
       <div className="todo-sort-bar">
@@ -1945,6 +1981,12 @@ function TodoView({ nodes, onSelect, searchQuery, selectedTags }) {
                   className=${"todo-sort-btn" + (sortBy === opt.key ? " active" : "")}
                   onClick=${() => setSortBy(opt.key)}>${opt.label}</button>
         `)}
+        <span style=${{ flex: 1 }} />
+        <button className=${"todo-scope-btn" + (allFiles ? " active" : "")}
+                title=${allFiles ? "Showing all workspace files — click to show only this file" : "Show TODOs from all workspace files"}
+                onClick=${toggleAllFiles}>
+          ${allFilesLoading ? "Loading…" : (allFiles ? "≡ All files" : "≡ This file")}
+        </button>
       </div>
       <div className="todo-filter-bar">
         <span className="todo-sort-label">Filter:</span>
@@ -1969,9 +2011,10 @@ function TodoView({ nodes, onSelect, searchQuery, selectedTags }) {
         </div>
       `}
       ${items.length === 0 ? html`
-        <div className="agenda-empty">${isFiltering ? "No matches" : "No TODO items in this file"}</div>
-      ` : items.map((item) => html`
-        <div className="todo-item" key=${item.id} onClick=${() => onSelect(item.id)}>
+        <div className="agenda-empty">${isFiltering ? "No matches" : allFiles ? "No TODO items found in workspace" : "No TODO items in this file"}</div>
+      ` : items.map((item, i) => html`
+        <div className="todo-item" key=${item.id || ("ext-" + i)}
+             onClick=${() => item.id ? onSelect(item.id) : onSelect({ file: item.file, title: item.title, id: null })}>
           <span className=${"todo-item-priority" + (item.priority ? " priority-badge priority-" + item.priority : " priority-badge priority-none")}>
             ${item.priority || ""}
           </span>
@@ -1985,7 +2028,10 @@ function TodoView({ nodes, onSelect, searchQuery, selectedTags }) {
               ${item.tags.map((t) => html`<span key=${t} className="agenda-item-tag">:${t}:</span>`)}
             </span>
           `}
-          ${item.ancestors.length > 0 && html`
+          ${item.file && item.file !== currentFile && html`
+            <span className="todo-item-file">${item.file.replace(/\.org$/, "")}</span>
+          `}
+          ${item.ancestors && item.ancestors.length > 0 && html`
             <span className="todo-item-path"
                   dangerouslySetInnerHTML=${{ __html: item.ancestors.map((a) => tree.renderOrgInline(a)).join(" › ") }} />
           `}
@@ -3243,7 +3289,7 @@ function SidebarFileRow({ name, active, isFavorite, onSelect, onToggleFavorite, 
   `;
 }
 
-function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavorite, bookmarks, onNavigateToBookmark, onDeleteBookmark, onReorderBookmarks, bookmarkPanelVisible, onToggleBookmarkPanel, textMode, onToggleSidebar, onOpenTodayJournal, onOpenJournalList, onRenameFile, onClearRecentFiles, onOpenQuickSwitcher, onOpenTextSearch, onOpenWorkspace }) {
+function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavorite, bookmarks, onNavigateToBookmark, onDeleteBookmark, onReorderBookmarks, bookmarkPanelVisible, onToggleBookmarkPanel, textMode, onToggleSidebar, onOpenTodayJournal, onOpenJournalList, onRenameFile, onClearRecentFiles, onOpenQuickSwitcher, onOpenTextSearch, onOpenWorkspace, savedSearches, onRunSavedSearch, onDeleteSavedSearch }) {
   const dragIndexRef = useRef(null);
   const [renameConfirm, setRenameConfirm] = useState(null); // { oldName, newName }
   const [renameBusy, setRenameBusy] = useState(false);
@@ -3317,6 +3363,25 @@ function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavori
                 names.splice(i, 0, names.splice(from, 1)[0]);
                 onReorderBookmarks(names);
               }} />
+          `)}
+        </div>
+      `}
+      ${(savedSearches && savedSearches.length > 0) && html`
+        <div className="sidebar-section">
+          <div className="sidebar-section-header">
+            <span className="sidebar-section-icon">⭐</span>
+            <span>Saved Searches</span>
+          </div>
+          ${savedSearches.map((s) => html`
+            <div key=${s.id} className="sidebar-item sidebar-saved-search" onClick=${() => onRunSavedSearch?.(s)}>
+              <span className="sidebar-item-main">
+                <span className="sidebar-item-icon">⌕</span>
+                <span className="sidebar-item-name" title=${s.query + " (" + (s.scope === "note" ? "this file" : "all files") + ")"}>${s.name}</span>
+                <span className="sidebar-saved-search-scope">${s.scope === "note" ? "file" : "all"}</span>
+              </span>
+              <button className="sidebar-saved-search-del" title="Delete saved search"
+                      onClick=${(e) => { e.stopPropagation(); onDeleteSavedSearch?.(s.id); }}>×</button>
+            </div>
           `)}
         </div>
       `}
@@ -3785,7 +3850,8 @@ function findNodeWithAncestors(nodes, predicate, ancestors = []) {
 function SearchPanel({ nodes, currentFile,
   findQuery, setFindQuery, findMatchIds, findIdx, findNavigate, findInputRef, setFindOpen,
   filterQuery, setFilterQuery, onFoldToLevel,
-  onNavigate, onJumpToNode, onClose }) {
+  onNavigate, onJumpToNode, onClose,
+  onSaveSearch, activeSavedSearch, onActiveSavedSearchConsumed }) {
   const [tab, setTab] = useState("search");
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState("note");
@@ -3845,6 +3911,18 @@ function SearchPanel({ nodes, currentFile,
   };
 
   useEffect(() => { requestAnimationFrame(() => searchInputRef.current?.focus()); }, []);
+
+  const [saveFormOpen, setSaveFormOpen] = useState(false);
+  const [saveName, setSaveName] = useState("");
+
+  useEffect(() => {
+    if (!activeSavedSearch) return;
+    setTab("search");
+    setQuery(activeSavedSearch.query);
+    setScope(activeSavedSearch.scope || "all");
+    onActiveSavedSearchConsumed?.();
+    requestAnimationFrame(() => searchInputRef.current?.focus());
+  }, [activeSavedSearch]);
 
   useEffect(() => {
     clearTimeout(debounceRef.current);
@@ -4003,7 +4081,32 @@ function SearchPanel({ nodes, currentFile,
               <button className=${"sp-scope-btn" + (scope === "all" ? " active" : "")}
                       onClick=${() => setScope("all")}>All files</button>
             </div>
+            ${query.trim() && html`
+              <button className="sp-save-btn" title="Save this search"
+                      onClick=${() => { setSaveName(query.trim()); setSaveFormOpen(true); }}>☆</button>
+            `}
           </div>
+          ${saveFormOpen && html`
+            <div className="sp-save-form">
+              <input className="sp-save-input" autoFocus
+                     placeholder="Name this search…"
+                     value=${saveName}
+                     onInput=${(e) => setSaveName(e.target.value)}
+                     onKeyDown=${(e) => {
+                       if (e.key === "Enter" && saveName.trim()) {
+                         onSaveSearch?.(saveName.trim(), query, scope);
+                         setSaveFormOpen(false);
+                       }
+                       if (e.key === "Escape") setSaveFormOpen(false);
+                     }} />
+              <button className="sp-save-confirm"
+                      disabled=${!saveName.trim()}
+                      onClick=${() => { onSaveSearch?.(saveName.trim(), query, scope); setSaveFormOpen(false); }}>
+                Save
+              </button>
+              <button className="sp-save-cancel" onClick=${() => setSaveFormOpen(false)}>Cancel</button>
+            </div>
+          `}
           <div className="sp-split">
             <div className="sp-results" ref=${resultsRef}>
               ${loading && html`<div className="sp-status">Searching…</div>`}
@@ -4139,6 +4242,29 @@ function App() {
   const [showTextSearch, setShowTextSearch] = useState(false);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
   const [workspaceConfig, setWorkspaceConfig] = useState(null);
+  const [savedSearches, setSavedSearches] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("epicorg.savedSearches") || "[]"); } catch { return []; }
+  });
+  const [activeSavedSearch, setActiveSavedSearch] = useState(null);
+  const saveSavedSearch = useCallback((name, query, scope) => {
+    setSavedSearches((prev) => {
+      const entry = { id: Date.now(), name, query, scope };
+      const updated = [...prev, entry];
+      localStorage.setItem("epicorg.savedSearches", JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+  const deleteSavedSearch = useCallback((id) => {
+    setSavedSearches((prev) => {
+      const updated = prev.filter((s) => s.id !== id);
+      localStorage.setItem("epicorg.savedSearches", JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+  const runSavedSearch = useCallback((s) => {
+    setActiveSavedSearch(s);
+    setSearchPanelOpen(true);
+  }, []);
   // Unified search results: { type: "tag"|"text", query, results } | null
   const [searchResults, setSearchResults] = useState(null);
   const [showLinkPicker, setShowLinkPicker] = useState(false);
@@ -5442,6 +5568,18 @@ function App() {
     URL.revokeObjectURL(url);
   }, [nodes, preamble, currentFile, theme, topBarColor]);
 
+  const exportToMarkdown = useCallback(() => {
+    if (!currentFile) return;
+    const md = generateMarkdown(nodes, preamble, currentFile);
+    const blob = new Blob([md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = currentFile.replace(/\.org$/, "") + ".md";
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [nodes, preamble, currentFile]);
+
   const exportToOrg = useCallback(async () => {
     if (!currentFile || !nodesRef.current) return;
     try {
@@ -6643,7 +6781,10 @@ function App() {
             onClearRecentFiles=${clearRecentFiles}
             onOpenQuickSwitcher=${() => setShowQuickSwitcher(true)}
             onOpenTextSearch=${() => setShowTextSearch(true)}
-            onOpenWorkspace=${() => setShowWorkspaceModal(true)} />
+            onOpenWorkspace=${() => setShowWorkspaceModal(true)}
+            savedSearches=${savedSearches}
+            onRunSavedSearch=${runSavedSearch}
+            onDeleteSavedSearch=${deleteSavedSearch} />
         `}
         ${bookmarkPanelVisible && !textMode && html`
           <${BookmarkPanel} globalBMs=${globalBMs}
@@ -6698,7 +6839,10 @@ function App() {
                 onFoldToLevel=${foldToLevel}
                 onNavigate=${loadFile}
                 onJumpToNode=${jumpToNode}
-                onClose=${() => setSearchPanelOpen(false)} />
+                onClose=${() => setSearchPanelOpen(false)}
+                onSaveSearch=${saveSavedSearch}
+                activeSavedSearch=${activeSavedSearch}
+                onActiveSavedSearchConsumed=${() => setActiveSavedSearch(null)} />
             `}
             ${!searchPanelOpen && findOpen && html`
               <${FindBar}
@@ -6752,7 +6896,7 @@ function App() {
         ${view === "todo" && html`
           <div className="outline-pane">
             <div className=${"outline-content" + (readingWidth ? " reading-width" : "")}>
-              <${TodoView} nodes=${nodes} onSelect=${handleAgendaSelect} searchQuery=${searchQuery} selectedTags=${selectedTags} />
+              <${TodoView} nodes=${nodes} currentFile=${currentFile} onSelect=${handleAgendaSelect} searchQuery=${searchQuery} selectedTags=${selectedTags} />
             </div>
           </div>
         `}
@@ -6869,7 +7013,7 @@ function App() {
           isHoisted=${isHoisted} canToggleHoist=${isHoisted || (focusedId && focusedId !== "preamble")}
           onToggleHoist=${toggleHoist}
           onFoldToLevel=${foldToLevel}
-          onExportToOrg=${exportToOrg} onExportToHtml=${exportToHtml}
+          onExportToOrg=${exportToOrg} onExportToHtml=${exportToHtml} onExportToMarkdown=${exportToMarkdown}
           tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${toggleTagPanel}
           bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${toggleBookmarkPanel}
           workspaceConfig=${workspaceConfig}
@@ -8362,7 +8506,7 @@ function SettingsModal({
   textMode, onSetViewMode,
   isHoisted, canToggleHoist, onToggleHoist,
   onFoldToLevel,
-  onExportToOrg, onExportToHtml,
+  onExportToOrg, onExportToHtml, onExportToMarkdown,
   tagPanelVisible, onToggleTagPanel,
   bookmarkPanelVisible, onToggleBookmarkPanel,
   workspaceConfig, onConfigureWorkspace,
@@ -8643,6 +8787,13 @@ function SettingsModal({
           <button className="stg-btn" disabled=${!currentFile}
                   onClick=${() => { onExportToOrg?.(); onClose(); }}
                   title=${!currentFile ? "Open a file first" : "Download org file"}>
+            Export…
+          </button>
+        </${StgRow}>
+        <${StgRow} label="Export to Markdown" desc="Save as a GitHub-flavoured Markdown (.md) file">
+          <button className="stg-btn" disabled=${!currentFile}
+                  onClick=${() => { onExportToMarkdown?.(); onClose(); }}
+                  title=${!currentFile ? "Open a file first" : "Download Markdown file"}>
             Export…
           </button>
         </${StgRow}>
@@ -9229,8 +9380,9 @@ function buildCommands(ctx) {
     { category: "Settings", label: "Change Home Folder…",    desc: "Pick a new home org folder",  keys: "", action: () => setShowFolderPicker(true) },
     { category: "Settings", label: "Clear Recent File List", desc: "Remove all entries from the recent files list in the sidebar", keys: "", action: clearRecentFiles },
     // Export / Copy
-    { category: "Export", label: "Export to Local Org File", desc: "Use this option to save a local copy of the current org file for backup or other use.", keys: "", action: exportToOrg, disabled: !currentFile },
-    { category: "Export", label: "Export to HTML",           desc: "Save standalone HTML file of this document",    keys: "", action: exportToHtml,     disabled: !currentFile },
+    { category: "Export", label: "Export to Local Org File", desc: "Use this option to save a local copy of the current org file for backup or other use.", keys: "", action: exportToOrg,        disabled: !currentFile },
+    { category: "Export", label: "Export to HTML",           desc: "Save standalone HTML file of this document",                                           keys: "", action: exportToHtml,       disabled: !currentFile },
+    { category: "Export", label: "Export to Markdown",       desc: "Save as GitHub-flavoured Markdown (.md) file",                                         keys: "", action: exportToMarkdown,   disabled: !currentFile },
     { category: "Export", label: "Copy as Formatted Text",   desc: "Copy visible outline to clipboard with bold/italic/links preserved (paste into Word, email, etc.)", keys: displayCombo(getShortcutCombo("copyFormatted")), action: copyAsFormatted, disabled: !currentFile },
     { category: "Export", label: "Copy as Plain Text",       desc: "Copy visible outline to clipboard as clean text — no *markup* characters",                        keys: displayCombo(getShortcutCombo("copyPlain")),     action: copyAsPlain,      disabled: !currentFile },
     // Help

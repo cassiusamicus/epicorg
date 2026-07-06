@@ -270,6 +270,15 @@ func Register(mux *http.ServeMux, store *orgfile.Store, onSave func(), defaultFi
 		h.getAgenda(w, r)
 	})
 
+	// Workspace-wide TODO scan — returns all nodes with a non-empty status keyword across all files.
+	mux.HandleFunc("/api/todos", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		h.getTodos(w, r)
+	})
+
 	// Daily journal files — stored in journal/ subdirectory in org-agenda format.
 	mux.HandleFunc("/api/journal", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {

@@ -197,3 +197,113 @@ func isNotExistErr(err error) bool {
 	}
 	return strings.Contains(err.Error(), "no such file or directory")
 }
+
+// TodoItem represents a node with a non-empty TODO keyword found anywhere in the workspace.
+type TodoItem struct {
+	File      string   `json:"file"`
+	NodeTitle string   `json:"nodeTitle"`
+	Status    string   `json:"status"`
+	Priority  string   `json:"priority,omitempty"`
+	Tags      []string `json:"tags,omitempty"`
+	Ancestors []string `json:"ancestors,omitempty"`
+	Scheduled string   `json:"scheduled,omitempty"`
+	Deadline  string   `json:"deadline,omitempty"`
+}
+
+// ScanTodos walks all .org files in the workspace, returning nodes with a non-empty
+// TODO keyword. Returns all statuses (including DONE/CANCELLED) so the frontend can filter.
+func (s *Store) ScanTodos() ([]TodoItem, error) {
+	s.mu.RLock()
+	dir := s.dir
+	jDir := s.journalDir
+	s.mu.RUnlock()
+
+	var items []TodoItem
+
+	walkDir := func(root, prefix string) {
+		filepath.WalkDir(root, func(path string, d fs.DirEntry, werr error) error {
+			if werr != nil {
+				return nil
+			}
+			if d.IsDir() {
+				if d.Name() != "." && strings.HasPrefix(d.Name(), ".") {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if !strings.HasSuffix(d.Name(), ".org") {
+				return nil
+			}
+			rel, err := filepath.Rel(root, path)
+			if err != nil {
+				return nil
+			}
+			rel = prefix + filepath.ToSlash(rel)
+			data, err := readFileSafe(path)
+			if err != nil {
+				return nil
+			}
+			doc := parseOrg(string(data), d.Name())
+			scanItemsForTodos(model.FromDocument(doc), rel, &items)
+			return nil
+		})
+	}
+
+	walkDir(dir, "")
+
+	jDirIsExternal := false
+	if jDir != "" {
+		if rel, relErr := filepath.Rel(dir, jDir); relErr != nil || strings.HasPrefix(rel, "..") {
+			jDirIsExternal = true
+		}
+	}
+	if jDirIsExternal {
+		walkDir(jDir, "journal/")
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].File != items[j].File {
+			return items[i].File < items[j].File
+		}
+		if items[i].Status != items[j].Status {
+			return items[i].Status < items[j].Status
+		}
+		return items[i].NodeTitle < items[j].NodeTitle
+	})
+
+	return items, nil
+}
+
+func scanItemsForTodos(modelItems model.Items, file string, out *[]TodoItem) {
+	type frame struct {
+		level int
+		title string
+	}
+	var stack []frame
+	for _, item := range modelItems {
+		if item.IsBody {
+			continue
+		}
+		for len(stack) > 0 && stack[len(stack)-1].level >= item.Level {
+			stack = stack[:len(stack)-1]
+		}
+		ancestors := make([]string, len(stack))
+		for i, f := range stack {
+			ancestors[i] = f.title
+		}
+		stack = append(stack, frame{item.Level, item.Title})
+		if item.Status == "" {
+			continue
+		}
+		*out = append(*out, TodoItem{
+			File:      file,
+			NodeTitle: item.Title,
+			Status:    item.Status,
+			Priority:  item.Priority,
+			Tags:      item.Tags,
+			Ancestors: ancestors,
+			Scheduled: item.Properties["SCHEDULED"],
+			Deadline:  item.Properties["DEADLINE"],
+		})
+	}
+}

@@ -726,6 +726,18 @@ func (h *handlers) getAgenda(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{"items": items})
 }
 
+func (h *handlers) getTodos(w http.ResponseWriter, r *http.Request) {
+	items, err := h.store.ScanTodos()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if items == nil {
+		items = []orgfile.TodoItem{}
+	}
+	writeJSON(w, map[string]interface{}{"items": items})
+}
+
 func writeJSON(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(v)

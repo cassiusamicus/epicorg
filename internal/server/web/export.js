@@ -1,5 +1,88 @@
 import { renderOrgInline } from "./tree.js";
 
+// Convert org-mode inline markup to Markdown equivalents.
+function orgToMdInline(text) {
+  if (!text) return "";
+  const LINK_RE = /\[\[([^\]]+)\]\[([^\]]*)\]\]|\[\[([^\]]+)\]\]/g;
+  // Replace org links first so markup regex doesn't touch them.
+  let out = text.replace(LINK_RE, (_, url1, label1, url2) => {
+    const url = url1 !== undefined ? url1 : url2;
+    const label = label1 || url;
+    if (/^https?:/i.test(url)) return `[${label}](${url})`;
+    if (/^file:/i.test(url)) return `[${label}](${url.replace(/^file:\/\//i, "").replace(/^file:/i, "")})`;
+    return `[[${label}]]`; // wiki-links stay as-is in markdown
+  });
+  // Single-pass emphasis conversion (same order as MARKUP_RE in tree.js).
+  out = out.replace(/\*([^\s*][^*]*?)\*/g, "**$1**");
+  out = out.replace(/\/([^\s/][^/]*?)\//g, "*$1*");
+  out = out.replace(/_([^\s_][^_]*?)_/g, "_$1_");
+  out = out.replace(/=([^\s=][^=]*?)=/g, "`$1`");
+  out = out.replace(/~([^\s~][^~]*?)~/g, "`$1`");
+  out = out.replace(/\+([^\s+][^+]*?)\+/g, "~~$1~~");
+  return out;
+}
+
+// Convert a node tree to GitHub-flavoured Markdown.
+export function generateMarkdown(nodes, preamble, filename) {
+  const lines = [];
+
+  if (preamble && preamble.trim()) {
+    lines.push(orgToMdInline(preamble.trim()));
+    lines.push("");
+  }
+
+  function walkNodes(list, depth) {
+    for (const node of list || []) {
+      const hashes = "#".repeat(Math.min(depth, 6));
+      let titleMd = orgToMdInline(node.title || "");
+
+      // Status prefix
+      if (node.status === "DONE" || node.status === "CANCELLED") {
+        titleMd = `~~${titleMd}~~`;
+      } else if (node.status) {
+        titleMd = `\`${node.status}\` ${titleMd}`;
+      }
+      // Priority
+      if (node.priority) titleMd = `[#${node.priority}] ${titleMd}`;
+
+      lines.push(`${hashes} ${titleMd}`);
+
+      // Scheduled / Deadline
+      const sched = node.properties?.SCHEDULED;
+      const dl = node.properties?.DEADLINE;
+      if (sched || dl) {
+        const parts = [];
+        if (sched) parts.push(`📅 Scheduled: ${sched}`);
+        if (dl) parts.push(`⏰ Deadline: ${dl}`);
+        lines.push(`> ${parts.join("  ")}`);
+        lines.push("");
+      }
+
+      // Tags
+      if (node.tags && node.tags.length) {
+        lines.push(`*Tags: ${node.tags.map((t) => `:${t}:`).join(" ")}*`);
+        lines.push("");
+      }
+
+      // Body text
+      if (node.body && node.body.trim()) {
+        lines.push(orgToMdInline(node.body.trim()));
+        lines.push("");
+      }
+
+      if (!sched && !dl && !(node.tags && node.tags.length) && !(node.body && node.body.trim())) {
+        lines.push("");
+      }
+
+      walkNodes(node.children, depth + 1);
+    }
+  }
+
+  walkNodes(nodes, 1);
+
+  return lines.join("\n");
+}
+
 function toLetters(n, upper) {
   let result = "";
   while (n > 0) { result = String.fromCharCode((upper ? 65 : 97) + (n - 1) % 26) + result; n = Math.floor((n - 1) / 26); }
