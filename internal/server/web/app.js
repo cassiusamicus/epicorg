@@ -350,10 +350,18 @@ function toLetters(n, upper) {
   return result + ".";
 }
 
-function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, outlineFormat, levelFormats, siblingIndex, verticalLines, showTagChips, tagsOnRight, onSearchTag, bodyEditingId, bodyPreviewId, bodyRefs, onBulletMouseDown }) {
+function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, outlineFormat, levelFormats, siblingIndex, verticalLines, showTagChips, tagsOnRight, onSearchTag, bodyEditingId, bodyPreviewId, bodyRefs, onBulletMouseDown, globalFont, levelFonts, globalColor, levelColors }) {
   const isFocused = focusedId === node.id;
   const hasChildren = node.children?.length > 0;
   const bulletFmt = (levelFormats && levelFormats[depth]) || outlineFormat || "bullets";
+  const effectiveFont = (levelFonts && levelFonts[depth]) || globalFont;
+  const effectiveColor = (levelColors && levelColors[depth]) || globalColor;
+  const typoStyle = {};
+  if (effectiveFont) {
+    const css = FONT_CSS[effectiveFont] || (effectiveFont.startsWith("custom:") ? effectiveFont.slice(7) : null);
+    if (css) typoStyle.fontFamily = css;
+  }
+  if (effectiveColor) typoStyle.color = effectiveColor;
   const isIndexed = bulletFmt === "numbers" || bulletFmt === "letters" || bulletFmt === "upper";
   const bulletLabel = bulletFmt === "letters" ? toLetters(siblingIndex) : bulletFmt === "upper" ? toLetters(siblingIndex, true) : siblingIndex + ".";
   const titleRef = useRef(null);
@@ -419,6 +427,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
         ${showFormatted
           ? html`
             <div className=${"node-title node-title-preview" + (node.status === "DONE" || node.status === "CANCELLED" ? " done" : "")}
+                 style=${typoStyle}
                  onClick=${(e) => {
                    if (e.target.closest(".status-badge")) { e.stopPropagation(); dispatch(node.id, "cycle-status"); return; }
                    if (e.target.closest(".priority-badge")) { e.stopPropagation(); dispatch(node.id, "set-priority", node.priority === "A" ? "B" : node.priority === "B" ? "C" : "A"); return; }
@@ -446,7 +455,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                 if (el) { inputRefs.current[node.id] = el; adjustTextareaHeight(el); }
               }}
               className=${"node-title" + (node.status === "DONE" || node.status === "CANCELLED" ? " done" : "")}
-              style=${showOverlay ? {position:"absolute",left:"-9999px",opacity:0,pointerEvents:"none",width:"1px",height:"1px",padding:0,border:0,overflow:"hidden",margin:0} : {}}
+              style=${showOverlay ? {position:"absolute",left:"-9999px",opacity:0,pointerEvents:"none",width:"1px",height:"1px",padding:0,border:0,overflow:"hidden",margin:0} : typoStyle}
               value=${node.title}
               placeholder=""
               onFocus=${() => dispatch(node.id, "focus")}
@@ -485,6 +494,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
           `}
         ${showOverlay && html`
           <div className=${"node-title node-title-preview" + (node.status === "DONE" || node.status === "CANCELLED" ? " done" : "")}
+               style=${typoStyle}
                onClick=${(e) => {
                  if (e.target.closest(".status-badge")) { e.stopPropagation(); dispatch(node.id, "cycle-status"); return; }
                  if (e.target.closest(".priority-badge")) { e.stopPropagation(); dispatch(node.id, "set-priority", node.priority === "A" ? "B" : node.priority === "B" ? "C" : "A"); return; }
@@ -562,6 +572,10 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
             bodyPreviewId=${bodyPreviewId}
             bodyRefs=${bodyRefs}
             onBulletMouseDown=${onBulletMouseDown}
+            globalFont=${globalFont}
+            levelFonts=${levelFonts}
+            globalColor=${globalColor}
+            levelColors=${levelColors}
           />
         `
       )}
@@ -3395,6 +3409,84 @@ function applyFormatToPreamble(text, outlineFormat, levelFormats) {
   return lines.length > 0 ? lines.join("\n") + "\n" + result : result;
 }
 
+// ─── Typography: fonts & heading colors ──────────────────────────────────────
+const FONT_GROUPS = [
+  { group: "Sans-serif", fonts: [
+    { id: "inter",         label: "Inter",           css: "Inter, 'Helvetica Neue', Arial, sans-serif" },
+    { id: "system",        label: "System UI",        css: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
+    { id: "arial",         label: "Arial",            css: "Arial, Helvetica, sans-serif" },
+    { id: "calibri",       label: "Calibri",          css: "Calibri, Candara, sans-serif" },
+    { id: "candara",       label: "Candara",          css: "Candara, Calibri, sans-serif" },
+    { id: "corbel",        label: "Corbel",           css: "Corbel, sans-serif" },
+    { id: "franklin",      label: "Franklin Gothic",  css: "'Franklin Gothic Medium', Arial, sans-serif" },
+    { id: "gill-sans",     label: "Gill Sans",        css: "'Gill Sans', 'Gill Sans MT', sans-serif" },
+    { id: "helvetica",     label: "Helvetica",        css: "Helvetica, Arial, sans-serif" },
+    { id: "lucida-grande", label: "Lucida Grande",    css: "'Lucida Grande', 'Lucida Sans Unicode', sans-serif" },
+    { id: "optima",        label: "Optima",           css: "Optima, Segoe, sans-serif" },
+    { id: "segoe-ui",      label: "Segoe UI",         css: "'Segoe UI', Tahoma, sans-serif" },
+    { id: "tahoma",        label: "Tahoma",           css: "Tahoma, Geneva, sans-serif" },
+    { id: "trebuchet",     label: "Trebuchet MS",     css: "'Trebuchet MS', Helvetica, sans-serif" },
+    { id: "verdana",       label: "Verdana",          css: "Verdana, Geneva, sans-serif" },
+  ]},
+  { group: "Serif", fonts: [
+    { id: "baskerville",   label: "Baskerville",      css: "Baskerville, 'Baskerville Old Face', serif" },
+    { id: "book-antiqua",  label: "Book Antiqua",     css: "'Book Antiqua', Palatino, serif" },
+    { id: "cambria",       label: "Cambria",          css: "Cambria, Georgia, serif" },
+    { id: "constantia",    label: "Constantia",       css: "Constantia, Palatino, serif" },
+    { id: "garamond",      label: "Garamond",         css: "Garamond, serif" },
+    { id: "georgia",       label: "Georgia",          css: "Georgia, 'Times New Roman', serif" },
+    { id: "palatino",      label: "Palatino",         css: "'Palatino Linotype', Palatino, 'Book Antiqua', serif" },
+    { id: "times",         label: "Times New Roman",  css: "'Times New Roman', Times, serif" },
+  ]},
+  { group: "Monospace", fonts: [
+    { id: "consolas",       label: "Consolas",         css: "Consolas, 'Courier New', monospace" },
+    { id: "courier",        label: "Courier New",      css: "'Courier New', Courier, monospace" },
+    { id: "lucida-console", label: "Lucida Console",   css: "'Lucida Console', Monaco, monospace" },
+    { id: "menlo",          label: "Menlo",            css: "Menlo, Monaco, 'Courier New', monospace" },
+  ]},
+];
+const FONTS = FONT_GROUPS.flatMap(g => g.fonts);
+const FONT_CSS = Object.fromEntries(FONTS.map(f => [f.id, f.css]));
+
+// 12-color palette that reads well on both light and dark backgrounds.
+const COLOR_PALETTE = [
+  "#c0392b", "#d35400", "#b7950b", "#1e8449",
+  "#16a085", "#2980b9", "#7d3c98", "#2c3e50",
+  "#e74c3c", "#27ae60", "#1a5276", "#616a6b",
+];
+
+function parseFontsFromPreamble(text) {
+  const m = (text || "").match(/^#\+EPICORG_FONTS:\s*(.+)/mi);
+  if (!m) return { global: null, levels: {} };
+  try { const d = JSON.parse(m[1].trim()); return { global: d.global || null, levels: d.levels || {} }; }
+  catch { return { global: null, levels: {} }; }
+}
+
+function parseColorsFromPreamble(text) {
+  const m = (text || "").match(/^#\+EPICORG_COLORS:\s*(.+)/mi);
+  if (!m) return { global: null, levels: {} };
+  try { const d = JSON.parse(m[1].trim()); return { global: d.global || null, levels: d.levels || {} }; }
+  catch { return { global: null, levels: {} }; }
+}
+
+function applyFontsToPreamble(text, globalFont, levelFonts) {
+  let result = (text || "").replace(/^#\+EPICORG_FONTS:[^\n]*\n?/mi, "");
+  const hasLvl = levelFonts && Object.keys(levelFonts).length > 0;
+  if (globalFont || hasLvl) {
+    result = `#+EPICORG_FONTS: ${JSON.stringify({ global: globalFont || "inter", levels: levelFonts || {} })}\n` + result;
+  }
+  return result;
+}
+
+function applyColorsToPreamble(text, globalColor, levelColors) {
+  let result = (text || "").replace(/^#\+EPICORG_COLORS:[^\n]*\n?/mi, "");
+  const hasLvl = levelColors && Object.keys(levelColors).length > 0;
+  if (globalColor || hasLvl) {
+    result = `#+EPICORG_COLORS: ${JSON.stringify({ global: globalColor || null, levels: levelColors || {} })}\n` + result;
+  }
+  return result;
+}
+
 function App() {
   const [files, setFiles] = useState(null);
   const [favorites, setFavorites] = useState([]);
@@ -3562,6 +3654,50 @@ function App() {
       return next;
     });
   }, []);
+
+  // Font settings (stored in preamble + localStorage fallback)
+  const globalFontRef = useRef(null);
+  const [globalFont, setGlobalFontRaw] = useState(null);
+  const setGlobalFont = useCallback((font) => {
+    const val = (!font || font === "inter") ? null : font;
+    setGlobalFontRaw(val);
+    globalFontRef.current = val;
+    setPreamble(p => applyFontsToPreamble(p, val, levelFontsRef.current));
+  }, []);
+
+  const levelFontsRef = useRef({});
+  const [levelFonts, setLevelFontsRaw] = useState({});
+  const setLevelFont = useCallback((depth, font) => {
+    setLevelFontsRaw(prev => {
+      const next = { ...prev };
+      if (!font) delete next[depth]; else next[depth] = font;
+      levelFontsRef.current = next;
+      setPreamble(p => applyFontsToPreamble(p, globalFontRef.current, next));
+      return next;
+    });
+  }, []);
+
+  // Color settings (stored in preamble)
+  const globalColorRef = useRef(null);
+  const [globalColor, setGlobalColorRaw] = useState(null);
+  const setGlobalColor = useCallback((color) => {
+    setGlobalColorRaw(color || null);
+    globalColorRef.current = color || null;
+    setPreamble(p => applyColorsToPreamble(p, color || null, levelColorsRef.current));
+  }, []);
+
+  const levelColorsRef = useRef({});
+  const [levelColors, setLevelColorsRaw] = useState({});
+  const setLevelColor = useCallback((depth, color) => {
+    setLevelColorsRaw(prev => {
+      const next = { ...prev };
+      if (!color) delete next[depth]; else next[depth] = color;
+      levelColorsRef.current = next;
+      setPreamble(p => applyColorsToPreamble(p, globalColorRef.current, next));
+      return next;
+    });
+  }, []);
+
   const [verticalLines, setVerticalLines] = useState(() => {
     try { return localStorage.getItem("epicorg.verticalLines") === "1"; } catch { return false; }
   });
@@ -3602,6 +3738,7 @@ function App() {
   }, []);
   const [showToolbarCustomizer, setShowToolbarCustomizer] = useState(false);
   const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [theme, setTheme] = useState(() => {
     try {
       const stored = localStorage.getItem("epicorg.theme");
@@ -4337,6 +4474,10 @@ function App() {
     setNodes(null);
     setPreamble("");
     setHash("");
+    setGlobalFontRaw(null); globalFontRef.current = null;
+    setLevelFontsRaw({}); levelFontsRef.current = {};
+    setGlobalColorRaw(null); globalColorRef.current = null;
+    setLevelColorsRaw({}); levelColorsRef.current = {};
   }, []);
 
   const changeJournalDir = useCallback(async (dir) => {
@@ -4427,6 +4568,13 @@ function App() {
     setLevelFormatsRaw(levelFmts);
     levelFormatsRef.current = levelFmts;
     try { localStorage.setItem("epicorg.levelFormats", JSON.stringify(levelFmts)); } catch {}
+    // Restore typography settings from file.
+    const { global: gFont, levels: lFonts } = parseFontsFromPreamble(data.preamble || "");
+    setGlobalFontRaw(gFont); globalFontRef.current = gFont;
+    setLevelFontsRaw(lFonts); levelFontsRef.current = lFonts;
+    const { global: gColor, levels: lColors } = parseColorsFromPreamble(data.preamble || "");
+    setGlobalColorRaw(gColor); globalColorRef.current = gColor;
+    setLevelColorsRaw(lColors); levelColorsRef.current = lColors;
     dirtyRef.current = false;
     // Merge any new tags from this file into the global tag list.
     const fileTags = tree.collectAllTags(data.nodes || []);
@@ -5530,6 +5678,8 @@ function App() {
                   canUndo=${canUndo} canRedo=${canRedo} onUndo=${undo} onRedo=${redo}
                   notesVisible=${notesVisible} onToggleNotesVisible=${toggleNotesVisible}
                   outlineFormat=${outlineFormat} onSetOutlineFormat=${setOutlineFormat} levelFormats=${levelFormats} onSetLevelFormat=${setLevelFormat}
+                  globalFont=${globalFont} onSetGlobalFont=${setGlobalFont} levelFonts=${levelFonts} onSetLevelFont=${setLevelFont}
+                  globalColor=${globalColor} onSetGlobalColor=${setGlobalColor} levelColors=${levelColors} onSetLevelColor=${setLevelColor}
                   verticalLines=${verticalLines} onToggleVerticalLines=${toggleVerticalLines}
                   showTagChips=${showTagChips} onToggleShowTagChips=${toggleShowTagChips}
                   tagsOnRight=${tagsOnRight} onToggleTagsOnRight=${toggleTagsOnRight}
@@ -5560,6 +5710,7 @@ function App() {
                   onShowShortcutEditor=${() => setShowShortcutEditor(true)}
                   onShowOutlineActions=${() => setShowOutlineActions(true)}
                   onShowToolbarCustomizer=${() => setShowToolbarCustomizer(true)}
+                  onOpenSettings=${() => setShowSettings(true)}
                   onExportToOrg=${exportToOrg}
                   onExportToHtml=${exportToHtml} />
       ${showOutlineActions && html`
@@ -5715,7 +5866,9 @@ function App() {
                   verticalLines=${verticalLines} showTagChips=${showTagChips}
                   tagsOnRight=${tagsOnRight} onSearchTag=${searchTag}
                   bodyEditingId=${bodyEditingId} bodyPreviewId=${bodyPreviewId} bodyRefs=${bodyRefs}
-                  onBulletMouseDown=${onBulletMouseDown} />
+                  onBulletMouseDown=${onBulletMouseDown}
+                  globalFont=${globalFont} levelFonts=${levelFonts}
+                  globalColor=${globalColor} levelColors=${levelColors} />
               `)}
             </div>
           </div>
@@ -5808,22 +5961,50 @@ function App() {
       </div>
       ${statusBarVisible && html`
         <${StatusBar} currentFile=${currentFile} homeDir=${homeDir} journalDir=${journalDir} tagListFile=${tagListFile} bookmarkListFile=${bookmarkListFile}
-          onOpenSettings=${() => setShowWorkspaceSettings(true)} />
+          onOpenSettings=${() => setShowSettings(true)} />
       `}
-      ${showWorkspaceSettings && html`
-        <${WorkspaceSettingsPanel}
-          homeDir=${homeDir} homeFile=${homeFile} journalDir=${journalDir}
-          tagListFile=${tagListFile} bookmarkListFile=${bookmarkListFile} currentFile=${currentFile}
+      ${showSettings && html`
+        <${SettingsModal}
+          onClose=${() => setShowSettings(false)}
+          theme=${theme} onToggleTheme=${toggleTheme}
+          topBarColor=${topBarColor} onSetTopBarColor=${setTopBarColorPersisted}
+          outlineFormat=${outlineFormat} onSetOutlineFormat=${setOutlineFormat}
+          levelFormats=${levelFormats} onSetLevelFormat=${setLevelFormat}
+          globalFont=${globalFont} onSetGlobalFont=${setGlobalFont}
+          levelFonts=${levelFonts} onSetLevelFont=${setLevelFont}
+          globalColor=${globalColor} onSetGlobalColor=${setGlobalColor}
+          levelColors=${levelColors} onSetLevelColor=${setLevelColor}
+          verticalLines=${verticalLines} onToggleVerticalLines=${toggleVerticalLines}
+          readingWidth=${readingWidth} onToggleReadingWidth=${toggleReadingWidth}
+          showTagChips=${showTagChips} onToggleShowTagChips=${toggleShowTagChips}
+          tagsOnRight=${tagsOnRight} onToggleTagsOnRight=${toggleTagsOnRight}
+          homeDir=${homeDir}
+          onChangeHomeDir=${() => { setShowSettings(false); setShowFolderPicker(true); }}
+          homeFile=${homeFile} onSetHomeFile=${setHomeFilePersisted} currentFile=${currentFile}
+          journalDir=${journalDir}
+          onChangeJournalDir=${() => { setShowSettings(false); setShowJournalFolderPicker(true); }}
+          onClearJournalDir=${() => { setShowSettings(false); clearJournalDir(); }}
           statusBarVisible=${statusBarVisible} onToggleStatusBar=${toggleStatusBarVisible}
-          onChangeHomeDir=${() => { setShowWorkspaceSettings(false); setShowFolderPicker(true); }}
-          onChangeJournalDir=${() => { setShowWorkspaceSettings(false); setShowJournalFolderPicker(true); }}
-          onClearJournalDir=${() => { setShowWorkspaceSettings(false); clearJournalDir(); }}
-          onChangeTagListFile=${() => { setShowWorkspaceSettings(false); setShowTagListFilePicker(true); }}
-          onClearTagListFile=${() => { setShowWorkspaceSettings(false); clearTagListFile(); }}
-          onChangeBookmarkListFile=${() => { setShowWorkspaceSettings(false); setShowBookmarkListFilePicker(true); }}
-          onClearBookmarkListFile=${() => { setShowWorkspaceSettings(false); clearBookmarkListFile(); }}
-          onSetHomeFile=${setHomeFilePersisted}
-          onClose=${() => setShowWorkspaceSettings(false)} />
+          titleFormatMode=${titleFormatMode} onToggleTitleFormat=${toggleTitleFormatMode}
+          notesVisible=${notesVisible} onToggleNotesVisible=${toggleNotesVisible}
+          dateStampFmt=${dateStampFmt} onSetDateStampFmt=${setDateStampFmt}
+          tagListFile=${tagListFile}
+          onChangeTagListFile=${() => { setShowSettings(false); setShowTagListFilePicker(true); }}
+          onClearTagListFile=${() => { setShowSettings(false); clearTagListFile(); }}
+          bookmarkListFile=${bookmarkListFile}
+          onChangeBookmarkListFile=${() => { setShowSettings(false); setShowBookmarkListFilePicker(true); }}
+          onClearBookmarkListFile=${() => { setShowSettings(false); clearBookmarkListFile(); }}
+          shortcutVer=${shortcutVer} onUpdateShortcut=${updateShortcut}
+          onResetShortcut=${resetShortcut} onResetAllShortcuts=${resetAllShortcuts}
+          toolbarConfig=${toolbarConfig} onUpdateToolbarConfig=${updateToolbarConfig}
+          view=${view} onSetView=${setView}
+          textMode=${textMode} onSetViewMode=${setViewMode}
+          isHoisted=${isHoisted} canToggleHoist=${isHoisted || (focusedId && focusedId !== "preamble")}
+          onToggleHoist=${toggleHoist}
+          onFoldToLevel=${foldToLevel}
+          onExportToOrg=${exportToOrg} onExportToHtml=${exportToHtml}
+          tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${toggleTagPanel}
+          bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${toggleBookmarkPanel} />
       `}
     </div>
     ${fnPopup && html`<${FootnotePopup} popup=${fnPopup} onClose=${() => setFnPopup(null)} onSave=${saveFootnoteDef} />`}
@@ -6597,9 +6778,9 @@ function ToolbarCustomizer({ toolbarConfig, onUpdate, onClose }) {
   `;
 }
 
-// --- Shortcut Editor popup ---
+// --- Shortcut Panel (reusable inline body) ---
 
-function ShortcutEditor({ shortcutVer, onUpdate, onReset, onResetAll, onClose }) {
+function ShortcutPanel({ shortcutVer, onUpdate, onReset, onResetAll }) {
   const [recordingId, setRecordingId] = useState(null);
 
   useEffect(() => {
@@ -6615,13 +6796,51 @@ function ShortcutEditor({ shortcutVer, onUpdate, onReset, onResetAll, onClose })
     return () => document.removeEventListener("keydown", capture, true);
   }, [recordingId, onUpdate]);
 
+  const cats = [...new Set(SHORTCUT_DEFS.map((d) => d.cat))];
+
+  return html`
+    <div>
+      <div className="shortcut-editor-hint">
+        Click a binding to rebind it — press any key combo, Escape to cancel.
+      </div>
+      <button className="shortcut-reset-all-btn" onClick=${onResetAll}>Reset All to Defaults</button>
+      ${cats.map((cat) => html`
+        <div key=${cat} className="shortcut-cat-group">
+          <div className="shortcut-cat-label">${cat === "Reference" ? "Reference (fixed)" : cat}</div>
+          ${SHORTCUT_DEFS.filter((d) => d.cat === cat).map((d) => {
+            const isRecording = recordingId === d.id;
+            const custom = shortcutOverrides[d.id];
+            const combo = custom || d.def;
+            return html`
+              <div key=${d.id} className=${"shortcut-row" + (d.fixed ? " shortcut-row-fixed" : "")}>
+                <span className="shortcut-label">${d.label}</span>
+                <button className=${"shortcut-combo-btn" + (isRecording ? " recording" : "") + (custom ? " custom" : "")}
+                        disabled=${!!d.fixed}
+                        onClick=${!d.fixed ? () => setRecordingId(d.id) : undefined}>
+                  ${isRecording ? "Press keys…" : displayCombo(combo)}
+                </button>
+                ${!d.fixed && custom && !isRecording && html`
+                  <button className="shortcut-row-reset" title=${"Reset to " + displayCombo(d.def)}
+                          onClick=${() => onReset(d.id)}>↺</button>
+                `}
+                ${(!d.fixed && !custom) && html`<span className="shortcut-row-reset"></span>`}
+              </div>
+            `;
+          })}
+        </div>
+      `)}
+    </div>
+  `;
+}
+
+// --- Shortcut Editor popup ---
+
+function ShortcutEditor({ shortcutVer, onUpdate, onReset, onResetAll, onClose }) {
   useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape" && !recordingId) onClose(); };
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [recordingId, onClose]);
-
-  const cats = [...new Set(SHORTCUT_DEFS.map((d) => d.cat))];
+  }, [onClose]);
 
   return html`
     <div className="shortcut-editor-overlay"
@@ -6632,38 +6851,7 @@ function ShortcutEditor({ shortcutVer, onUpdate, onReset, onResetAll, onClose })
           <button className="shortcut-editor-close" onClick=${onClose}>×</button>
         </div>
         <div className="shortcut-editor-body">
-          <div className="shortcut-editor-hint">
-            Click a binding to rebind it — press any key combo, Escape to cancel.
-          </div>
-          <button className="shortcut-reset-all-btn" onClick=${onResetAll}>Reset All to Defaults</button>
-
-          ${cats.map((cat) => html`
-            <div key=${cat} className="shortcut-cat-group">
-              <div className="shortcut-cat-label">${cat === "Reference" ? "Reference (fixed)" : cat}</div>
-              ${SHORTCUT_DEFS.filter((d) => d.cat === cat).map((d) => {
-                const isRecording = recordingId === d.id;
-                const custom = shortcutOverrides[d.id];
-                const combo = custom || d.def;
-                return html`
-                  <div key=${d.id} className=${"shortcut-row" + (d.fixed ? " shortcut-row-fixed" : "")}>
-                    <span className="shortcut-label">${d.label}</span>
-                    <button
-                      className=${"shortcut-combo-btn" + (isRecording ? " recording" : "") + (custom ? " custom" : "")}
-                      disabled=${!!d.fixed}
-                      onClick=${!d.fixed ? () => setRecordingId(d.id) : undefined}
-                    >
-                      ${isRecording ? "Press keys…" : displayCombo(combo)}
-                    </button>
-                    ${!d.fixed && custom && !isRecording && html`
-                      <button className="shortcut-row-reset" title="Reset to ${displayCombo(d.def)}"
-                              onClick=${() => onReset(d.id)}>↺</button>
-                    `}
-                    ${(!d.fixed && !custom) && html`<span className="shortcut-row-reset"></span>`}
-                  </div>
-                `;
-              })}
-            </div>
-          `)}
+          <${ShortcutPanel} shortcutVer=${shortcutVer} onUpdate=${onUpdate} onReset=${onReset} onResetAll=${onResetAll} />
         </div>
       </div>
     </div>
@@ -6683,339 +6871,534 @@ function LevelFormatChip({ depth, levelFormats, onSetLevelFormat, textMode }) {
     </button>`;
 }
 
-function HamburgerMenu({
-  outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat,
-  verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight,
-  // Everything below is only rendered when `collapsed` — Header measured
-  // that the toolbar/search/etc. don't fit and rendered them away, so
-  // their controls are reachable from here instead. On an uncollapsed
-  // header those are already toolbar buttons, so this stays unused there.
-  collapsed,
-  view, setView, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode,
-  notesVisible, onToggleNotesVisible, isHoisted, canToggleHoist, onToggleHoist,
-  readingWidth, onToggleReadingWidth, onFoldToLevel,
-  searchQuery, setSearchQuery, allTags, selectedTags, onToggleTag,
-  theme, onToggleTheme, onHelp, syncStatus,
+function LevelFontChip({ depth, levelFonts, onSetLevelFont, textMode }) {
+  const font = levelFonts ? levelFonts[depth] : null;
+  const isCustom = font && font.startsWith("custom:");
+  const selectVal = isCustom ? "custom" : (font || "");
+  return html`
+    <div className="stg-level-item">
+      <span className="stg-level-label">L${depth + 1}</span>
+      <select className=${"stg-level-select" + (font ? " override" : "")}
+              value=${selectVal}
+              disabled=${textMode}
+              onChange=${(e) => {
+                const v = e.target.value;
+                if (v === "custom") onSetLevelFont(depth, "custom:");
+                else onSetLevelFont(depth, v || null);
+              }}>
+        <option value="">Global</option>
+        ${FONT_GROUPS.map(g => html`
+          <optgroup key=${g.group} label=${g.group}>
+            ${g.fonts.map(f => html`
+              <option key=${f.id} value=${f.id}>${f.label}</option>
+            `)}
+          </optgroup>
+        `)}
+        <option value="custom">Custom…</option>
+      </select>
+      ${isCustom && html`
+        <input type="text" className="stg-custom-font-input"
+               style=${{ width: "100px", marginTop: "2px" }}
+               placeholder="Font name"
+               value=${font.slice(7)}
+               onChange=${(e) => onSetLevelFont(depth, "custom:" + e.target.value)} />
+      `}
+    </div>
+  `;
+}
+
+function LevelColorChip({ depth, levelColors, onSetLevelColor, textMode }) {
+  const color = levelColors ? levelColors[depth] : null;
+  const nextColor = () => {
+    if (!color) return COLOR_PALETTE[0];
+    const idx = COLOR_PALETTE.indexOf(color);
+    return idx >= 0 && idx < COLOR_PALETTE.length - 1 ? COLOR_PALETTE[idx + 1] : null;
+  };
+  return html`
+    <button className=${"hfmt-chip hfmt-level-chip hfmt-color-chip" + (color ? " override" : "")}
+            style=${{ background: color || undefined, color: color ? "#fff" : undefined, borderColor: color || undefined }}
+            title=${"Level " + (depth + 1) + " color: " + (color || "global")}
+            disabled=${textMode}
+            onClick=${() => onSetLevelColor(depth, nextColor())}>
+      ${color ? "" : html`<span>L${depth + 1}×</span>`}
+      ${color ? html`<span>L${depth + 1}</span>` : ""}
+    </button>`;
+}
+
+// ─── Settings Modal sub-components ───────────────────────────────────────────
+function StgRow({ label, desc, children }) {
+  return html`
+    <div className="stg-row">
+      <div className="stg-row-label">
+        <span className="stg-label">${label}</span>
+        ${desc && html`<span className="stg-desc">${desc}</span>`}
+      </div>
+      <div className="stg-row-ctrl">${children}</div>
+    </div>
+  `;
+}
+
+function FontSelect({ value, onChange, disabled }) {
+  const isCustom = value && value.startsWith("custom:");
+  const selectVal = isCustom ? "custom" : (value || "inter");
+  return html`
+    <div className="stg-font-wrap">
+      <select className="stg-select"
+              value=${selectVal}
+              disabled=${disabled}
+              onChange=${(e) => {
+                const v = e.target.value;
+                if (v === "custom") onChange("custom:");
+                else onChange(v === "inter" ? null : v);
+              }}>
+        ${FONT_GROUPS.map(g => html`
+          <optgroup key=${g.group} label=${g.group}>
+            ${g.fonts.map(f => html`
+              <option key=${f.id} value=${f.id}>${f.label}</option>
+            `)}
+          </optgroup>
+        `)}
+        <option value="custom">Custom…</option>
+      </select>
+      ${isCustom && html`
+        <input type="text" className="stg-custom-font-input"
+               placeholder="Font name"
+               value=${value.slice(7)}
+               onChange=${(e) => onChange("custom:" + e.target.value)} />
+      `}
+    </div>
+  `;
+}
+
+function ColorPickerRow({ color, onChange, disabled }) {
+  return html`
+    <div className="stg-color-row">
+      <button className=${"stg-color-swatch stg-color-none" + (!color ? " active" : "")}
+              title="No color"
+              disabled=${disabled}
+              onClick=${() => onChange(null)}>×</button>
+      ${COLOR_PALETTE.map(c => html`
+        <button key=${c} className=${"stg-color-swatch" + (color === c ? " active" : "")}
+                style=${{ background: c }}
+                title=${c}
+                disabled=${disabled}
+                onClick=${() => onChange(c)} />
+      `)}
+      <input type="text" className="stg-hex-input"
+             placeholder="#hex"
+             disabled=${disabled}
+             value=${color && !COLOR_PALETTE.includes(color) ? color : ""}
+             onBlur=${(e) => { const v = e.target.value.trim(); if (/^#[0-9a-fA-F]{3,6}$/.test(v)) onChange(v); else if (!v) onChange(null); }}
+             onKeyDown=${(e) => { if (e.key === "Enter") e.target.blur(); }} />
+    </div>
+  `;
+}
+
+function SettingsModal({
+  onClose,
+  theme, onToggleTheme,
   topBarColor, onSetTopBarColor,
-  homeDir, onPickHomeDir,
-  journalDir, onPickJournalDir, onClearJournalDir,
-  tagListFile, onPickTagListFile, onClearTagListFile,
-  bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile,
-  onSetViewMode,
+  outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat,
+  globalFont, onSetGlobalFont, levelFonts, onSetLevelFont,
+  globalColor, onSetGlobalColor, levelColors, onSetLevelColor,
+  verticalLines, onToggleVerticalLines,
+  readingWidth, onToggleReadingWidth,
+  showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight,
+  homeDir, onChangeHomeDir,
+  homeFile, onSetHomeFile, currentFile,
+  journalDir, onChangeJournalDir, onClearJournalDir,
+  statusBarVisible, onToggleStatusBar,
+  titleFormatMode, onToggleTitleFormat,
+  notesVisible, onToggleNotesVisible,
+  dateStampFmt, onSetDateStampFmt,
+  tagListFile, onChangeTagListFile, onClearTagListFile,
+  bookmarkListFile, onChangeBookmarkListFile, onClearBookmarkListFile,
+  shortcutVer, onUpdateShortcut, onResetShortcut, onResetAllShortcuts,
+  toolbarConfig, onUpdateToolbarConfig,
+  view, onSetView,
+  textMode, onSetViewMode,
+  isHoisted, canToggleHoist, onToggleHoist,
+  onFoldToLevel,
+  onExportToOrg, onExportToHtml,
   tagPanelVisible, onToggleTagPanel,
   bookmarkPanelVisible, onToggleBookmarkPanel,
-  homeFile, currentFile, onSetHomeFile,
-  openToSection, onSectionOpened,
-  statusBarVisible, onToggleStatusBar,
-  dateStampFmt, onSetDateStampFmt,
-  onShowShortcutEditor,
-  onShowToolbarCustomizer,
-  onExportToOrg,
-  onExportToHtml,
 }) {
-  const [open, setOpen] = useState(false);
-  const [showAbout, setShowAbout] = useState(false);
-  const [highlightSection, setHighlightSection] = useState(null);
-  const containerRef = useRef(null);
-  const homeFileRowRef = useRef(null);
+  const [section, setSection] = useState("view");
   const colorInputRef = useRef(null);
-  const isCustomColor = topBarColor && topBarColor.startsWith("#");
+  const isCustomTopBarColor = topBarColor && topBarColor.startsWith("#");
 
   useEffect(() => {
-    if (!openToSection) return;
-    setOpen(true);
-    setHighlightSection(openToSection);
-    onSectionOpened?.();
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        homeFileRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      });
-    });
-    const t = setTimeout(() => setHighlightSection(null), 2000);
-    return () => clearTimeout(t);
-  }, [openToSection]);
+    const h = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [onClose]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDocMouseDown = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false);
-    };
-    const onKeyDown = (e) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", onDocMouseDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onDocMouseDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
+  const STG_SECTIONS = [
+    { id: "view",       label: "View" },
+    { id: "appearance", label: "Appearance" },
+    { id: "editor",     label: "Editor" },
+    { id: "workspace",  label: "Workspace" },
+    { id: "keyboard",   label: "Keyboard" },
+    { id: "about",      label: "About" },
+  ];
 
-  return html`
-    <div className=${"hamburger-menu" + (collapsed ? " collapsed" : "")} ref=${containerRef}>
-      <button className=${"panel-toggle-btn" + (open ? " active" : "")} onClick=${() => setOpen((o) => !o)} title="More options">
-        <${IconHamburger} />
-      </button>
-      ${open && html`
-        <div className="folder-picker-overlay" onMouseDown=${(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
-        <div className="hamburger-menu-popup">
-
-          <!-- ── Status / theme ── -->
-          <div className="hamburger-status-row">
-            <div className="hamburger-status-left">
-              <${SyncIndicator} status=${syncStatus} />
-              <span className="hamburger-sync-label">${SYNC_LABELS[syncStatus] || ""}</span>
-            </div>
-            <button className="hamburger-theme-btn" onClick=${onToggleTheme}
-                    title=${theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
-              ${theme === "dark" ? html`<${IconSun}/>` : html`<${IconMoon}/>`}
-            </button>
+  const renderSection = () => {
+    if (section === "view") return html`
+      <div className="stg-section">
+        <p className="stg-section-title">Main View</p>
+        <${StgRow} label="View mode">
+          <div className="stg-segmented">
+            ${[
+              { id: "outline", label: "Outline" },
+              { id: "agenda",  label: "Agenda" },
+              { id: "todo",    label: "TODO" },
+              { id: "journal", label: "Journal" },
+            ].map(({ id, label }) => html`
+              <button key=${id}
+                      className=${"stg-segmented-btn" + (view === id ? " active" : "")}
+                      onClick=${() => { onSetView(id); onClose(); }}>
+                ${label}
+              </button>
+            `)}
           </div>
-
-          <!-- ── Outline ── -->
-          ${view === "outline" && html`
-            <div className="hamburger-viewmode-row">
-              <span className="hamburger-viewmode-label">View mode</span>
-              <div className="hamburger-segmented">
-                <button className=${"hamburger-segmented-btn" + (!titleFormatMode && !textMode ? " active" : "")}
-                        onClick=${() => onSetViewMode("plain")}>Plain</button>
-                <button className=${"hamburger-segmented-btn" + (titleFormatMode && !textMode ? " active" : "")}
-                        onClick=${() => onSetViewMode("formatted")}>Formatted</button>
-                <button className=${"hamburger-segmented-btn" + (textMode ? " active" : "")}
-                        onClick=${() => onSetViewMode("reveal")}>Reveal Codes</button>
-              </div>
-            </div>
-          `}
-          <label className="hamburger-menu-option">
-            <input type="checkbox" checked=${notesVisible} onChange=${onToggleNotesVisible} disabled=${textMode || view !== "outline"} />
-            <span>Show notes inline</span>
-          </label>
-          <label className="hamburger-menu-option">
-            <input type="checkbox" checked=${isHoisted} onChange=${onToggleHoist} disabled=${!canToggleHoist || textMode || view !== "outline"} />
-            <span>Hoist (isolate focused item)</span>
-          </label>
-          <div className="hamburger-outline-format">
-            <span className="hamburger-format-label">Globally: bullet style</span>
-            <div className="hamburger-format-chips">
-              ${["bullets", "numbers", "letters", "upper"].map((fmt) => html`
-                <button key=${fmt}
-                        className=${"hfmt-chip" + (outlineFormat === fmt ? " active" : "")}
-                        onClick=${() => onSetOutlineFormat(fmt)}
-                        disabled=${textMode}>
-                  ${fmt === "bullets" ? "• Bullets" : fmt === "numbers" ? "1. Numbers" : fmt === "letters" ? "a. Letters" : "A. Letters"}
-                </button>
-              `)}
+        </${StgRow}>
+        <${StgRow} label="Tag panel visible">
+          <input type="checkbox" checked=${tagPanelVisible} onChange=${onToggleTagPanel} />
+        </${StgRow}>
+        <${StgRow} label="Bookmark panel visible">
+          <input type="checkbox" checked=${bookmarkPanelVisible} onChange=${onToggleBookmarkPanel} />
+        </${StgRow}>
+      </div>
+      <div className="stg-section">
+        <p className="stg-section-title">Title Display</p>
+        <${StgRow} label="Render format" desc="How heading text is rendered">
+          <div className="stg-segmented">
+            <button className=${"stg-segmented-btn" + (!titleFormatMode && !textMode ? " active" : "")}
+                    onClick=${() => onSetViewMode("plain")}>Plain</button>
+            <button className=${"stg-segmented-btn" + (titleFormatMode && !textMode ? " active" : "")}
+                    onClick=${() => onSetViewMode("formatted")}>Formatted</button>
+            <button className=${"stg-segmented-btn" + (textMode ? " active" : "")}
+                    onClick=${() => onSetViewMode("reveal")}>Reveal Codes</button>
+          </div>
+        </${StgRow}>
+      </div>
+      <div className="stg-section">
+        <p className="stg-section-title">Outline Options</p>
+        <${StgRow} label="Show notes inline" desc="Body text visible under each item">
+          <input type="checkbox" checked=${notesVisible} onChange=${onToggleNotesVisible}
+                 disabled=${textMode || view !== "outline"} />
+        </${StgRow}>
+        <${StgRow} label="Hoist" desc="Isolate the focused item, hiding everything else">
+          <input type="checkbox" checked=${isHoisted} onChange=${onToggleHoist}
+                 disabled=${!canToggleHoist || textMode || view !== "outline"} />
+        </${StgRow}>
+        <${StgRow} label="Fold to level" desc="Collapse outline to this depth">
+          <div className="stg-segmented">
+            ${FOLD_LEVELS.map((lvl) => html`
+              <button key=${lvl}
+                      className="stg-segmented-btn"
+                      disabled=${textMode || view !== "outline"}
+                      onClick=${() => { onFoldToLevel(lvl); onClose(); }}>
+                ${lvl}
+              </button>
+            `)}
+          </div>
+        </${StgRow}>
+      </div>
+      <div className="stg-section">
+        <p className="stg-section-title">Toolbar Buttons</p>
+        <p className="stg-desc" style=${{ marginBottom: "8px", fontSize: "12px", color: "var(--text-dim)" }}>
+          Choose which button groups appear in the top toolbar.
+        </p>
+        ${TOOLBAR_ITEMS.map((item) => html`
+          <${StgRow} key=${item.id} label=${item.label} desc=${item.desc}>
+            <input type="checkbox"
+                   checked=${toolbarConfig[item.id]}
+                   onChange=${() => onUpdateToolbarConfig(item.id, !toolbarConfig[item.id])} />
+          </${StgRow}>
+        `)}
+      </div>
+    `;
+    if (section === "appearance") return html`
+      <div className="stg-section">
+        <p className="stg-section-title">Theme</p>
+        <${StgRow} label="Color theme">
+          <div className="stg-segmented">
+            <button className=${"stg-segmented-btn" + (theme === "dark" ? " active" : "")}
+                    onClick=${() => theme !== "dark" && onToggleTheme()}>Dark</button>
+            <button className=${"stg-segmented-btn" + (theme === "light" ? " active" : "")}
+                    onClick=${() => theme !== "light" && onToggleTheme()}>Light</button>
+          </div>
+        </${StgRow}>
+      </div>
+      <div className="stg-section">
+        <p className="stg-section-title">Top Bar</p>
+        <${StgRow} label="Top bar color">
+          <div className="topbar-color-chips">
+            <button className=${"topbar-chip topbar-chip-none" + (!topBarColor ? " active" : "")}
+                    onClick=${() => onSetTopBarColor(null)}>None</button>
+            ${["green", "blue", "red"].map((c) => html`
+              <button key=${c}
+                      className=${"topbar-chip" + (topBarColor === c ? " active" : "")}
+                      style=${{ background: TOPBAR_COLORS[c] }}
+                      onClick=${() => onSetTopBarColor(c)}
+                      title=${c.charAt(0).toUpperCase() + c.slice(1)}></button>
+            `)}
+            <div className="topbar-chip-custom-wrap">
+              <button className=${"topbar-chip topbar-chip-custom" + (isCustomTopBarColor ? " active" : "")}
+                      style=${isCustomTopBarColor ? { background: topBarColor } : {}}
+                      onClick=${() => colorInputRef.current?.click()}
+                      title=${isCustomTopBarColor ? "Custom: " + topBarColor : "Custom color…"}></button>
+              <input ref=${colorInputRef} type="color" className="topbar-color-input-hidden"
+                     value=${isCustomTopBarColor ? topBarColor : "#225167"}
+                     onInput=${(e) => onSetTopBarColor(e.target.value)} />
             </div>
           </div>
-          <div className="hamburger-outline-format">
-            <span className="hamburger-format-label">Per level (click to cycle; × = use global)</span>
+        </${StgRow}>
+      </div>
+      <div className="stg-section">
+        <p className="stg-section-title">Bullet Style</p>
+        <${StgRow} label="Global" desc="Default bullet style for all levels">
+          <div className="hamburger-format-chips">
+            ${["bullets", "numbers", "letters", "upper"].map((fmt) => html`
+              <button key=${fmt}
+                      className=${"hfmt-chip" + (outlineFormat === fmt ? " active" : "")}
+                      onClick=${() => onSetOutlineFormat(fmt)}>
+                ${fmt === "bullets" ? "• Bullets" : fmt === "numbers" ? "1. Numbers" : fmt === "letters" ? "a. Letters" : "A. Letters"}
+              </button>
+            `)}
+          </div>
+        </${StgRow}>
+        <${StgRow} label="Per level" desc="Override per level (× = use global)">
+          <div className="hamburger-format-chips">
+            ${[0, 1, 2, 3, 4, 5].map((d) => html`
+              <${LevelFormatChip} key=${d} depth=${d} levelFormats=${levelFormats} onSetLevelFormat=${onSetLevelFormat} textMode=${false} />
+            `)}
+          </div>
+        </${StgRow}>
+      </div>
+      <div className="stg-section">
+        <p className="stg-section-title">Fonts</p>
+        <${StgRow} label="Global font" desc="Default heading font">
+          <${FontSelect} value=${globalFont} onChange=${onSetGlobalFont} />
+        </${StgRow}>
+        <div className="stg-row stg-row-full">
+          <div className="stg-row-label">
+            <span className="stg-label">Per-level font</span>
+            <span className="stg-desc">Override heading font per level</span>
+          </div>
+          <div className="stg-row-ctrl stg-level-grid">
+            ${[0, 1, 2, 3, 4, 5].map((d) => html`
+              <${LevelFontChip} key=${d} depth=${d} levelFonts=${levelFonts} onSetLevelFont=${onSetLevelFont} textMode=${false} />
+            `)}
+          </div>
+        </div>
+      </div>
+      <div className="stg-section">
+        <p className="stg-section-title">Colors</p>
+        <${StgRow} label="Global heading color">
+          <${ColorPickerRow} color=${globalColor} onChange=${onSetGlobalColor} />
+        </${StgRow}>
+        <div className="stg-row stg-row-full">
+          <div className="stg-row-label">
+            <span className="stg-label">Per-level color</span>
+            <span className="stg-desc">Override heading color per level</span>
+          </div>
+          <div className="stg-row-ctrl">
             <div className="hamburger-format-chips">
               ${[0, 1, 2, 3, 4, 5].map((d) => html`
-                <${LevelFormatChip} key=${d} depth=${d} levelFormats=${levelFormats} onSetLevelFormat=${onSetLevelFormat} textMode=${textMode} />
+                <${LevelColorChip} key=${d} depth=${d} levelColors=${levelColors} onSetLevelColor=${onSetLevelColor} textMode=${false} />
               `)}
             </div>
           </div>
-          <label className="hamburger-menu-option">
-            <input type="checkbox" checked=${verticalLines} onChange=${onToggleVerticalLines} disabled=${textMode} />
-            <span>Vertical lines</span>
-          </label>
-          <label className="hamburger-menu-option">
-            <input type="checkbox" checked=${showTagChips} onChange=${onToggleShowTagChips} disabled=${textMode} />
-            <span>Show tags and todo status in outline</span>
-          </label>
-          ${showTagChips && html`
-            <label className="hamburger-menu-option hamburger-menu-option-indented">
-              <input type="checkbox" checked=${tagsOnRight} onChange=${onToggleTagsOnRight} disabled=${textMode} />
-              <span>Show on right</span>
-            </label>
-          `}
-          <label className="hamburger-menu-option">
-            <input type="checkbox" checked=${statusBarVisible} onChange=${onToggleStatusBar} />
-            <span>Show status bar</span>
-          </label>
-          ${view === "outline" && html`
-            <div className="hamburger-fold-row">
-              <span>Fold to level</span>
-              <span>
-                ${FOLD_LEVELS.map((lvl) => html`
-                  <button key=${lvl} className="hamburger-fold-btn" disabled=${textMode}
-                          onClick=${() => { onFoldToLevel(lvl); setOpen(false); }}>${lvl}</button>
-                `)}
-              </span>
-            </div>
-          `}
-
-          <!-- ── Workspace ── -->
-          <div className="hamburger-section">
-            <div className="hamburger-menu-option hamburger-homefolder-row">
-              <span>Home Folder</span>
-              <button className="homefolder-path-btn" title="Click to change home folder" onClick=${onPickHomeDir}>
-                ${homeDir || "…"}
+        </div>
+      </div>
+      <div className="stg-section">
+        <p className="stg-section-title">Layout</p>
+        <${StgRow} label="Vertical indent lines">
+          <input type="checkbox" checked=${verticalLines} onChange=${onToggleVerticalLines} />
+        </${StgRow}>
+        <${StgRow} label="Reading width" desc="Limit line length for comfortable reading">
+          <input type="checkbox" checked=${readingWidth} onChange=${onToggleReadingWidth} />
+        </${StgRow}>
+        <${StgRow} label="Show tags and status in outline">
+          <input type="checkbox" checked=${showTagChips} onChange=${onToggleShowTagChips} />
+        </${StgRow}>
+        ${showTagChips && html`
+          <${StgRow} label="Show on right">
+            <input type="checkbox" checked=${tagsOnRight} onChange=${onToggleTagsOnRight} />
+          </${StgRow}>
+        `}
+      </div>
+    `;
+    if (section === "workspace") return html`
+      <div className="stg-section">
+        <p className="stg-section-title">Workspace</p>
+        <${StgRow} label="Home Folder" desc="Root directory for org files">
+          <span className="stg-path">${homeDir || "—"}</span>
+          <button className="stg-btn" onClick=${onChangeHomeDir}>Change…</button>
+        </${StgRow}>
+        <${StgRow} label="Home File" desc="File opened at startup">
+          <span className="stg-path">${homeFile || html`<em style=${{ color: "var(--text-dim)" }}>not set</em>`}</span>
+          <button className="stg-btn" disabled=${!currentFile}
+                  onClick=${() => onSetHomeFile(currentFile)}
+                  title=${currentFile ? "Set \"" + currentFile + "\" as home file" : "Open a file first"}>
+            Set Current
+          </button>
+          ${homeFile && html`<button className="stg-btn stg-btn-clear" onClick=${() => onSetHomeFile(null)} title="Clear">×</button>`}
+        </${StgRow}>
+        <${StgRow} label="Journal Folder" desc="Folder for daily journal files">
+          <span className="stg-path">${journalDir || "(same as home folder)"}</span>
+          <button className="stg-btn" onClick=${onChangeJournalDir}>Change…</button>
+          ${journalDir && html`<button className="stg-btn stg-btn-clear" onClick=${onClearJournalDir} title="Reset to default">×</button>`}
+        </${StgRow}>
+      </div>
+      <div className="stg-section">
+        <p className="stg-section-title">Interface</p>
+        <${StgRow} label="Status bar">
+          <button className="stg-btn" onClick=${onToggleStatusBar}>
+            ${statusBarVisible ? "Visible" : "Hidden"}
+          </button>
+        </${StgRow}>
+      </div>
+      <div className="stg-section">
+        <p className="stg-section-title">Tag and Bookmark Lists</p>
+        <${StgRow} label="Tag List File" desc="Org file containing the tag list">
+          <span className="stg-path">${tagListFile || "(default: TagList.org)"}</span>
+          <button className="stg-btn" onClick=${onChangeTagListFile}>Change…</button>
+          ${tagListFile && html`<button className="stg-btn stg-btn-clear" onClick=${onClearTagListFile} title="Reset to default">×</button>`}
+        </${StgRow}>
+        <${StgRow} label="Bookmark List File" desc="Org file containing the bookmark list">
+          <span className="stg-path">${bookmarkListFile || "(default: Bookmarks.org)"}</span>
+          <button className="stg-btn" onClick=${onChangeBookmarkListFile}>Change…</button>
+          ${bookmarkListFile && html`<button className="stg-btn stg-btn-clear" onClick=${onClearBookmarkListFile} title="Reset to default">×</button>`}
+        </${StgRow}>
+      </div>
+      <div className="stg-section">
+        <p className="stg-section-title">Export</p>
+        <${StgRow} label="Export to HTML" desc="Save a standalone HTML file of this document">
+          <button className="stg-btn" disabled=${!currentFile}
+                  onClick=${() => { onExportToHtml?.(); onClose(); }}
+                  title=${!currentFile ? "Open a file first" : "Export current file to HTML"}>
+            Export…
+          </button>
+        </${StgRow}>
+        <${StgRow} label="Export to Org" desc="Save a local copy of the org file for backup">
+          <button className="stg-btn" disabled=${!currentFile}
+                  onClick=${() => { onExportToOrg?.(); onClose(); }}
+                  title=${!currentFile ? "Open a file first" : "Download org file"}>
+            Export…
+          </button>
+        </${StgRow}>
+      </div>
+    `;
+    if (section === "editor") return html`
+      <div className="stg-section">
+        <p className="stg-section-title">Date Stamp</p>
+        <${StgRow} label="Date format">
+          <div className="stg-segmented">
+            ${DATE_FMT_OPTIONS.map((opt) => html`
+              <button key=${opt.key}
+                      className=${"stg-segmented-btn" + (dateStampFmt?.date === opt.key ? " active" : "")}
+                      onClick=${() => onSetDateStampFmt({ ...dateStampFmt, date: opt.key })}>
+                ${opt.label}
               </button>
-            </div>
-            <div className=${"hamburger-menu-option hamburger-homefile-row" + (highlightSection === "homeFile" ? " hamburger-section-highlight" : "")}
-                 ref=${homeFileRowRef}>
-              <span>Home File</span>
-              <div className="homefile-controls">
-                <span className=${"homefile-name" + (homeFile ? "" : " homefile-name-empty")}>
-                  ${homeFile || "not set"}
-                </span>
-                <button className="homefile-set-btn"
-                        disabled=${!currentFile}
-                        onClick=${() => onSetHomeFile(currentFile)}
-                        title=${currentFile ? "Set \"" + currentFile + "\" as home file" : "Open a file first"}>
-                  Set current
-                </button>
-                ${homeFile && html`
-                  <button className="homefile-clear-btn" onClick=${() => onSetHomeFile(null)} title="Clear home file">×</button>
-                `}
-              </div>
-            </div>
-            <div className="hamburger-menu-option hamburger-homefolder-row">
-              <span>Journal Folder</span>
-              <div className="homefile-controls">
-                <button className="homefolder-path-btn" title="Click to set a custom journal folder" onClick=${onPickJournalDir}>
-                  ${journalDir || "(same as Home Folder)"}
-                </button>
-                ${journalDir && html`
-                  <button className="homefile-clear-btn" onClick=${onClearJournalDir} title="Reset to default (journal/ inside Home Folder)">×</button>
-                `}
-              </div>
-            </div>
-            <div className="hamburger-menu-option hamburger-homefolder-row">
-              <span>Tag List</span>
-              <div className="homefile-controls">
-                <button className="homefolder-path-btn" title="Click to choose a tag list .org file" onClick=${onPickTagListFile}>
-                  ${tagListFile ? pathBasename(tagListFile) : "TagList.org (default)"}
-                </button>
-                ${tagListFile && html`
-                  <button className="homefile-clear-btn" onClick=${onClearTagListFile} title="Reset to default (TagList.org in Home Folder)">×</button>
-                `}
-              </div>
-            </div>
-            <div className="hamburger-menu-option hamburger-homefolder-row">
-              <span>Bookmark List</span>
-              <div className="homefile-controls">
-                <button className="homefolder-path-btn" title="Click to choose a bookmark list .org file" onClick=${onPickBookmarkListFile}>
-                  ${bookmarkListFile ? pathBasename(bookmarkListFile) : "Bookmarks.org (default)"}
-                </button>
-                ${bookmarkListFile && html`
-                  <button className="homefile-clear-btn" onClick=${onClearBookmarkListFile} title="Reset to default (Bookmarks.org in Home Folder)">×</button>
-                `}
-              </div>
-            </div>
+            `)}
           </div>
-
-          <!-- ── Appearance (infrequent) ── -->
-          <div className="hamburger-section">
-            <div className="hamburger-menu-option hamburger-topbar-row">
-              <span>Top Bar Color</span>
-              <div className="topbar-color-chips">
-                <button className=${"topbar-chip topbar-chip-none" + (!topBarColor ? " active" : "")}
-                        onClick=${() => onSetTopBarColor(null)}>None</button>
-                ${["green", "blue", "red"].map((c) => html`
-                  <button key=${c}
-                          className=${"topbar-chip" + (topBarColor === c ? " active" : "")}
-                          style=${{ background: TOPBAR_COLORS[c] }}
-                          onClick=${() => onSetTopBarColor(c)}
-                          title=${c.charAt(0).toUpperCase() + c.slice(1)}></button>
-                `)}
-                <div className="topbar-chip-custom-wrap">
-                  <button className=${"topbar-chip topbar-chip-custom" + (isCustomColor ? " active" : "")}
-                          style=${isCustomColor ? { background: topBarColor } : {}}
-                          onClick=${() => colorInputRef.current?.click()}
-                          title=${isCustomColor ? "Custom: " + topBarColor : "Custom color…"}></button>
-                  <input ref=${colorInputRef} type="color" className="topbar-color-input-hidden"
-                         value=${isCustomColor ? topBarColor : "#225167"}
-                         onInput=${(e) => onSetTopBarColor(e.target.value)} />
-                </div>
-              </div>
-            </div>
-            <label className="hamburger-menu-option">
-              <input type="checkbox" checked=${readingWidth} onChange=${onToggleReadingWidth} />
-              <span>Reading width</span>
-            </label>
-            <button className="hamburger-about-btn" onClick=${() => { setOpen(false); onShowToolbarCustomizer?.(); }}>
-              Customize Toolbar…
-            </button>
-            <div className="hamburger-viewmode-row">
-              <span className="hamburger-viewmode-label">Stamp date</span>
-              <div className="hamburger-segmented">
-                ${DATE_FMT_OPTIONS.map((opt) => html`
-                  <button key=${opt.key}
-                          className=${"hamburger-segmented-btn" + (dateStampFmt?.date === opt.key ? " active" : "")}
-                          onClick=${() => onSetDateStampFmt({ ...dateStampFmt, date: opt.key })}>
-                    ${opt.label}
-                  </button>
-                `)}
-              </div>
-            </div>
-            <div className="hamburger-viewmode-row">
-              <span className="hamburger-viewmode-label">Stamp time</span>
-              <div className="hamburger-segmented">
-                ${TIME_FMT_OPTIONS.map((opt) => html`
-                  <button key=${opt.key}
-                          className=${"hamburger-segmented-btn" + (dateStampFmt?.time === opt.key ? " active" : "")}
-                          onClick=${() => onSetDateStampFmt({ ...dateStampFmt, time: opt.key })}>
-                    ${opt.label}
-                  </button>
-                `)}
-              </div>
-            </div>
+        </${StgRow}>
+        <${StgRow} label="Time format">
+          <div className="stg-segmented">
+            ${TIME_FMT_OPTIONS.map((opt) => html`
+              <button key=${opt.key}
+                      className=${"stg-segmented-btn" + (dateStampFmt?.time === opt.key ? " active" : "")}
+                      onClick=${() => onSetDateStampFmt({ ...dateStampFmt, time: opt.key })}>
+                ${opt.label}
+              </button>
+            `)}
           </div>
+        </${StgRow}>
+      </div>
+    `;
+    if (section === "keyboard") return html`
+      <div className="stg-section">
+        <p className="stg-section-title">Keyboard Shortcuts</p>
+        <${ShortcutPanel}
+          shortcutVer=${shortcutVer}
+          onUpdate=${onUpdateShortcut}
+          onReset=${onResetShortcut}
+          onResetAll=${onResetAllShortcuts} />
+      </div>
+    `;
+    if (section === "about") return html`
+      <div className="stg-section">
+        <p className="stg-section-title">About Epicorg</p>
+        <p style=${{ fontSize: "13px", color: "var(--text)", lineHeight: "1.6", marginBottom: "10px" }}>
+          Epicorg was originally prepared by Cassius Amicus in 2026 for his personal use in working with an outline of Epicurean philosophy.
+        </p>
+        <p style=${{ fontSize: "13px", color: "var(--text)", lineHeight: "1.6", marginBottom: "6px" }}>
+          As Epicurus wrote in his letter to Herodotus:
+        </p>
+        <blockquote className="about-quote" style=${{ margin: "0 0 12px 0" }}>
+          <p style=${{ fontSize: "13px", lineHeight: "1.6", marginBottom: "8px" }}>For those who are unable, Herodotus, to work in detail through all that I have written about nature, or to peruse the larger books which I have composed, I have already prepared at sufficient length an epitome of the whole system, that they may keep adequately in mind at least the most general principles in each department, in order that as occasion arises they may be able to assist themselves on the most important points, in so far as they undertake the study of nature. But those also who have made considerable progress in the survey of the main principles ought to bear in mind the scheme of the whole system set forth in its essentials. For we have frequent need of the general view, but not so often of the detailed exposition.</p>
+          <p style=${{ fontSize: "13px", lineHeight: "1.6" }}>Indeed it is necessary to go back on the main principles, and constantly to fix in one's memory enough to give one the most essential comprehension of the truth. And in fact the accurate knowledge of details will be fully discovered, if the general principles in the various departments are thoroughly grasped and borne in mind; for even in the case of one fully initiated the most essential feature in all accurate knowledge is the capacity to make a rapid use of observation and mental apprehension, and this can be done if everything is summed up in elementary principles and formulae. For it is not possible for anyone to abbreviate the complete course through the whole system, if he cannot embrace in his own mind by means of short formulae all that might be set out with accuracy in detail.</p>
+        </blockquote>
+        <p style=${{ fontSize: "13px", color: "var(--text)", lineHeight: "1.6", marginBottom: "6px" }}>
+          The significance of Epicurus was best expressed by Lucretius in his poem <em>On The Nature of Things</em>:
+        </p>
+        <blockquote className="about-quote" style=${{ margin: "0 0 12px 0" }}>
+          <p style=${{ fontSize: "13px", lineHeight: "1.6" }}>When human life lay foully grovelling upon the earth, crushed down by the weight of religion, which showed her face from the realms of heaven, glaring down dreadfully upon men, it was Epicurus who dared first to raise his mortal eyes to stand up against her. Neither the fables of the gods, nor thunderbolts, nor the threatening sky held him back, but instead spurred on his eager desire to be the first to burst through the close-set bolts upon the doors of Nature. And so it was that the living force of his mind won its way, and he passed on, far beyond the fiery walls of the world, and in mind and spirit traversed the boundless whole. From there in victory he returned, bringing us tidings of what can come to be and what cannot, and in what way each thing has its power limited as if by a deep-set boundary stone. And so false religion in revenge is cast beneath men's feet and trampled, and his victory raises us to the skies.</p>
+        </blockquote>
+        <p style=${{ fontSize: "13px", color: "var(--text)", lineHeight: "1.6", marginBottom: "10px" }}>
+          For more information about Epicurean philosophy please visit${" "}
+          <a href="https://www.epicurustoday.com" target="_blank" rel="noopener noreferrer"
+             style=${{ color: "var(--accent)" }}>EpicurusToday.com</a>${" "}
+          and${" "}
+          <a href="https://www.epicureanfriends.com" target="_blank" rel="noopener noreferrer"
+             style=${{ color: "var(--accent)" }}>EpicureanFriends.com</a>.
+        </p>
+        <p style=${{ fontSize: "12px", color: "var(--text-dim)", marginBottom: "4px" }}>
+          <a href="https://github.com/cassiusamicus/epicorg" target="_blank" rel="noopener noreferrer"
+             style=${{ color: "var(--accent)" }}>github.com/cassiusamicus/epicorg</a>
+          ${" — "}License: GPL-3.0
+        </p>
+      </div>
+    `;
+    return null;
+  };
 
-          <!-- ── Mobile-only: view switcher + panels + status ── -->
-          ${collapsed && html`
-            <div className="hamburger-section hamburger-mobile-only">
-              <div className="hamburger-segmented">
-                <button className=${"hamburger-segmented-btn" + (view === "outline" ? " active" : "")}
-                        onClick=${() => { setView("outline"); setOpen(false); }}><${IconOutline} /> Outline</button>
-                <button className=${"hamburger-segmented-btn" + (view === "agenda" ? " active" : "")}
-                        onClick=${() => { setView("agenda"); setOpen(false); }}><${IconAgenda} /> Agenda</button>
-                <button className=${"hamburger-segmented-btn" + (view === "todo" ? " active" : "")}
-                        onClick=${() => { setView("todo"); setOpen(false); }}><${IconTodo} /> TODO</button>
-                <button className=${"hamburger-segmented-btn" + (view === "journal" ? " active" : "")}
-                        onClick=${() => { setView("journal"); setOpen(false); }}><${IconJournal} /> Journal</button>
-              </div>
-              <div className="hamburger-mobile-panels">
-                <button className=${"hamburger-panel-btn" + (tagPanelVisible ? " active" : "")}
-                        onClick=${() => { onToggleTagPanel(); setOpen(false); }}
-                        disabled=${textMode}><${IconTag} /> Tag Panel</button>
-                <button className=${"hamburger-panel-btn" + (bookmarkPanelVisible ? " active" : "")}
-                        onClick=${() => { onToggleBookmarkPanel(); setOpen(false); }}
-                        disabled=${textMode}><${IconBookmark} /> Bookmark Panel</button>
-              </div>
-              <div className="hamburger-mobile-row">
-                <span>${SYNC_LABELS[syncStatus] || syncStatus}</span>
-                <button onClick=${() => { onHelp(); setOpen(false); }}>Commands</button>
-              </div>
-            </div>
-          `}
-
-          <!-- ── About / Tools ── -->
-          <div className="hamburger-section">
-            <button className="hamburger-about-btn"
-                    title="Use this option to save a local copy of the current org file for backup or other use."
-                    disabled=${!currentFile}
-                    onClick=${() => { setOpen(false); onExportToOrg?.(); }}>
-              Export to Local Org File
-            </button>
-            <button className="hamburger-about-btn"
-                    title="Save a standalone HTML file of this document"
-                    disabled=${!currentFile}
-                    onClick=${() => { setOpen(false); onExportToHtml?.(); }}>
-              Export to HTML
-            </button>
-            <button className="hamburger-about-btn" onClick=${() => { setOpen(false); onShowShortcutEditor?.(); }}>
-              Keyboard Shortcuts…
-            </button>
-            <button className="hamburger-about-btn" onClick=${() => { setOpen(false); setShowAbout(true); }}>
-              About Epicorg…
-            </button>
+  return html`
+    <div className="stg-overlay" onMouseDown=${(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="stg-modal">
+        <div className="stg-header">
+          <span className="stg-title">Settings</span>
+          <button className="stg-close" onClick=${onClose}>×</button>
+        </div>
+        <div className="stg-body">
+          <nav className="stg-nav">
+            ${STG_SECTIONS.map(s => html`
+              <button key=${s.id}
+                      className=${"stg-nav-item" + (section === s.id ? " active" : "")}
+                      onClick=${() => setSection(s.id)}>
+                ${s.label}
+              </button>
+            `)}
+          </nav>
+          <div className="stg-content">
+            ${renderSection()}
           </div>
         </div>
-        </div>
-      `}
+      </div>
+    </div>
+  `;
+}
 
-      ${showAbout && html`<${AboutModal} onClose=${() => setShowAbout(false)} />`}
+// ─── Hamburger menu ───────────────────────────────────────────────────────────
+function HamburgerMenu({ onOpenSettings }) {
+  return html`
+    <div className="hamburger-menu">
+      <button className="panel-toggle-btn" onClick=${() => onOpenSettings?.()} title="Settings">
+        <${IconHamburger} />
+      </button>
     </div>
   `;
 }
@@ -7211,7 +7594,7 @@ function OutlineActionsPanel({ onAction, focusedId, onClose }) {
   `;
 }
 
-function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer, onExportToOrg, onExportToHtml }) {
+function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat, globalFont, onSetGlobalFont, levelFonts, onSetLevelFont, globalColor, onSetGlobalColor, levelColors, onSetLevelColor, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer, onExportToOrg, onExportToHtml, onOpenSettings }) {
   // Whether the toolbar/search/etc. actually fit is measured, not
   // guessed from viewport width — a long filename or a pile of tags
   // eats into the same space a phone-width media query would assume is
@@ -7279,7 +7662,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
           ${toolbarConfig.home && html`
             <div className="view-toggle">
               <button className=${"view-tab" + (homeFile && currentFile === homeFile ? " active" : "") + (!homeFile ? " toolbar-home-unset" : "")}
-                      onClick=${() => homeFile ? onGoHome() : setOpenHamburgerSection("homeFile")}
+                      onClick=${() => homeFile ? onGoHome() : onOpenSettings?.()}
                       title=${homeFile ? "Go home: " + homeFile : "No home file set — click to configure"}><${IconHome} /></button>
             </div>
           `}
@@ -7383,36 +7766,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
         </div>
       `}
       <div className="header-right" ref=${headerRightRef}>
-        <${HamburgerMenu} outlineFormat=${outlineFormat} onSetOutlineFormat=${onSetOutlineFormat} levelFormats=${levelFormats} onSetLevelFormat=${onSetLevelFormat}
-          verticalLines=${verticalLines} onToggleVerticalLines=${onToggleVerticalLines}
-          showTagChips=${showTagChips} onToggleShowTagChips=${onToggleShowTagChips}
-          tagsOnRight=${tagsOnRight} onToggleTagsOnRight=${onToggleTagsOnRight}
-          collapsed=${collapsed}
-          view=${view} setView=${setView}
-          titleFormatMode=${titleFormatMode} onToggleTitleFormat=${onToggleTitleFormat}
-          textMode=${textMode} onToggleTextMode=${onToggleTextMode} onCycleViewMode=${onCycleViewMode} onSetViewMode=${onSetViewMode}
-          notesVisible=${notesVisible} onToggleNotesVisible=${onToggleNotesVisible}
-          isHoisted=${isHoisted} canToggleHoist=${canToggleHoist} onToggleHoist=${onToggleHoist}
-          readingWidth=${readingWidth} onToggleReadingWidth=${onToggleReadingWidth}
-          onFoldToLevel=${onFoldToLevel}
-          searchQuery=${searchQuery} setSearchQuery=${setSearchQuery}
-          allTags=${allTags} selectedTags=${selectedTags} onToggleTag=${onToggleTag}
-          theme=${theme} onToggleTheme=${onToggleTheme} onHelp=${onHelp} syncStatus=${syncStatus}
-          topBarColor=${topBarColor} onSetTopBarColor=${onSetTopBarColor}
-          homeDir=${homeDir} onPickHomeDir=${onPickHomeDir}
-          journalDir=${journalDir} onPickJournalDir=${onPickJournalDir} onClearJournalDir=${onClearJournalDir}
-          tagListFile=${tagListFile} onPickTagListFile=${onPickTagListFile} onClearTagListFile=${onClearTagListFile}
-          bookmarkListFile=${bookmarkListFile} onPickBookmarkListFile=${onPickBookmarkListFile} onClearBookmarkListFile=${onClearBookmarkListFile}
-          tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${onToggleTagPanel}
-          bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${onToggleBookmarkPanel}
-          homeFile=${homeFile} currentFile=${currentFile} onSetHomeFile=${onSetHomeFile}
-          openToSection=${openHamburgerSection} onSectionOpened=${() => setOpenHamburgerSection(null)}
-          statusBarVisible=${statusBarVisible} onToggleStatusBar=${onToggleStatusBar}
-          dateStampFmt=${dateStampFmt} onSetDateStampFmt=${onSetDateStampFmt}
-          onShowShortcutEditor=${onShowShortcutEditor}
-          onShowToolbarCustomizer=${onShowToolbarCustomizer}
-          onExportToOrg=${onExportToOrg}
-          onExportToHtml=${onExportToHtml} />
+        <${HamburgerMenu} onOpenSettings=${onOpenSettings} />
         <button className="panel-toggle-btn" onClick=${onHelp} title="Command palette — search and run any command (Ctrl+H)"><${IconCommandPalette} /></button>
         ${currentFile && html`
           <button className=${"panel-toggle-btn" + (tagPanelVisible && !textMode ? " active" : "") + (selectedTags.length > 0 ? " has-filter" : "")}
