@@ -143,6 +143,88 @@ func (s *Store) BacklinkSearch(title, selfFile string) ([]TextSearchResult, erro
 	return results, err
 }
 
+// UnlinkedMentions finds nodes where title appears as plain text but no formal
+// [[Title]] or [[file:selfFile]] link exists in that node. Used to surface
+// potential connections the user hasn't linked yet.
+func (s *Store) UnlinkedMentions(title, selfFile string) ([]TextSearchResult, error) {
+	if title == "" {
+		return nil, nil
+	}
+	titleLower := strings.ToLower(title)
+	formalPats := []string{strings.ToLower("[[" + title + "]]")}
+	if selfFile != "" {
+		formalPats = append(formalPats, strings.ToLower("[[file:"+selfFile))
+	}
+	dir := s.Dir()
+	var results []TextSearchResult
+
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, werr error) error {
+		if werr != nil {
+			return nil
+		}
+		if d.IsDir() {
+			if d.Name() != "." && strings.HasPrefix(d.Name(), ".") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(d.Name(), ".org") {
+			return nil
+		}
+		rel, err := filepath.Rel(dir, path)
+		if err != nil {
+			return nil
+		}
+		rel = filepath.ToSlash(rel)
+		if rel == selfFile {
+			return nil
+		}
+		data, err := readFileSafe(path)
+		if err != nil {
+			return nil
+		}
+		content := string(data)
+		if !strings.Contains(strings.ToLower(content), titleLower) {
+			return nil
+		}
+		doc := parseOrg(content, d.Name())
+		items := model.FromDocument(doc)
+		for i, item := range items {
+			if item.IsBody {
+				continue
+			}
+			body := ""
+			if i+1 < len(items) && items[i+1].IsBody {
+				body = items[i+1].Title
+			}
+			combined := item.Title + "\n" + body
+			combinedLower := strings.ToLower(combined)
+			if !strings.Contains(combinedLower, titleLower) {
+				continue
+			}
+			hasFormal := false
+			for _, p := range formalPats {
+				if strings.Contains(combinedLower, p) {
+					hasFormal = true
+					break
+				}
+			}
+			if hasFormal {
+				continue
+			}
+			ctx := buildContext([]string{title}, item.Title, body)
+			results = append(results, TextSearchResult{
+				File:     rel,
+				Title:    item.Title,
+				Context:  ctx,
+				InSubdir: strings.Contains(rel, "/"),
+			})
+		}
+		return nil
+	})
+	return results, err
+}
+
 // wikiTitle extracts #+TITLE: from preamble, falling back to a humanized filename.
 func wikiTitle(content, filename string) string {
 	for _, line := range strings.SplitN(content, "\n", 30) {

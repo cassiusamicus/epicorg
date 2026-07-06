@@ -494,6 +494,21 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
                  if (imgPopup) { setImgPopup(null); return; }
                  dispatch(node.id, "edit-body");
                }}
+               onMouseOver=${(e) => {
+                 const wikiEl = e.target.closest(".wiki-link");
+                 if (!wikiEl) return;
+                 document.body.dispatchEvent(new CustomEvent("epicWikiHover", {
+                   detail: { name: wikiEl.dataset.wiki, rect: wikiEl.getBoundingClientRect(), over: true },
+                 }));
+               }}
+               onMouseOut=${(e) => {
+                 const wikiEl = e.target.closest(".wiki-link");
+                 if (!wikiEl) return;
+                 if (e.relatedTarget?.closest?.(".wiki-hover-popup")) return;
+                 document.body.dispatchEvent(new CustomEvent("epicWikiHover", {
+                   detail: { name: wikiEl.dataset.wiki, over: false },
+                 }));
+               }}
                dangerouslySetInnerHTML=${{ __html: tree.renderOrgBody(node.body) }} />
         `
         : html`
@@ -3228,7 +3243,7 @@ function SidebarFileRow({ name, active, isFavorite, onSelect, onToggleFavorite, 
   `;
 }
 
-function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavorite, bookmarks, onNavigateToBookmark, onDeleteBookmark, onReorderBookmarks, bookmarkPanelVisible, onToggleBookmarkPanel, textMode, onToggleSidebar, onOpenTodayJournal, onOpenJournalList, onRenameFile, onClearRecentFiles }) {
+function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavorite, bookmarks, onNavigateToBookmark, onDeleteBookmark, onReorderBookmarks, bookmarkPanelVisible, onToggleBookmarkPanel, textMode, onToggleSidebar, onOpenTodayJournal, onOpenJournalList, onRenameFile, onClearRecentFiles, onOpenQuickSwitcher }) {
   const dragIndexRef = useRef(null);
   const [renameConfirm, setRenameConfirm] = useState(null); // { oldName, newName }
   const [renameBusy, setRenameBusy] = useState(false);
@@ -3255,6 +3270,8 @@ function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavori
         <button className=${"panel-toggle-btn" + (bookmarkPanelVisible && !textMode ? " active" : "")}
                 onClick=${onToggleBookmarkPanel} disabled=${textMode}
                 title=${textMode ? "Not available in reveal codes mode" : "Bookmark panel"}><${IconBookmark} /></button>
+        <button className="panel-toggle-btn" onClick=${onOpenQuickSwitcher}
+                title="Quick switcher (Ctrl+K)"><${IconLightning} /></button>
       </div>
       <div className="sidebar-section">
         <div className="sidebar-section-header">
@@ -3774,6 +3791,10 @@ function App() {
   const wikiPickerTargetRef = useRef(null); // { textarea, cursorPos }
   const [wikiEntries, setWikiEntries] = useState([]);
   const wikiEntriesRef = useRef([]);
+  const [showQuickSwitcher, setShowQuickSwitcher] = useState(false);
+  const [hoverPopup, setHoverPopup] = useState(null);
+  const hoverTimerRef = useRef(null);
+  const previewCacheRef = useRef(new Map());
   const [navState, navDispatch] = useReducer(navReducer, { history: [], index: -1 });
   const histNavRef = useRef(false); // true while back/forward is in progress (suppresses push)
   const [searchQuery, setSearchQuery] = useState("");
@@ -4711,10 +4732,49 @@ function App() {
       const entry = wikiEntriesRef.current.find(
         (en) => en.title.toLowerCase() === name.toLowerCase()
       );
-      if (entry) loadFileRef.current?.(entry.file);
+      if (entry) { setHoverPopup(null); loadFileRef.current?.(entry.file); }
     };
     document.body.addEventListener("epicWikiNav", handler);
     return () => document.body.removeEventListener("epicWikiNav", handler);
+  }, []);
+
+  // Hover preview: show a popup with the linked note's content after a short delay.
+  useEffect(() => {
+    const onHover = (e) => {
+      const { name, rect, over } = e.detail;
+      if (over) {
+        clearTimeout(hoverTimerRef.current);
+        const entry = wikiEntriesRef.current.find((en) => en.title.toLowerCase() === name.toLowerCase());
+        if (!entry) return;
+        hoverTimerRef.current = setTimeout(async () => {
+          let data = previewCacheRef.current.get(entry.file);
+          if (!data) {
+            try {
+              data = await api.get(`/api/doc/${encodeURIComponent(entry.file)}`);
+              previewCacheRef.current.set(entry.file, data);
+            } catch { return; }
+          }
+          setHoverPopup({ rect, data, title: entry.title, file: entry.file });
+        }, 350);
+      } else {
+        clearTimeout(hoverTimerRef.current);
+        hoverTimerRef.current = setTimeout(() => setHoverPopup(null), 120);
+      }
+    };
+    document.body.addEventListener("epicWikiHover", onHover);
+    return () => { document.body.removeEventListener("epicWikiHover", onHover); clearTimeout(hoverTimerRef.current); };
+  }, []);
+
+  // Ctrl+K quick switcher.
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === "k" && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        setShowQuickSwitcher((s) => !s);
+      }
+    };
+    document.addEventListener("keydown", handler, true);
+    return () => document.removeEventListener("keydown", handler, true);
   }, []);
 
   const runTextSearch = useCallback(async (query) => {
@@ -6107,6 +6167,19 @@ function App() {
           onCreate=${createNoteForWikiLink}
           onCancel=${() => setShowWikiPicker(false)} />
       `}
+      ${showQuickSwitcher && html`
+        <${QuickSwitcher}
+          entries=${wikiEntries}
+          currentFile=${currentFile}
+          onSelect=${(file) => { setShowQuickSwitcher(false); loadFile(file); }}
+          onCancel=${() => setShowQuickSwitcher(false)} />
+      `}
+      ${hoverPopup && html`
+        <${WikiHoverPopup}
+          popup=${hoverPopup}
+          onMouseEnter=${() => clearTimeout(hoverTimerRef.current)}
+          onMouseLeave=${() => { hoverTimerRef.current = setTimeout(() => setHoverPopup(null), 120); }} />
+      `}
       <div className="app-layout">
         ${sidebarVisible && html`
           <${Sidebar} favorites=${validFavorites} recentFiles=${validRecentFiles} currentFile=${currentFile}
@@ -6122,7 +6195,8 @@ function App() {
             }}
             onOpenJournalList=${() => setView("journal")}
             onRenameFile=${handleRenameFile}
-            onClearRecentFiles=${clearRecentFiles} />
+            onClearRecentFiles=${clearRecentFiles}
+            onOpenQuickSwitcher=${() => setShowQuickSwitcher(true)} />
         `}
         ${bookmarkPanelVisible && !textMode && html`
           <${BookmarkPanel} globalBMs=${globalBMs}
@@ -6543,6 +6617,11 @@ function IconModeReveal() {
 
 function IconFormatted() { return html`<${IconModeFormatted} />`; }
 function IconTextMode()   { return html`<${IconModeReveal} />`; }
+function IconLightning() {
+  return html`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+  </svg>`;
+}
 
 // Hoist: corners point inward (toward each other) when off — clicking
 // narrows the view. Once hoisted, they point outward — clicking expands
@@ -6674,6 +6753,106 @@ function IconPin() {
   `;
 }
 
+// Hover preview popup for wiki-links — appears after a short delay when hovering [[Title]].
+function WikiHoverPopup({ popup, onMouseEnter, onMouseLeave }) {
+  const { rect, data, title } = popup;
+  const nodes = (data.nodes || []).slice(0, 5);
+  const W = 320, margin = 10;
+  let left = rect.left;
+  if (left + W > window.innerWidth - margin) left = window.innerWidth - W - margin;
+  left = Math.max(margin, left);
+  const spaceBelow = window.innerHeight - rect.bottom - margin;
+  const showAbove = spaceBelow < 220 && rect.top > 220;
+
+  return html`
+    <div className="wiki-hover-popup"
+         style=${{
+           left: left + "px",
+           top: showAbove ? rect.top - margin + "px" : rect.bottom + margin + "px",
+           transform: showAbove ? "translateY(-100%)" : "none",
+         }}
+         onMouseEnter=${onMouseEnter}
+         onMouseLeave=${onMouseLeave}>
+      <div className="whp-title">${title}</div>
+      ${nodes.length > 0 ? html`
+        <div className="whp-nodes">
+          ${nodes.map((n, i) => html`
+            <div key=${i} className="whp-node">
+              <span className="whp-bullet">·</span>
+              <span className="whp-text"
+                    dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(n.title) }} />
+              ${n.body ? html`<div className="whp-body">${n.body.length > 120 ? n.body.slice(0, 120) + "…" : n.body}</div>` : null}
+            </div>
+          `)}
+          ${(data.nodes || []).length > 5 ? html`
+            <div className="whp-more">…${(data.nodes || []).length - 5} more items</div>
+          ` : null}
+        </div>
+      ` : html`<div className="whp-empty">Empty note</div>`}
+    </div>
+  `;
+}
+
+// Quick switcher — Ctrl+K opens a modal to jump to any note by title.
+function QuickSwitcher({ entries, currentFile, onSelect, onCancel }) {
+  const [filter, setFilter] = useState("");
+  const [highlighted, setHighlighted] = useState(0);
+  const inputRef = useRef(null);
+  const listRef = useRef(null);
+
+  useEffect(() => { requestAnimationFrame(() => inputRef.current?.focus()); }, []);
+
+  const filtered = useMemo(() => {
+    const q = filter.toLowerCase();
+    return entries.filter((e) =>
+      !q || e.title.toLowerCase().includes(q) || e.file.toLowerCase().includes(q)
+    );
+  }, [entries, filter]);
+
+  useEffect(() => { setHighlighted(0); }, [filter]);
+
+  useEffect(() => {
+    listRef.current?.children[highlighted]?.scrollIntoView({ block: "nearest" });
+  }, [highlighted]);
+
+  const onKeyDown = (e) => {
+    if (e.key === "Escape") { e.preventDefault(); onCancel(); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); setHighlighted((h) => Math.min(h + 1, filtered.length - 1)); return; }
+    if (e.key === "ArrowUp") { e.preventDefault(); setHighlighted((h) => Math.max(h - 1, 0)); return; }
+    if (e.key === "Enter") { e.preventDefault(); if (filtered[highlighted]) onSelect(filtered[highlighted].file); return; }
+  };
+
+  return html`
+    <div className="folder-picker-overlay"
+         onMouseDown=${(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="quick-switcher">
+        <input ref=${inputRef} className="qs-input" type="search"
+               placeholder="Jump to note…"
+               value=${filter}
+               autoComplete="off"
+               data-form-type="other"
+               data-lpignore="true"
+               data-bwignore="true"
+               onInput=${(e) => setFilter(e.target.value)}
+               onKeyDown=${onKeyDown} />
+        <div className="qs-list" ref=${listRef}>
+          ${filtered.map((entry, i) => html`
+            <div key=${entry.file}
+                 className=${"qs-item" + (i === highlighted ? " highlighted" : "") + (entry.file === currentFile ? " qs-current" : "")}
+                 onClick=${() => onSelect(entry.file)}
+                 onMouseEnter=${() => setHighlighted(i)}>
+              <span className="qs-title">${entry.title}</span>
+              <span className="qs-file">${entry.file}</span>
+            </div>
+          `)}
+          ${filtered.length === 0 && html`<div className="qs-empty">No notes match</div>`}
+        </div>
+        <div className="qs-hint">↑↓ navigate · Enter open · Esc dismiss · Ctrl+K toggle</div>
+      </div>
+    </div>
+  `;
+}
+
 // Wiki-link picker — triggered by typing [[ in a node body textarea.
 // Shows a filterable list of note titles; selecting one inserts [[Title]].
 function WikiLinkPicker({ entries, onSelect, onCreate, onCancel }) {
@@ -6759,43 +6938,70 @@ function WikiLinkPicker({ entries, onSelect, onCreate, onCancel }) {
   `;
 }
 
-// Backlinks section — shows other notes that link to the current file.
-// Rendered at the bottom of the outline content area.
+// Backlinks section — shows linked references and unlinked mentions at the
+// bottom of the outline. Both are fetched together when the current file changes.
 function BacklinksSection({ currentFile, wikiEntries, onNavigate }) {
   const [backlinks, setBacklinks] = useState(null);
+  const [unlinked, setUnlinked] = useState(null);
   const [open, setOpen] = useState(true);
+  const [unlinkedOpen, setUnlinkedOpen] = useState(false);
 
   useEffect(() => {
-    if (!currentFile) { setBacklinks([]); return; }
+    if (!currentFile) { setBacklinks([]); setUnlinked([]); return; }
     const entry = wikiEntries.find((e) => e.file === currentFile);
-    if (!entry) { setBacklinks([]); return; }
+    if (!entry) { setBacklinks([]); setUnlinked([]); return; }
+    const qs = `file=${encodeURIComponent(currentFile)}&title=${encodeURIComponent(entry.title)}`;
     setBacklinks(null);
-    api.get(
-      `/api/backlinks?file=${encodeURIComponent(currentFile)}&title=${encodeURIComponent(entry.title)}`
-    )
-      .then((data) => setBacklinks(data.backlinks || []))
+    setUnlinked(null);
+    api.get(`/api/backlinks?${qs}`)
+      .then((d) => setBacklinks(d.backlinks || []))
       .catch(() => setBacklinks([]));
+    api.get(`/api/unlinked?${qs}`)
+      .then((d) => setUnlinked(d.mentions || []))
+      .catch(() => setUnlinked([]));
   }, [currentFile, wikiEntries]);
 
-  if (!backlinks || backlinks.length === 0) return null;
+  const hasBacklinks = backlinks && backlinks.length > 0;
+  const hasUnlinked = unlinked && unlinked.length > 0;
+  if (!hasBacklinks && !hasUnlinked) return null;
 
   return html`
     <div className="backlinks-section">
-      <div className="backlinks-header" onClick=${() => setOpen((o) => !o)}>
-        <span className="backlinks-title">
-          ${open ? "▾" : "▸"} Linked References (${backlinks.length})
-        </span>
-      </div>
-      ${open && html`
-        <div className="backlinks-list">
-          ${backlinks.map((bl, i) => html`
-            <div key=${i} className="backlink-item" onClick=${() => onNavigate(bl.file)}>
-              <span className="backlink-file">${bl.file.replace(/\.org$/, "")}</span>
-              <span className="backlink-node-title">${bl.title}</span>
-              ${bl.context ? html`<span className="backlink-context">${bl.context}</span>` : null}
-            </div>
-          `)}
+      ${hasBacklinks && html`
+        <div className="backlinks-header" onClick=${() => setOpen((o) => !o)}>
+          <span className="backlinks-title">
+            ${open ? "▾" : "▸"} Linked References (${backlinks.length})
+          </span>
         </div>
+        ${open && html`
+          <div className="backlinks-list">
+            ${backlinks.map((bl, i) => html`
+              <div key=${i} className="backlink-item" onClick=${() => onNavigate(bl.file)}>
+                <span className="backlink-file">${bl.file.replace(/\.org$/, "")}</span>
+                <span className="backlink-node-title">${bl.title}</span>
+                ${bl.context ? html`<span className="backlink-context">${bl.context}</span>` : null}
+              </div>
+            `)}
+          </div>
+        `}
+      `}
+      ${hasUnlinked && html`
+        <div className="backlinks-header" onClick=${() => setUnlinkedOpen((o) => !o)}>
+          <span className="backlinks-title unlinked-title">
+            ${unlinkedOpen ? "▾" : "▸"} Unlinked Mentions (${unlinked.length})
+          </span>
+        </div>
+        ${unlinkedOpen && html`
+          <div className="backlinks-list">
+            ${unlinked.map((bl, i) => html`
+              <div key=${i} className="backlink-item unlinked-item" onClick=${() => onNavigate(bl.file)}>
+                <span className="backlink-file">${bl.file.replace(/\.org$/, "")}</span>
+                <span className="backlink-node-title">${bl.title}</span>
+                ${bl.context ? html`<span className="backlink-context">${bl.context}</span>` : null}
+              </div>
+            `)}
+          </div>
+        `}
       `}
     </div>
   `;

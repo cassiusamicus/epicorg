@@ -201,6 +201,15 @@ func Register(mux *http.ServeMux, store *orgfile.Store, onSave func(), defaultFi
 		h.backlinks(w, r)
 	})
 
+	// Unlinked mentions: find nodes that mention the title as plain text without a formal link.
+	mux.HandleFunc("/api/unlinked", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		h.unlinkedMentions(w, r)
+	})
+
 	// Full-text search — scans all .org files for nodes matching a query.
 	mux.HandleFunc("/api/search/text", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {

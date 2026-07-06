@@ -5905,3 +5905,30 @@ a.wiki-link:hover { border-bottom-style: solid; }
 .backlink-file { font-size: 11px; color: var(--accent); font-weight: 600; }
 .backlink-node-title { font-size: 13px; color: var(--text); }
 .backlink-context { font-size: 12px; color: var(--text-dim); font-style: italic; margin-top: 2px; }
+/* Unlinked mentions sub-section */
+.unlinked-title { font-size: 11px; font-weight: 600; color: var(--text-dim); letter-spacing: 0.04em; text-transform: uppercase; padding: 10px 4px 6px; cursor: pointer; user-select: none; }
+.unlinked-item { border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; transition: background 0.1s; }
+.unlinked-item:hover { background: var(--focused-bg); }
+/* Wiki hover popup */
+.wiki-hover-popup { position: fixed; z-index: 10000; width: 320px; background: var(--panel-bg, var(--bg)); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); padding: 12px 14px; pointer-events: auto; }
+.whp-title { font-weight: 600; font-size: 14px; color: var(--text); margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+.whp-nodes { display: flex; flex-direction: column; gap: 4px; }
+.whp-node { display: flex; gap: 6px; align-items: baseline; }
+.whp-bullet { color: var(--bullet); font-size: 11px; flex-shrink: 0; margin-top: 1px; }
+.whp-text { font-size: 13px; color: var(--text); line-height: 1.4; }
+.whp-body { font-size: 12px; color: var(--text-dim); white-space: pre-wrap; overflow: hidden; max-height: 3em; line-height: 1.4; }
+.whp-more { font-size: 11px; color: var(--text-dim); margin-top: 6px; font-style: italic; }
+.whp-empty { font-size: 12px; color: var(--text-dim); font-style: italic; }
+/* Quick switcher — .folder-picker-overlay handles the full-screen backdrop */
+.quick-switcher { background: var(--panel-bg, var(--bg)); border-radius: 10px; box-shadow: 0 12px 48px rgba(0,0,0,0.3); width: min(480px, 90vw); display: flex; flex-direction: column; overflow: hidden; }
+.qs-input { width: 100%; padding: 14px 16px; border: none; border-bottom: 1px solid var(--border); background: none; color: var(--text); font-size: 15px; outline: none; }
+.qs-input::placeholder { color: var(--text-dim); }
+.qs-input::-webkit-search-cancel-button { display: none; }
+.qs-list { max-height: 380px; overflow-y: auto; }
+.qs-item { display: flex; flex-direction: column; gap: 1px; padding: 9px 16px; cursor: pointer; transition: background 0.08s; }
+.qs-item:hover, .qs-item.highlighted { background: var(--focused-bg); }
+.qs-item.highlighted { background: color-mix(in srgb, var(--accent) 12%, var(--bg)); }
+.qs-title { font-size: 13px; color: var(--text); font-weight: 500; }
+.qs-file { font-size: 11px; color: var(--text-dim); }
+.qs-empty { padding: 20px 16px; font-size: 13px; color: var(--text-dim); text-align: center; }
+.qs-hint { display: flex; justify-content: flex-end; padding: 6px 12px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-dim); }
