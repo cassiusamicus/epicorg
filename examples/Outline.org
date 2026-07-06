@@ -874,3 +874,6 @@ Epicurus in his Problems declares that the wise man is a theatre-lover, who gets
 *** Epicurus :Epicurus:
 *** Metrodorus :Metrodorus:
 *** Hermarchus :Hermarchus:
+*** 
+*** 
+This is a test of adding an image

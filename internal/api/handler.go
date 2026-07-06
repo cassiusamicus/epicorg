@@ -582,7 +582,7 @@ func (h *handlers) browseDir(w http.ResponseWriter, r *http.Request) {
 		}
 		if e.IsDir() {
 			dirs = append(dirs, e.Name())
-		} else if ext != "" && strings.HasSuffix(e.Name(), ext) {
+		} else if ext == "" || strings.HasSuffix(e.Name(), ext) {
 			files = append(files, e.Name())
 		}
 	}
@@ -674,4 +674,44 @@ func extractFilesName(path string) string {
 		return ""
 	}
 	return strings.TrimPrefix(path, prefix)
+}
+
+var allowedImageMIME = map[string]string{
+	".png":  "image/png",
+	".jpg":  "image/jpeg",
+	".jpeg": "image/jpeg",
+	".gif":  "image/gif",
+	".svg":  "image/svg+xml",
+	".webp": "image/webp",
+	".bmp":  "image/bmp",
+	".tif":  "image/tiff",
+	".tiff": "image/tiff",
+}
+
+func (h *handlers) serveMedia(w http.ResponseWriter, r *http.Request) {
+	relPath := strings.TrimPrefix(r.URL.Path, "/api/media/")
+	relPath = filepath.Clean(relPath)
+	if relPath == "." || relPath == "" || filepath.IsAbs(relPath) || strings.HasPrefix(relPath, "..") {
+		http.Error(w, "invalid path", http.StatusBadRequest)
+		return
+	}
+	mimeType, ok := allowedImageMIME[strings.ToLower(filepath.Ext(relPath))]
+	if !ok {
+		http.Error(w, "not an image type", http.StatusForbidden)
+		return
+	}
+	storeDir := filepath.Clean(h.store.Dir()) + string(filepath.Separator)
+	fullPath := filepath.Join(h.store.Dir(), relPath)
+	if !strings.HasPrefix(fullPath, storeDir) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	data, err := os.ReadFile(fullPath)
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", mimeType)
+	w.Header().Set("Cache-Control", "max-age=3600")
+	w.Write(data)
 }

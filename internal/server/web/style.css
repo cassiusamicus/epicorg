@@ -3424,6 +3424,232 @@ body.dnd-dragging, body.dnd-dragging * { cursor: grabbing !important; user-selec
   border-radius: 3px;
 }
 
+/* Inline image blocks in body preview */
+.org-img-block {
+  white-space: normal;
+  margin: 10px 0;
+  line-height: 0;
+  cursor: pointer;
+  position: relative;
+}
+.org-img-block.org-img-center {
+  text-align: center;
+}
+.org-img-block.org-img-right {
+  text-align: right;
+}
+.org-inline-img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  display: inline-block;
+  vertical-align: middle;
+}
+.org-img-block::after {
+  content: "✎";
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 13px;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  border-radius: 4px;
+  padding: 1px 5px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+.org-img-block:hover::after {
+  opacity: 1;
+}
+.img-edit-popup {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 230px;
+}
+.img-edit-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.img-edit-align {
+  display: flex;
+  gap: 4px;
+}
+.img-edit-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.img-edit-close:hover { color: var(--text); }
+.img-browse-selected {
+  font-size: 11px;
+  color: var(--accent);
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 2px;
+}
+
+/* Insert Image dialog */
+.img-insert-dialog {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 420px;
+  max-width: 92vw;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.28);
+  display: flex;
+  flex-direction: column;
+}
+.img-insert-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.img-insert-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+.img-insert-body {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.img-insert-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  display: block;
+  margin-bottom: 4px;
+}
+.img-insert-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--input-bg, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 6px 8px;
+  outline: none;
+}
+.img-insert-input:focus {
+  border-color: var(--accent);
+}
+.img-insert-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.img-insert-width {
+  width: 100px;
+  background: var(--input-bg, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 5px 8px;
+  outline: none;
+}
+.img-insert-width:focus {
+  border-color: var(--accent);
+}
+.img-insert-align {
+  display: flex;
+  gap: 6px;
+}
+.img-align-btn {
+  padding: 4px 14px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--panel-bg);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.img-align-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.img-insert-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+.img-insert-ok {
+  background: var(--accent) !important;
+  color: #fff !important;
+}
+.img-insert-ok:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.img-browse-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.img-browse-up {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--panel-bg);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+.img-browse-path {
+  font-size: 11px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.img-browse-list {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  height: 150px;
+  overflow-y: auto;
+  background: var(--input-bg, var(--bg));
+}
+.img-browse-dir, .img-browse-file {
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+}
+.img-browse-dir:hover, .img-browse-file:hover {
+  background: var(--hover-bg, rgba(128,128,128,0.12));
+}
+.img-browse-file.active {
+  background: var(--accent);
+  color: #fff;
+}
+
 /* Properties editor */
 .props-editor {
   border: 1px solid var(--border);

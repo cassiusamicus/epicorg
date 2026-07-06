@@ -551,6 +551,119 @@ const MARKUP_RE = /\*([^\s*][^*]*?)\*|\/([^\s/][^/]*?)\/|_([^\s_][^_]*?)_|=([^\s
 // link placeholders so the markup regex above doesn't reprocess link content.
 const LINK_PLACEHOLDER = String.fromCharCode(1);
 
+const IMAGE_EXTS_RE = /\.(?:png|gif|jpe?g|svg|tiff?|webp|bmp)$/i;
+const ATTR_ORG_LINE_RE = /^#\+ATTR_ORG:\s*(.+)$/i;
+const ATTR_HTML_LINE_RE = /^#\+ATTR_HTML:\s*(.+)$/i;
+const IMAGE_LINK_LINE_RE = /^\[\[file:([^\]]+)\]\]$/i;
+
+// Render body text that may contain inline images (#+ATTR_* + [[file:...]] blocks).
+// Image blocks are extracted as <div> elements; everything else goes through
+// renderOrgInline so org markup is still processed.
+export function renderOrgBody(text) {
+  if (!text) return "";
+  const lines = text.split("\n");
+  const outputParts = [];
+  const pendingLines = [];
+  let imgIndex = 0;
+
+  const flushPending = () => {
+    if (pendingLines.length === 0) return;
+    outputParts.push(renderOrgInline(pendingLines.join("\n")));
+    pendingLines.length = 0;
+  };
+
+  let i = 0;
+  while (i < lines.length) {
+    let j = i;
+    let attrOrg = null, attrHtml = null;
+
+    const orgM = ATTR_ORG_LINE_RE.exec(lines[j]);
+    if (orgM) { attrOrg = orgM[1]; j++; }
+
+    if (j < lines.length) {
+      const htmlM = ATTR_HTML_LINE_RE.exec(lines[j]);
+      if (htmlM) { attrHtml = htmlM[1]; j++; }
+    }
+
+    const imgLine = j < lines.length ? lines[j] : null;
+    const imgM = imgLine ? IMAGE_LINK_LINE_RE.exec(imgLine) : null;
+    if (imgM && IMAGE_EXTS_RE.test(imgM[1])) {
+      const filePath = imgM[1];
+      const widthM = attrOrg && attrOrg.match(/:width\s+(\d+)/i);
+      const width = widthM ? parseInt(widthM[1]) : null;
+      const isCenter = !!(attrHtml && /margin\s*:\s*(?:0\s+)?auto/i.test(attrHtml));
+      const isRight = !isCenter && !!(attrHtml && /margin-left\s*:\s*auto/i.test(attrHtml));
+      const encodedPath = filePath.split("/").map(encodeURIComponent).join("/");
+      let style = "";
+      if (width) style += `max-width:${width}px;width:100%;`;
+      if (isCenter) style += "display:block;margin:0 auto;";
+      else if (isRight) style += "display:block;margin-left:auto;";
+      const imgTag = `<img src="/api/media/${encodedPath}" alt="${escapeHtml(filePath)}"${style ? ` style="${style}"` : ""} class="org-inline-img" />`;
+      const cls = `org-img-block${isCenter ? " org-img-center" : isRight ? " org-img-right" : ""}`;
+
+      flushPending();
+      outputParts.push(`<div class="${cls}" data-img-index="${imgIndex++}">${imgTag}</div>`);
+      i = j + 1;
+      continue;
+    }
+
+    pendingLines.push(lines[i]);
+    i++;
+  }
+
+  flushPending();
+  return outputParts.join("\n");
+}
+
+// Parse image blocks from org body text. Returns array of { startLine, endLine, filePath, width, align }.
+export function parseImageBlocks(text) {
+  if (!text) return [];
+  const lines = text.split("\n");
+  const blocks = [];
+  let i = 0;
+  while (i < lines.length) {
+    let j = i;
+    let attrOrg = null, attrHtml = null;
+    const orgM = ATTR_ORG_LINE_RE.exec(lines[j]);
+    if (orgM) { attrOrg = orgM[1]; j++; }
+    if (j < lines.length) {
+      const htmlM = ATTR_HTML_LINE_RE.exec(lines[j]);
+      if (htmlM) { attrHtml = htmlM[1]; j++; }
+    }
+    const imgLine = j < lines.length ? lines[j] : null;
+    const imgM = imgLine ? IMAGE_LINK_LINE_RE.exec(imgLine) : null;
+    if (imgM && IMAGE_EXTS_RE.test(imgM[1])) {
+      const widthM = attrOrg && attrOrg.match(/:width\s+(\d+)/i);
+      const isCenter = !!(attrHtml && /margin\s*:\s*(?:0\s+)?auto/i.test(attrHtml));
+      const isRight = !isCenter && !!(attrHtml && /margin-left\s*:\s*auto/i.test(attrHtml));
+      blocks.push({
+        startLine: i, endLine: j,
+        filePath: imgM[1],
+        width: widthM ? parseInt(widthM[1]) : null,
+        align: isCenter ? "center" : isRight ? "right" : "left",
+      });
+      i = j + 1;
+      continue;
+    }
+    i++;
+  }
+  return blocks;
+}
+
+// Replace image block at blockIndex with new width/align, preserving file path and surrounding text.
+export function updateImageBlock(text, blockIndex, { width, align }) {
+  const blocks = parseImageBlocks(text);
+  if (blockIndex < 0 || blockIndex >= blocks.length) return text;
+  const block = blocks[blockIndex];
+  const lines = text.split("\n");
+  const newLines = [];
+  if (width) newLines.push(`#+ATTR_ORG: :width ${width}`);
+  if (align === "center") newLines.push(`#+ATTR_HTML: :style "display:block;margin:0 auto;"`);
+  else if (align === "right") newLines.push(`#+ATTR_HTML: :style "display:block;margin-left:auto;"`);
+  newLines.push(`[[file:${block.filePath}]]`);
+  return [...lines.slice(0, block.startLine), ...newLines, ...lines.slice(block.endLine + 1)].join("\n");
+}
+
 export function renderOrgInline(text) {
   if (!text) return "";
 

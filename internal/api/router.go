@@ -74,6 +74,15 @@ func Register(mux *http.ServeMux, store *orgfile.Store, onSave func(), defaultFi
 		h.parseText(w, r)
 	})
 
+	// Serve image files from the workspace directory for inline display.
+	mux.HandleFunc("/api/media/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		h.serveMedia(w, r)
+	})
+
 	// Opens a local file path with xdg-open (system default handler).
 	mux.HandleFunc("/api/open", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

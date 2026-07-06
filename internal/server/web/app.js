@@ -259,9 +259,195 @@ function NoteContextMenu({ x, y, sel, textarea, onCommit, onClose }) {
   `;
 }
 
+const IMAGE_EXTS_BROWSE = new Set(["png","jpg","jpeg","gif","svg","webp","bmp","tif","tiff"]);
+
+function InsertImageDialog({ onInsert, onClose }) {
+  const [selectedPath, setSelectedPath] = useState("");
+  const [width, setWidth] = useState("");
+  const [align, setAlign] = useState("left");
+  const rootRef = useRef("");
+  const [rootState, setRootState] = useState("");
+  const [currentAbs, setCurrentAbs] = useState("");
+  const [dirs, setDirs] = useState([]);
+  const [imgFiles, setImgFiles] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const browse = useCallback(async (pathArg) => {
+    setLoading(true);
+    try {
+      const url = pathArg != null ? "/api/browse?path=" + encodeURIComponent(pathArg) : "/api/browse?path=";
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!rootRef.current) { rootRef.current = data.path; setRootState(data.path); }
+      setCurrentAbs(data.path);
+      setDirs(data.dirs || []);
+      setImgFiles((data.files || []).filter(f => IMAGE_EXTS_BROWSE.has(f.split(".").pop().toLowerCase())));
+    } catch {}
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    browse(null);
+    const onKey = e => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  const relPath = (filename) => {
+    const rel = rootState && currentAbs.startsWith(rootState)
+      ? currentAbs.slice(rootState.length).replace(/^\/+/, "") : "";
+    return rel ? rel + "/" + filename : filename;
+  };
+
+  const canGoUp = rootState && currentAbs && currentAbs !== rootState;
+  const currentRel = rootState && currentAbs.startsWith(rootState)
+    ? currentAbs.slice(rootState.length).replace(/^\/+/, "") : "";
+
+  const doInsert = () => {
+    const p = selectedPath.trim();
+    if (!p) return;
+    const lines = [];
+    const w = parseInt(width) || null;
+    if (w) lines.push(`#+ATTR_ORG: :width ${w}`);
+    if (align === "center") lines.push(`#+ATTR_HTML: :style "display:block;margin:0 auto;"`);
+    else if (align === "right") lines.push(`#+ATTR_HTML: :style "display:block;margin-left:auto;"`);
+    lines.push(`[[file:${p}]]`);
+    onInsert(lines.join("\n"));
+    onClose();
+  };
+
+  return html`
+    <div className="folder-picker-overlay"
+         onMouseDown=${(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="img-insert-dialog">
+        <div className="img-insert-header">
+          <span className="img-insert-title">Insert Image</span>
+          <button className="folder-picker-close" onClick=${onClose}>×</button>
+        </div>
+        <div className="img-insert-body">
+          <div>
+            <div className="img-browse-nav">
+              ${canGoUp ? html`
+                <button className="img-browse-up"
+                        onClick=${() => { const p = currentAbs.split("/"); p.pop(); browse(p.join("/")); }}>
+                  ↑ Up
+                </button>
+              ` : null}
+              <span className="img-browse-path">${currentRel || "workspace root"}</span>
+            </div>
+            <div className="img-browse-list">
+              ${loading && html`<div className="folder-picker-loading">Loading…</div>`}
+              ${!loading && dirs.map((d) => html`
+                <div key=${"d:" + d} className="img-browse-dir"
+                     onClick=${() => browse(currentAbs + "/" + d)}>
+                  📁 ${d}
+                </div>
+              `)}
+              ${!loading && imgFiles.map((f) => {
+                const p = relPath(f);
+                return html`
+                  <div key=${"f:" + f}
+                       className=${"img-browse-file" + (selectedPath === p ? " active" : "")}
+                       onClick=${() => setSelectedPath(p)}>
+                    🖼 ${f}
+                  </div>
+                `;
+              })}
+              ${!loading && dirs.length === 0 && imgFiles.length === 0 && html`
+                <div className="folder-picker-empty">No images in this folder</div>
+              `}
+            </div>
+            ${selectedPath ? html`<div className="img-browse-selected">📌 ${selectedPath}</div>` : null}
+          </div>
+          <div className="img-insert-row">
+            <label className="img-insert-label">Width (px, blank = natural size)</label>
+            <input type="number" className="img-insert-width"
+                   placeholder="e.g. 400" min="1" max="9999"
+                   value=${width}
+                   onInput=${(e) => setWidth(e.target.value)} />
+          </div>
+          <div className="img-insert-row">
+            <label className="img-insert-label">Alignment</label>
+            <div className="img-insert-align">
+              <button className=${"img-align-btn" + (align === "left" ? " active" : "")}
+                      onClick=${() => setAlign("left")}>Left</button>
+              <button className=${"img-align-btn" + (align === "center" ? " active" : "")}
+                      onClick=${() => setAlign("center")}>Center</button>
+              <button className=${"img-align-btn" + (align === "right" ? " active" : "")}
+                      onClick=${() => setAlign("right")}>Right</button>
+            </div>
+          </div>
+          <div className="img-insert-footer">
+            <button className="stg-btn" onClick=${onClose}>Cancel</button>
+            <button className="stg-btn img-insert-ok"
+                    disabled=${!selectedPath}
+                    onClick=${doInsert}>Insert</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function ImageEditPopup({ imgIndex, block, nodeBody, rect, onUpdate, onClose }) {
+  const [widthInput, setWidthInput] = useState(block.width ? String(block.width) : "");
+
+  useEffect(() => {
+    const onKey = e => { if (e.key === "Escape") onClose(); };
+    const onScroll = () => onClose();
+    const onMouseDown = e => {
+      if (!e.target.closest(".img-edit-popup") && !e.target.closest(".org-img-block")) onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, true);
+    document.addEventListener("mousedown", onMouseDown);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
+      document.removeEventListener("mousedown", onMouseDown);
+    };
+  }, []);
+
+  const applyAlign = (a) => {
+    const w = parseInt(widthInput) || null;
+    onUpdate(tree.updateImageBlock(nodeBody, imgIndex, { width: w, align: a }));
+  };
+
+  const applyWidth = () => {
+    const w = parseInt(widthInput) || null;
+    onUpdate(tree.updateImageBlock(nodeBody, imgIndex, { width: w, align: block.align }));
+  };
+
+  const left = Math.min(rect.left, window.innerWidth - 270);
+  const top = (window.innerHeight - rect.bottom >= 110) ? rect.bottom + 6 : Math.max(4, rect.top - 106);
+
+  return html`
+    <div className="img-edit-popup" style=${{ position: "fixed", left, top, zIndex: 9500 }}
+         onMouseDown=${e => e.stopPropagation()}>
+      <span className="img-edit-label">Align</span>
+      <div className="img-edit-align">
+        <button className=${"img-align-btn" + (block.align === "left" ? " active" : "")}
+                onClick=${() => applyAlign("left")}>Left</button>
+        <button className=${"img-align-btn" + (block.align === "center" ? " active" : "")}
+                onClick=${() => applyAlign("center")}>Center</button>
+        <button className=${"img-align-btn" + (block.align === "right" ? " active" : "")}
+                onClick=${() => applyAlign("right")}>Right</button>
+      </div>
+      <span className="img-edit-label">Width px</span>
+      <input type="number" className="img-insert-width" placeholder="auto"
+             min="1" max="9999" value=${widthInput}
+             onInput=${e => setWidthInput(e.target.value)}
+             onBlur=${applyWidth}
+             onKeyDown=${e => { if (e.key === "Enter") { applyWidth(); onClose(); } }} />
+      <button className="img-edit-close" title="Close" onClick=${onClose}>✕</button>
+    </div>
+  `;
+}
+
 function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notesVisible, depth, bodyRefs }) {
   const localRef = useRef(null);
   const [ctxMenu, setCtxMenu] = useState(null);
+  const [imgPopup, setImgPopup] = useState(null); // { index, rect }
 
   useEffect(() => {
     adjustTextareaHeight(localRef.current);
@@ -289,8 +475,18 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
         ? html`
           <div className="node-body-preview"
                data-node-id=${node.id}
-               onClick=${() => dispatch(node.id, "edit-body")}
-               dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(node.body) }} />
+               onClick=${(e) => {
+                 const imgBlock = e.target.closest(".org-img-block");
+                 if (imgBlock) {
+                   const idx = parseInt(imgBlock.dataset.imgIndex);
+                   const blocks = tree.parseImageBlocks(node.body);
+                   if (blocks[idx]) setImgPopup({ index: idx, rect: imgBlock.getBoundingClientRect() });
+                   return;
+                 }
+                 if (imgPopup) { setImgPopup(null); return; }
+                 dispatch(node.id, "edit-body");
+               }}
+               dangerouslySetInnerHTML=${{ __html: tree.renderOrgBody(node.body) }} />
         `
         : html`
           <textarea
@@ -311,9 +507,6 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
             }}
             onBlur=${() => {
               dispatch(node.id, "stop-edit-body");
-              // If the blur was caused by tab-switching (not clicking elsewhere in
-              // the page), keep the note visible in preview mode so it survives the
-              // round-trip and the user can resume editing when they return.
               if (!document.hasFocus()) dispatch(node.id, "preview-body");
             }}
             onKeyDown=${(e) => {
@@ -324,6 +517,14 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
           />
           <button className="body-fn-btn" title="Insert footnote reference [fn:N]"
                   onMouseDown=${(e) => { e.preventDefault(); localRef.current?.focus(); triggerInsertFootnote(); }}>fn</button>
+          <button className="body-fn-btn" title="Insert inline image"
+                  onMouseDown=${(e) => {
+                    e.preventDefault();
+                    const ta = localRef.current;
+                    document.body.dispatchEvent(new CustomEvent("epicInsertImage", {
+                      detail: { nodeId: node.id, cursorPos: ta ? ta.selectionStart : (node.body || "").length, body: node.body || "" }
+                    }));
+                  }}>img</button>
         `}
     </div>
     ${ctxMenu && html`<${NoteContextMenu}
@@ -337,6 +538,17 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
         });
       }}
       onClose=${() => setCtxMenu(null)} />`}
+    ${imgPopup && (() => {
+      const blocks = tree.parseImageBlocks(node.body);
+      const block = blocks[imgPopup.index];
+      return block ? html`<${ImageEditPopup}
+        imgIndex=${imgPopup.index}
+        block=${block}
+        nodeBody=${node.body}
+        rect=${imgPopup.rect}
+        onUpdate=${(newBody) => dispatch(node.id, "change-body", newBody)}
+        onClose=${() => setImgPopup(null)} />` : null;
+    })()}
   `;
 }
 
@@ -3787,6 +3999,28 @@ function App() {
     return () => document.body.removeEventListener("epicInsertFootnote", handler);
   }, []);
 
+  // Insert image: show dialog at App level to avoid NodeBody unmounting it.
+  const [imgInsertState, setImgInsertState] = useState(null);
+
+  const confirmInsertImage = useCallback((orgText) => {
+    if (!imgInsertState) return;
+    const { nodeId, cursorPos, body } = imgInsertState;
+    const before = body.slice(0, cursorPos);
+    const after = body.slice(cursorPos);
+    const pre = before.length > 0 && !before.endsWith("\n") ? "\n" : "";
+    const post = after.length > 0 && !after.startsWith("\n") ? "\n" : "";
+    dispatch(nodeId, "change-body", before + pre + orgText + post + after);
+    setImgInsertState(null);
+  }, [imgInsertState]); // dispatch is stable (declared later in component, safe to omit)
+
+  const imgInsertHandlerRef = useRef(null);
+  useEffect(() => { imgInsertHandlerRef.current = (e) => setImgInsertState(e.detail); });
+  useEffect(() => {
+    const handler = (e) => imgInsertHandlerRef.current?.(e);
+    document.body.addEventListener("epicInsertImage", handler);
+    return () => document.body.removeEventListener("epicInsertImage", handler);
+  }, []);
+
   // Date stamp
   const [dateStampFmt, setDateStampFmtState] = useState(getDateStampFmt);
   const setDateStampFmt = useCallback((fmt) => {
@@ -6009,6 +6243,7 @@ function App() {
     </div>
     ${fnPopup && html`<${FootnotePopup} popup=${fnPopup} onClose=${() => setFnPopup(null)} onSave=${saveFootnoteDef} />`}
     ${fnInsertPopup && html`<${FootnoteInsertPopup} popup=${fnInsertPopup} onInsert=${confirmInsertFootnote} onClose=${() => setFnInsertPopup(null)} />`}
+    ${imgInsertState && html`<${InsertImageDialog} onInsert=${confirmInsertImage} onClose=${() => setImgInsertState(null)} />`}
     ${dragVisual && html`
       <div className="dnd-ghost" style=${{ left: dragVisual.ghostX + 14, top: dragVisual.ghostY }}>
         ${dragVisual.ghostTitle || html`<em>untitled</em>`}
@@ -7084,7 +7319,7 @@ function SettingsModal({
       </div>
       <div className="stg-section">
         <p className="stg-section-title">Outline Options</p>
-        <${StgRow} label="Show notes inline" desc="Body text visible under each item">
+        <${StgRow} label="Show body text and images" desc="Display body text and images beneath each heading">
           <input type="checkbox" checked=${notesVisible} onChange=${onToggleNotesVisible}
                  disabled=${textMode || view !== "outline"} />
         </${StgRow}>
@@ -7695,7 +7930,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
               <button className=${"view-tab" + (notesVisible && !textMode ? " active" : "")}
                       disabled=${textMode}
                       onClick=${onToggleNotesVisible}
-                      title=${textMode ? "Not available in reveal codes mode" : notesVisible ? "Hide notes" : "Show notes inline"}><${IconNotes} /></button>
+                      title=${textMode ? "Not available in reveal codes mode" : notesVisible ? "Hide body text and images" : "Show body text and images under each heading"}><${IconNotes} /></button>
               <button className=${"view-tab" + (isHoisted ? " active" : "")}
                       onClick=${onToggleHoist} disabled=${!canToggleHoist || textMode}
                       title=${textMode ? "Not available in reveal codes mode" : isHoisted ? "Show full outline again" : "Hoist — isolate the focused item and its children"}>
