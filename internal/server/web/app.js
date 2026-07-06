@@ -6871,7 +6871,9 @@ function App() {
           onFoldToLevel=${foldToLevel}
           onExportToOrg=${exportToOrg} onExportToHtml=${exportToHtml}
           tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${toggleTagPanel}
-          bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${toggleBookmarkPanel} />
+          bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${toggleBookmarkPanel}
+          workspaceConfig=${workspaceConfig}
+          onConfigureWorkspace=${() => { setShowSettings(false); setShowWorkspaceModal(true); }} />
       `}
     </div>
     ${fnPopup && html`<${FootnotePopup} popup=${fnPopup} onClose=${() => setFnPopup(null)} onSave=${saveFootnoteDef} />`}
@@ -8363,6 +8365,7 @@ function SettingsModal({
   onExportToOrg, onExportToHtml,
   tagPanelVisible, onToggleTagPanel,
   bookmarkPanelVisible, onToggleBookmarkPanel,
+  workspaceConfig, onConfigureWorkspace,
 }) {
   const [section, setSection] = useState("view");
   const colorInputRef = useRef(null);
@@ -8592,6 +8595,18 @@ function SettingsModal({
           <span className="stg-path">${journalDir || "(same as home folder)"}</span>
           <button className="stg-btn" onClick=${onChangeJournalDir}>Change…</button>
           ${journalDir && html`<button className="stg-btn stg-btn-clear" onClick=${onClearJournalDir} title="Reset to default">×</button>`}
+        </${StgRow}>
+        <${StgRow} label="Search Paths" desc="Folders included in file listing and search">
+          ${(() => {
+            if (!workspaceConfig) return html`<span className="stg-path">—</span>`;
+            const inc = (workspaceConfig.paths || []).filter(p => p.included);
+            const exc = (workspaceConfig.paths || []).filter(p => !p.included);
+            const summary = (inc.length === 1 && exc.length === 0)
+              ? "1 folder (home folder only)"
+              : inc.length + " folder" + (inc.length === 1 ? "" : "s") + (exc.length ? " · " + exc.length + " excluded" : "");
+            return html`<span className="stg-path">${summary}</span>`;
+          })()}
+          <button className="stg-btn" onClick=${onConfigureWorkspace}>Configure…</button>
         </${StgRow}>
       </div>
       <div className="stg-section">
