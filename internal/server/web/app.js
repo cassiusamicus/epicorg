@@ -196,15 +196,17 @@ function triggerInsertFootnote() {
   document.body.dispatchEvent(new CustomEvent("epicInsertFootnote"));
 }
 
-// Fire a custom event so the App can show the file-link picker without
+// Fire a custom event so the App can show the link picker without
 // prop-drilling a callback through the entire OutlineNode tree.
-function triggerLinkPicker(textarea, e) {
+// isBody=true fires epicWikiLinkTrigger (note titles); otherwise epicLinkTrigger (file links).
+function triggerLinkPicker(textarea, e, isBody) {
   // Don't trigger while deleting — only on insertion.
   const inputType = e?.nativeEvent?.inputType ?? "";
   if (inputType.startsWith("delete")) return;
   const pos = textarea.selectionStart;
   if (!textarea.value.substring(0, pos).endsWith("[[")) return;
-  document.body.dispatchEvent(new CustomEvent("epicLinkTrigger", {
+  const eventName = isBody ? "epicWikiLinkTrigger" : "epicLinkTrigger";
+  document.body.dispatchEvent(new CustomEvent(eventName, {
     detail: { textarea, cursorPos: pos },
   }));
 }
@@ -476,6 +478,12 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
           <div className="node-body-preview"
                data-node-id=${node.id}
                onClick=${(e) => {
+                 const wikiEl = e.target.closest(".wiki-link");
+                 if (wikiEl) {
+                   e.preventDefault();
+                   document.body.dispatchEvent(new CustomEvent("epicWikiNav", { detail: { name: wikiEl.dataset.wiki } }));
+                   return;
+                 }
                  const imgBlock = e.target.closest(".org-img-block");
                  if (imgBlock) {
                    const idx = parseInt(imgBlock.dataset.imgIndex);
@@ -498,7 +506,7 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
             className="node-body-textarea"
             value=${node.body || ""}
             placeholder="Add notes..."
-            onChange=${(e) => { dispatch(node.id, "change-body", tree.orgifyPaths(e.target.value)); triggerLinkPicker(e.target, e); }}
+            onChange=${(e) => { dispatch(node.id, "change-body", tree.orgifyPaths(e.target.value)); triggerLinkPicker(e.target, e, true); }}
             onContextMenu=${(e) => {
               e.preventDefault();
               const ta = e.target;
@@ -3762,6 +3770,10 @@ function App() {
   const [searchResults, setSearchResults] = useState(null);
   const [showLinkPicker, setShowLinkPicker] = useState(false);
   const linkPickerTargetRef = useRef(null); // { textarea, cursorPos }
+  const [showWikiPicker, setShowWikiPicker] = useState(false);
+  const wikiPickerTargetRef = useRef(null); // { textarea, cursorPos }
+  const [wikiEntries, setWikiEntries] = useState([]);
+  const wikiEntriesRef = useRef([]);
   const [navState, navDispatch] = useReducer(navReducer, { history: [], index: -1 });
   const histNavRef = useRef(false); // true while back/forward is in progress (suppresses push)
   const [searchQuery, setSearchQuery] = useState("");
@@ -4646,6 +4658,64 @@ function App() {
     setFiles(data.files || []);
     insertFileLink(filename, title);
   }, [insertFileLink]);
+
+  // Wiki-link picker: opens when [[ is typed in a body textarea.
+  useEffect(() => {
+    const handler = (e) => {
+      wikiPickerTargetRef.current = e.detail;
+      setShowWikiPicker(true);
+    };
+    document.body.addEventListener("epicWikiLinkTrigger", handler);
+    return () => document.body.removeEventListener("epicWikiLinkTrigger", handler);
+  }, []);
+
+  // Keep wikiEntriesRef in sync for use in the nav handler (avoids re-registering).
+  useEffect(() => { wikiEntriesRef.current = wikiEntries; }, [wikiEntries]);
+
+  // Refresh wiki entries when the file list changes.
+  useEffect(() => {
+    api.get("/api/wikilinks").then((data) => setWikiEntries(Array.isArray(data) ? data : [])).catch(() => {});
+  }, [files]);
+
+  const insertWikiLink = useCallback((title) => {
+    const target = wikiPickerTargetRef.current;
+    setShowWikiPicker(false);
+    if (!target) return;
+    const { textarea, cursorPos } = target;
+    const link = `[[${title}]]`;
+    const before = textarea.value.substring(0, cursorPos - 2); // -2 removes the [[
+    const after = textarea.value.substring(cursorPos);
+    const proto = window.HTMLTextAreaElement.prototype;
+    Object.getOwnPropertyDescriptor(proto, "value").set.call(textarea, before + link + after);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    const newCursor = before.length + link.length;
+    requestAnimationFrame(() => { textarea.focus(); textarea.setSelectionRange(newCursor, newCursor); });
+  }, []);
+
+  const createNoteForWikiLink = useCallback(async (title) => {
+    const filename = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") + ".org";
+    try {
+      await api.post("/api/files", { filename, title });
+      const data = await api.get("/api/files");
+      setFiles(data.files || []);
+    } catch {}
+    insertWikiLink(title);
+  }, [insertWikiLink]);
+
+  // Navigate to a note when a wiki-link is clicked in any body preview.
+  // Uses the existing loadFileRef (declared later, kept in sync there) — the closure
+  // captures the binding without triggering TDZ; the ref is set before any click can fire.
+  useEffect(() => {
+    const handler = (e) => {
+      const name = e.detail.name;
+      const entry = wikiEntriesRef.current.find(
+        (en) => en.title.toLowerCase() === name.toLowerCase()
+      );
+      if (entry) loadFileRef.current?.(entry.file);
+    };
+    document.body.addEventListener("epicWikiNav", handler);
+    return () => document.body.removeEventListener("epicWikiNav", handler);
+  }, []);
 
   const runTextSearch = useCallback(async (query) => {
     setShowTextSearch(false);
@@ -6030,6 +6100,13 @@ function App() {
           onCreate=${createFileForLink}
           onCancel=${() => setShowLinkPicker(false)} />
       `}
+      ${showWikiPicker && html`
+        <${WikiLinkPicker}
+          entries=${wikiEntries}
+          onSelect=${insertWikiLink}
+          onCreate=${createNoteForWikiLink}
+          onCancel=${() => setShowWikiPicker(false)} />
+      `}
       <div className="app-layout">
         ${sidebarVisible && html`
           <${Sidebar} favorites=${validFavorites} recentFiles=${validRecentFiles} currentFile=${currentFile}
@@ -6104,6 +6181,12 @@ function App() {
                   globalFont=${globalFont} levelFonts=${levelFonts}
                   globalColor=${globalColor} levelColors=${levelColors} />
               `)}
+              ${!isFiltering && currentFile && html`
+                <${BacklinksSection}
+                  currentFile=${currentFile}
+                  wikiEntries=${wikiEntries}
+                  onNavigate=${loadFile} />
+              `}
             </div>
           </div>
         `}
@@ -6588,6 +6671,133 @@ function IconPin() {
       <line x1="12" y1="17" x2="12" y2="22" />
       <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
     </svg>
+  `;
+}
+
+// Wiki-link picker — triggered by typing [[ in a node body textarea.
+// Shows a filterable list of note titles; selecting one inserts [[Title]].
+function WikiLinkPicker({ entries, onSelect, onCreate, onCancel }) {
+  const [filter, setFilter] = useState("");
+  const [highlighted, setHighlighted] = useState(0);
+  const inputRef = useRef(null);
+  const listRef = useRef(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const filtered = entries.filter((e) =>
+    !filter || e.title.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  useEffect(() => { setHighlighted(0); }, [filter]);
+
+  useEffect(() => {
+    const el = listRef.current?.children[highlighted];
+    el?.scrollIntoView({ block: "nearest" });
+  }, [highlighted]);
+
+  const trimmed = filter.trim();
+  const exactMatch = filtered.some((e) => e.title.toLowerCase() === trimmed.toLowerCase());
+  const showCreate = !!trimmed && !exactMatch;
+  const totalItems = filtered.length + (showCreate ? 1 : 0);
+
+  const onKeyDown = (e) => {
+    if (e.key === "Escape") { e.preventDefault(); onCancel(); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); setHighlighted((h) => Math.min(h + 1, totalItems - 1)); return; }
+    if (e.key === "ArrowUp") { e.preventDefault(); setHighlighted((h) => Math.max(h - 1, 0)); return; }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (highlighted < filtered.length) onSelect(filtered[highlighted].title);
+      else if (showCreate) onCreate(trimmed);
+      return;
+    }
+  };
+
+  return html`
+    <div className="folder-picker-overlay"
+         onMouseDown=${(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="file-link-picker">
+        <div className="text-search-header">
+          <span className="text-search-title">Link to Note</span>
+          <button className="folder-picker-close" onClick=${onCancel}>×</button>
+        </div>
+        <div className="file-link-picker-body">
+          <input
+            ref=${inputRef}
+            className="text-search-input"
+            type="text"
+            placeholder="Search notes by title…"
+            value=${filter}
+            onInput=${(e) => setFilter(e.target.value)}
+            onKeyDown=${onKeyDown}
+          />
+          <div className="file-link-list" ref=${listRef}>
+            ${filtered.map((entry, i) => html`
+              <div key=${entry.file}
+                   className=${"file-link-item" + (i === highlighted ? " highlighted" : "")}
+                   onClick=${() => onSelect(entry.title)}
+                   onMouseEnter=${() => setHighlighted(i)}>
+                <span className="file-link-filename">${entry.title}</span>
+                <span className="file-link-ext" style=${{ marginLeft: "auto", color: "var(--text-dim)", fontSize: "11px" }}>${entry.file}</span>
+              </div>
+            `)}
+            ${showCreate ? html`
+              <div className=${"file-link-item file-link-create-item" + (highlighted >= filtered.length ? " highlighted" : "")}
+                   onClick=${() => onCreate(trimmed)}
+                   onMouseEnter=${() => setHighlighted(filtered.length)}>
+                <span className="file-link-create-icon">＋</span>
+                <span className="file-link-create-label">Create note </span>
+                <span className="file-link-filename">${trimmed}</span>
+              </div>
+            ` : filtered.length === 0 ? html`
+              <div className="file-link-empty">No notes match "${filter}"</div>
+            ` : null}
+          </div>
+          <div className="file-link-hint">↑↓ to navigate · Enter to select · Esc to dismiss</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Backlinks section — shows other notes that link to the current file.
+// Rendered at the bottom of the outline content area.
+function BacklinksSection({ currentFile, wikiEntries, onNavigate }) {
+  const [backlinks, setBacklinks] = useState(null);
+  const [open, setOpen] = useState(true);
+
+  useEffect(() => {
+    if (!currentFile) { setBacklinks([]); return; }
+    const entry = wikiEntries.find((e) => e.file === currentFile);
+    if (!entry) { setBacklinks([]); return; }
+    setBacklinks(null);
+    api.get(
+      `/api/backlinks?file=${encodeURIComponent(currentFile)}&title=${encodeURIComponent(entry.title)}`
+    )
+      .then((data) => setBacklinks(data.backlinks || []))
+      .catch(() => setBacklinks([]));
+  }, [currentFile, wikiEntries]);
+
+  if (!backlinks || backlinks.length === 0) return null;
+
+  return html`
+    <div className="backlinks-section">
+      <div className="backlinks-header" onClick=${() => setOpen((o) => !o)}>
+        <span className="backlinks-title">
+          ${open ? "▾" : "▸"} Linked References (${backlinks.length})
+        </span>
+      </div>
+      ${open && html`
+        <div className="backlinks-list">
+          ${backlinks.map((bl, i) => html`
+            <div key=${i} className="backlink-item" onClick=${() => onNavigate(bl.file)}>
+              <span className="backlink-file">${bl.file.replace(/\.org$/, "")}</span>
+              <span className="backlink-node-title">${bl.title}</span>
+              ${bl.context ? html`<span className="backlink-context">${bl.context}</span>` : null}
+            </div>
+          `)}
+        </div>
+      `}
+    </div>
   `;
 }
 

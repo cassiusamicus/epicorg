@@ -632,6 +632,36 @@ func (h *handlers) searchTag(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{"results": results})
 }
 
+func (h *handlers) wikiLinks(w http.ResponseWriter, r *http.Request) {
+	entries, err := h.store.WikiLinkEntries()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if entries == nil {
+		entries = []orgfile.WikiLinkEntry{}
+	}
+	writeJSON(w, entries)
+}
+
+func (h *handlers) backlinks(w http.ResponseWriter, r *http.Request) {
+	title := r.URL.Query().Get("title")
+	file := r.URL.Query().Get("file")
+	if title == "" {
+		http.Error(w, "missing title parameter", http.StatusBadRequest)
+		return
+	}
+	results, err := h.store.BacklinkSearch(title, file)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if results == nil {
+		results = []orgfile.TextSearchResult{}
+	}
+	writeJSON(w, map[string]interface{}{"backlinks": results})
+}
+
 func (h *handlers) getAgenda(w http.ResponseWriter, r *http.Request) {
 	items, err := h.store.ScanAgenda()
 	if err != nil {

@@ -183,6 +183,24 @@ func Register(mux *http.ServeMux, store *orgfile.Store, onSave func(), defaultFi
 		h.browseDir(w, r)
 	})
 
+	// Wiki-links: list all notes with titles for the link picker.
+	mux.HandleFunc("/api/wikilinks", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		h.wikiLinks(w, r)
+	})
+
+	// Backlinks: find all nodes that reference a given note title via [[title]].
+	mux.HandleFunc("/api/backlinks", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		h.backlinks(w, r)
+	})
+
 	// Full-text search — scans all .org files for nodes matching a query.
 	mux.HandleFunc("/api/search/text", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {

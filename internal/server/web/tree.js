@@ -689,7 +689,8 @@ export function renderOrgInline(text) {
         html = `<a href="${url}" class="org-file-link" title="${escapeHtml(path)}" target="_blank" rel="noopener">${label}</a>`;
       }
     } else {
-      html = match;
+      // Wiki-link: [[Note Name]] — internal link to another note by title
+      html = `<a href="#" class="wiki-link" data-wiki="${url}">${label}</a>`;
     }
     links.push(html);
     return LINK_PLACEHOLDER + links.length + LINK_PLACEHOLDER;
