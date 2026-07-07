@@ -3366,25 +3366,26 @@ function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavori
           `)}
         </div>
       `}
-      ${(savedSearches && savedSearches.length > 0) && html`
-        <div className="sidebar-section">
-          <div className="sidebar-section-header">
-            <span className="sidebar-section-icon">⭐</span>
-            <span>Saved Searches</span>
-          </div>
-          ${savedSearches.map((s) => html`
-            <div key=${s.id} className="sidebar-item sidebar-saved-search" onClick=${() => onRunSavedSearch?.(s)}>
-              <span className="sidebar-item-main">
-                <span className="sidebar-item-icon">⌕</span>
-                <span className="sidebar-item-name" title=${s.query + " (" + (s.scope === "note" ? "this file" : "all files") + ")"}>${s.name}</span>
-                <span className="sidebar-saved-search-scope">${s.scope === "note" ? "file" : "all"}</span>
-              </span>
-              <button className="sidebar-saved-search-del" title="Delete saved search"
-                      onClick=${(e) => { e.stopPropagation(); onDeleteSavedSearch?.(s.id); }}>×</button>
-            </div>
-          `)}
+      <div className="sidebar-section">
+        <div className="sidebar-section-header">
+          <span className="sidebar-section-icon">⭐</span>
+          <span>Saved Searches</span>
         </div>
-      `}
+        ${(!savedSearches || savedSearches.length === 0)
+          ? html`<div className="sidebar-empty">Use ☆ in the search panel to save a query here</div>`
+          : savedSearches.map((s) => html`
+              <div key=${s.id} className="sidebar-item sidebar-saved-search" onClick=${() => onRunSavedSearch?.(s)}>
+                <span className="sidebar-item-main">
+                  <span className="sidebar-item-icon">⌕</span>
+                  <span className="sidebar-item-name" title=${s.query + " (" + (s.scope === "note" ? "this file" : "all files") + ")"}>${s.name}</span>
+                  <span className="sidebar-saved-search-scope">${s.scope === "note" ? "file" : "all"}</span>
+                </span>
+                <button className="sidebar-saved-search-del" title="Delete saved search"
+                        onClick=${(e) => { e.stopPropagation(); onDeleteSavedSearch?.(s.id); }}>×</button>
+              </div>
+            `)
+        }
+      </div>
       <div className="sidebar-section">
         <div className="sidebar-section-header">
           <span className="sidebar-section-icon">☆</span>
