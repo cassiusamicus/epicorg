@@ -4396,6 +4396,10 @@ function App() {
     });
   }, []);
   const [currentFile, setCurrentFile] = useState(null);
+  // True until the initial-mount auto-load attempt (last file / default file /
+  // sole file) has settled. Keeps the loading screen up instead of flashing
+  // the file picker while that file is still being fetched.
+  const [autoLoadPending, setAutoLoadPending] = useState(true);
   // Forces the file picker open even though a file is already loaded —
   // used by the "switch file" back-button so Cancel can snap back to the
   // still-intact document instead of having to reload it.
@@ -5545,10 +5549,13 @@ function App() {
       setFiles(f);
       let lastFile = null;
       try { lastFile = localStorage.getItem("epicorg.lastFile"); } catch {}
-      if (lastFile && (lastFile.startsWith("/") || f.some((file) => file.name === lastFile))) loadFile(lastFile);
-      else if (data.default && f.some((file) => file.name === data.default)) loadFile(data.default);
-      else if (f.length === 1) loadFile(f[0].name);
-    });
+      let toLoad = null;
+      if (lastFile && (lastFile.startsWith("/") || f.some((file) => file.name === lastFile))) toLoad = lastFile;
+      else if (data.default && f.some((file) => file.name === data.default)) toLoad = data.default;
+      else if (f.length === 1) toLoad = f[0].name;
+      if (toLoad) loadFile(toLoad).finally(() => setAutoLoadPending(false));
+      else setAutoLoadPending(false);
+    }).catch(() => setAutoLoadPending(false));
   }, []);
 
   // Fetch and track home directory.
@@ -6765,8 +6772,11 @@ function App() {
     return search(nodes, focusedId, 0);
   }, [focusedId, nodes]);
 
-  // Loading state
-  if (files === null) return html`<div className="empty">Loading...</div>`;
+  // Loading state. Also covers the brief window where the file list has
+  // arrived but the auto-load of the last/default/sole file is still in
+  // flight — without this, the file picker would flash before that file
+  // finishes loading.
+  if (files === null || (!currentFile && autoLoadPending)) return html`<div className="empty">Loading...</div>`;
 
   // File picker (no file selected, or the user explicitly asked to switch)
   if (!currentFile || showPicker) {
