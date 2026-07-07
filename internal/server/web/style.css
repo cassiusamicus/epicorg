@@ -491,6 +491,12 @@ header h1 {
   flex-shrink: 0;
 }
 
+.header-sync-status {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .header-left-icons {
   display: flex;
   align-items: center;
@@ -1154,6 +1160,42 @@ header h1 {
   user-select: none;
 }
 
+.sync-indicator-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Custom tooltip (not the native title attribute) so a long file path can
+   be width-capped and wrapped instead of rendering as one unreadable strip. */
+.sync-tooltip {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  max-width: 280px;
+  width: max-content;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  background: var(--panel-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  z-index: 10000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+}
+
+.sync-indicator-wrap:hover .sync-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
 .sync-dot {
   width: 9px;
   height: 9px;
@@ -1253,7 +1295,7 @@ header h1 {
 }
 
 .sync-saved {
-  color: var(--text-dim);
+  color: var(--success);
 }
 
 .sync-unsaved {
@@ -1261,7 +1303,7 @@ header h1 {
 }
 
 .sync-saving {
-  color: var(--text-dim-strong);
+  color: var(--info);
 }
 
 .sync-error {
@@ -5906,6 +5948,8 @@ a.org-file-link {
 .stg-title { font-weight: 600; font-size: 15px; }
 .stg-close { background: none; border: none; font-size: 20px; color: var(--text-dim); cursor: pointer; padding: 0 4px; }
 .stg-close:hover { color: var(--text); }
+.stg-header-right { display: flex; align-items: center; gap: 8px; }
+.stg-sync-label { font-size: 12px; white-space: nowrap; }
 .stg-body { display: flex; flex: 1; overflow: hidden; }
 .stg-nav { width: 200px; flex-shrink: 0; border-right: 1px solid var(--border); padding: 12px 0; overflow-y: auto; }
 .stg-nav-item { display: block; width: 100%; text-align: left; padding: 8px 20px; background: none; border: none; font-size: 13px; color: var(--text-dim-strong); cursor: pointer; border-left: 3px solid transparent; transition: background 0.1s; }

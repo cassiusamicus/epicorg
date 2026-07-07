@@ -3122,9 +3122,9 @@ const SYNC_RELOADED = "reloaded";
 const SYNC_COPIED = "copied";
 
 const SYNC_LABELS = {
-  [SYNC_SAVED]:    "Saved \u2014 gray dot: up to date",
-  [SYNC_DIRTY]:    "Unsaved changes \u2014 yellow hollow dot: pending save",
-  [SYNC_SAVING]:   "Saving\u2026 \u2014 gray dot: save in progress",
+  [SYNC_SAVED]:    "Saved \u2014 green dot: up to date",
+  [SYNC_DIRTY]:    "Unsaved changes \u2014 amber dot: pending save",
+  [SYNC_SAVING]:   "Saving\u2026 \u2014 blue dot: save in progress",
   [SYNC_ERROR]:    "Save failed \u2014 red dot: network or server error",
   [SYNC_CONFLICT]: "Merge conflict \u2014 red dot: resolve conflict markers in file",
   [SYNC_MERGED]:   "Merged external edits \u2014 blue dot: external edit was merged in",
@@ -3132,20 +3132,39 @@ const SYNC_LABELS = {
   [SYNC_COPIED]:   "Copied to clipboard",
 };
 
+// Short form of SYNC_LABELS for use as a persistent visible label (SYNC_LABELS
+// itself is the tooltip text, too long to sit in the UI at all times).
+const SYNC_SHORT_LABELS = {
+  [SYNC_SAVED]:    "Saved",
+  [SYNC_DIRTY]:    "Unsaved changes",
+  [SYNC_SAVING]:   "Saving\u2026",
+  [SYNC_ERROR]:    "Save failed",
+  [SYNC_CONFLICT]: "Merge conflict",
+  [SYNC_MERGED]:   "Merged",
+  [SYNC_RELOADED]: "Reloaded",
+  [SYNC_COPIED]:   "Copied",
+};
+
 function Toast({ message }) {
   if (!message) return null;
   return html`<div className="toast">${message}</div>`;
 }
 
-function SyncIndicator({ status }) {
+function SyncIndicator({ status, filePath }) {
   const label = SYNC_LABELS[status] || "";
-  // A fixed-size dot instead of text, so the header doesn't shift width as
-  // the status changes. Unsaved is the one truly "pending" state, so it's
-  // hollow; every settled state (including errors) is filled.
-  const filled = status !== SYNC_DIRTY;
+  // Leads with the file path so hovering the dot answers "which file is
+  // this even talking about" — the confusion that causes edits to land in
+  // the wrong document without the user noticing.
+  const text = filePath ? (filePath + " — " + label) : label;
+  // A custom hover tooltip instead of the native title attribute: the
+  // browser tooltip can't be width-capped or wrapped, so a long absolute
+  // path renders as one unreadable single-line strip.
   return html`
-    <span className=${"sync-indicator sync-" + status} title=${label} aria-label=${label}>
-      <span className=${"sync-dot" + (filled ? " sync-dot-filled" : "")} />
+    <span className="sync-indicator-wrap">
+      <span className=${"sync-indicator sync-" + status} aria-label=${text}>
+        <span className="sync-dot sync-dot-filled" />
+      </span>
+      <span className="sync-tooltip" role="tooltip">${text}</span>
     </span>
   `;
 }
@@ -7194,6 +7213,7 @@ function App() {
       ${showSettings && html`
         <${SettingsModal}
           initialSection=${settingsSection}
+          syncStatus=${syncStatus}
           onClose=${() => { setShowSettings(false); setSettingsSection("view"); }}
           theme=${theme} onToggleTheme=${toggleTheme}
           topBarColor=${topBarColor} onSetTopBarColor=${setTopBarColorPersisted}
@@ -8702,6 +8722,7 @@ function ColorPickerRow({ color, onChange, disabled }) {
 function SettingsModal({
   onClose,
   initialSection,
+  syncStatus,
   theme, onToggleTheme,
   topBarColor, onSetTopBarColor,
   outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat,
@@ -9104,7 +9125,11 @@ function SettingsModal({
       <div className="stg-modal">
         <div className="stg-header">
           <span className="stg-title">Settings</span>
-          <button className="stg-close" onClick=${onClose}>×</button>
+          <div className="stg-header-right">
+            <${SyncIndicator} status=${syncStatus} />
+            <span className=${"stg-sync-label sync-" + syncStatus}>${SYNC_SHORT_LABELS[syncStatus] || ""}</span>
+            <button className="stg-close" onClick=${onClose}>×</button>
+          </div>
         </div>
         <div className="stg-body">
           <nav className="stg-nav">
@@ -9501,6 +9526,12 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
         </div>
       `}
       <div className="header-right" ref=${headerRightRef}>
+        ${currentFile && html`
+          <div className="header-sync-status">
+            <${SyncIndicator} status=${syncStatus}
+              filePath=${currentFile.startsWith("/") ? currentFile : (homeDir ? homeDir + "/" + currentFile : currentFile)} />
+          </div>
+        `}
         <${HamburgerMenu} onOpenSettings=${onOpenSettings} />
         <button className="panel-toggle-btn" onClick=${onHelp} title="Command palette — search and run any command (Ctrl+H)"><${IconCommandPalette} /></button>
         ${currentFile && html`
