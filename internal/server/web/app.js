@@ -4636,7 +4636,7 @@ function App() {
     });
   }, []);
   const [readingWidth, setReadingWidth] = useState(() => {
-    try { return localStorage.getItem("epicorg.readingWidth") === "1"; } catch { return false; }
+    try { const v = localStorage.getItem("epicorg.readingWidth"); return v === null ? true : v === "1"; } catch { return true; }
   });
   const toggleReadingWidth = useCallback(() => {
     setReadingWidth((p) => {
@@ -4886,7 +4886,7 @@ function App() {
     } catch {}
   }, []);
   const [topBarColor, setTopBarColor] = useState(() => {
-    try { return localStorage.getItem("epicorg.topBarColor") || null; } catch { return null; }
+    try { const v = localStorage.getItem("epicorg.topBarColor"); return v !== null ? v : "blue"; } catch { return "blue"; }
   });
   const setTopBarColorPersisted = useCallback((color) => {
     setTopBarColor(color);
