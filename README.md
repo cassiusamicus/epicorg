@@ -1,6 +1,6 @@
 # epicorg
 
-**Outlining in Org-Mode — Without the Complexity of Emacs.**
+**Outlining - Free Local and Powerful — Using Org-Mode Files Without The Complexity Of Emacs.**
 
 A free, open-source outline editor built on the robust org-mode format. Outline-centered like Dynalist or Workflowy — but your data stays in standard `.org` files on your own machine, editable in Emacs, any text editor, or epicorg itself.
 
