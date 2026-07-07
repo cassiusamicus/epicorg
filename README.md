@@ -1,5 +1,7 @@
 # epicorg
 
+**Outlining in Org-Mode — Without the Complexity of Emacs.**
+
 A free, open-source outline editor built on the robust org-mode format. Outline-centered like Dynalist or Workflowy — but your data stays in standard `.org` files on your own machine, editable in Emacs, any text editor, or epicorg itself.
 
 This program was developed by Cassius Amicus for his own use in the study of Epicurean philosophy, but you are welcome to use it for your own purposes.  Epicorq was programmed using Go entirely by Claude.AI.  As of this writing it has been tested only on Linux, although Claude indicates that the Windows and MAC builds should work as well.  It is certainly not intended as a replacement for Emacs or Logseq or any other major program, but it is intended to be a basic single-pane outliner, easy to use (with menus) for non-specialists, while running under-the-hood on the powerful Org-mode outlining format, rather than markdown.
