@@ -4886,7 +4886,7 @@ function App() {
     } catch {}
   }, []);
   const [topBarColor, setTopBarColor] = useState(() => {
-    try { const v = localStorage.getItem("epicorg.topBarColor"); return v !== null ? v : "blue"; } catch { return "blue"; }
+    try { const v = localStorage.getItem("epicorg.topBarColor"); return v !== null ? v : "green"; } catch { return "green"; }
   });
   const setTopBarColorPersisted = useCallback((color) => {
     setTopBarColor(color);
