@@ -2,7 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMe
 import { createRoot } from "react-dom/client";
 import htm from "htm";
 import * as tree from "./tree.js";
-import { generateExportHtml, generateMarkdown } from "./export.js";
+import { generateExportHtml, generateMarkdown, parseMdToNodes } from "./export.js";
 
 const html = htm.bind(React.createElement);
 
@@ -446,10 +446,157 @@ function ImageEditPopup({ imgIndex, block, nodeBody, rect, onUpdate, onClose }) 
   `;
 }
 
+function TableEditor({ rows: initRows, headerCount: initHeaderCount, onSave, onCancel }) {
+  const [rows, setRows] = useState(() => initRows.map((r) => [...r]));
+  const [headerCount, setHeaderCount] = useState(initHeaderCount);
+
+  const numCols = rows.reduce((m, r) => Math.max(m, r.length), 1);
+  const padded = rows.map((r) => { const p = [...r]; while (p.length < numCols) p.push(""); return p; });
+
+  const setCell = (ri, ci, val) =>
+    setRows((prev) => prev.map((row, r) => r !== ri ? row : row.map((c, ci2) => ci2 !== ci ? c : val)));
+
+  const addRow = (afterRi) => {
+    setRows((prev) => { const n = [...prev]; n.splice(afterRi + 1, 0, Array(numCols).fill("")); return n; });
+  };
+
+  const delRow = (ri) => {
+    if (rows.length <= 1) return;
+    setRows((prev) => prev.filter((_, i) => i !== ri));
+    setHeaderCount((h) => ri < h ? Math.max(0, h - 1) : h);
+  };
+
+  const addCol = (afterCi) => {
+    setRows((prev) => prev.map((row) => { const n = [...row]; n.splice(afterCi + 1, 0, ""); return n; }));
+  };
+
+  const delCol = (ci) => {
+    if (numCols <= 1) return;
+    setRows((prev) => prev.map((row) => row.filter((_, i) => i !== ci)));
+  };
+
+  const toggleHeader = (ri) => {
+    setHeaderCount(ri < headerCount ? ri : ri + 1);
+  };
+
+  useEffect(() => {
+    const h = (e) => { if (e.key === "Escape") onCancel(); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [onCancel]);
+
+  const focusNext = (e, ri, ci) => {
+    e.preventDefault();
+    const grid = e.target.closest(".te-grid");
+    if (!grid) return;
+    const inputs = [...grid.querySelectorAll(".te-input")];
+    const idx = inputs.indexOf(e.target);
+    const next = inputs[idx + 1];
+    if (next) { next.focus(); return; }
+    // last cell in last row → add row and focus first cell of new row
+    addRow(ri);
+    requestAnimationFrame(() => {
+      const newInputs = [...grid.querySelectorAll(".te-input")];
+      newInputs[idx + 1]?.focus();
+    });
+  };
+
+  const focusPrev = (e) => {
+    e.preventDefault();
+    const grid = e.target.closest(".te-grid");
+    if (!grid) return;
+    const inputs = [...grid.querySelectorAll(".te-input")];
+    const idx = inputs.indexOf(e.target);
+    if (idx > 0) inputs[idx - 1].focus();
+  };
+
+  const focusDown = (e, ri, ci) => {
+    e.preventDefault();
+    const grid = e.target.closest(".te-grid");
+    if (!grid) return;
+    const inputs = [...grid.querySelectorAll(".te-input")];
+    const idx = inputs.indexOf(e.target);
+    const down = inputs[idx + numCols];
+    if (down) down.focus();
+    else { addRow(ri); requestAnimationFrame(() => { const ni = [...grid.querySelectorAll(".te-input")]; ni[idx + numCols]?.focus(); }); }
+  };
+
+  return html`
+    <div className="te-overlay" onMouseDown=${(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="te-modal" onMouseDown=${(e) => e.stopPropagation()}>
+        <div className="te-header">
+          <span className="te-title">Edit Table</span>
+          <button className="te-close" title="Close" onClick=${onCancel}>✕</button>
+        </div>
+        <div className="te-body">
+          <div className="te-table-wrap">
+            <table className="te-grid">
+              <thead>
+                <tr className="te-col-ctrls">
+                  ${Array(numCols).fill(0).map((_, ci) => html`
+                    <th key=${ci} className="te-col-th">
+                      <button className="te-btn te-del" title="Delete column" onClick=${() => delCol(ci)}>−</button>
+                      <button className="te-btn" title="Insert column after" onClick=${() => addCol(ci)}>+</button>
+                    </th>
+                  `)}
+                  <th className="te-col-th">
+                    <button className="te-btn" title="Add column" onClick=${() => addCol(numCols - 1)}>+ Col</button>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                ${padded.map((row, ri) => {
+                  const isHdr = ri < headerCount;
+                  const showSep = ri === headerCount && headerCount > 0;
+                  return html`
+                    <${React.Fragment} key=${ri}>
+                      ${showSep ? html`
+                        <tr className="te-sep-row"><td colSpan=${numCols + 1} className="te-sep-cell">▲ header  ▼ body</td></tr>
+                      ` : null}
+                      <tr className=${"te-row" + (isHdr ? " te-hdr-row" : "")}>
+                        ${row.map((cell, ci) => html`
+                          <td key=${ci} className="te-cell">
+                            <input className="te-input" value=${cell}
+                              onChange=${(e) => setCell(ri, ci, e.target.value)}
+                              onKeyDown=${(e) => {
+                                if (e.key === "Tab" && !e.shiftKey) focusNext(e, ri, ci);
+                                else if (e.key === "Tab" && e.shiftKey) focusPrev(e);
+                                else if (e.key === "Enter" && !e.shiftKey) focusDown(e, ri, ci);
+                              }} />
+                          </td>
+                        `)}
+                        <td className="te-row-acts">
+                          <button className=${"te-btn te-h-btn" + (isHdr ? " te-h-on" : "")}
+                                  title=${isHdr ? "Demote to body row" : "Promote to header row"}
+                                  onClick=${() => toggleHeader(ri)}>H</button>
+                          <button className="te-btn" title="Insert row below" onClick=${() => addRow(ri)}>+</button>
+                          <button className="te-btn te-del" title="Delete row" onClick=${() => delRow(ri)}>−</button>
+                        </td>
+                      </tr>
+                    </${React.Fragment}>
+                  `;
+                })}
+                <tr><td colSpan=${numCols + 1}>
+                  <button className="te-add-row-btn" onClick=${() => addRow(rows.length - 1)}>+ Add Row</button>
+                </td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="te-footer">
+          <button className="te-footer-btn" onClick=${onCancel}>Cancel</button>
+          <button className="te-footer-btn te-save-btn" onClick=${() => onSave({ rows: padded, headerCount })}>Done</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notesVisible, depth, bodyRefs }) {
   const localRef = useRef(null);
   const [ctxMenu, setCtxMenu] = useState(null);
   const [imgPopup, setImgPopup] = useState(null); // { index, rect }
+  const [tableEdit, setTableEdit] = useState(null); // { tableIndex, rows, headerCount }
 
   useEffect(() => {
     adjustTextareaHeight(localRef.current);
@@ -482,6 +629,16 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
                  if (wikiEl) {
                    e.preventDefault();
                    document.body.dispatchEvent(new CustomEvent("epicWikiNav", { detail: { name: wikiEl.dataset.wiki } }));
+                   return;
+                 }
+                 const tableEl = e.target.closest(".org-table");
+                 if (tableEl) {
+                   const idx = parseInt(tableEl.dataset.tableIndex || "0");
+                   const blocks = tree.findTableBlocksInBody(node.body || "");
+                   if (blocks[idx]) {
+                     const { rows, headerCount } = tree.parseOrgTableData(blocks[idx].lines);
+                     setTableEdit({ tableIndex: idx, rows, headerCount });
+                   }
                    return;
                  }
                  const imgBlock = e.target.closest(".org-img-block");
@@ -548,6 +705,26 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
                       detail: { nodeId: node.id, cursorPos: ta ? ta.selectionStart : (node.body || "").length, body: node.body || "" }
                     }));
                   }}>img</button>
+          <button className="body-fn-btn" title="Insert table"
+                  onMouseDown=${(e) => {
+                    e.preventDefault();
+                    const ta = localRef.current;
+                    const body = node.body || "";
+                    const pos = ta ? ta.selectionStart : body.length;
+                    const before = body.slice(0, pos);
+                    const after = body.slice(pos);
+                    const pre = before.length > 0 && !before.endsWith("\n") ? "\n" : "";
+                    const post = after.length > 0 && !after.startsWith("\n") ? "\n" : "";
+                    const blankRows = [["", ""], ["", ""]];
+                    const newLines = tree.serializeOrgTable({ rows: blankRows, headerCount: 1 });
+                    const tableText = newLines.join("\n");
+                    const newBody = before + pre + tableText + post + after;
+                    // New table index = number of table blocks in the text before insertion point
+                    const newTableIndex = tree.findTableBlocksInBody(before + pre).length;
+                    dispatch(node.id, "change-body", newBody);
+                    dispatch(node.id, "preview-body");
+                    setTableEdit({ tableIndex: newTableIndex, rows: blankRows, headerCount: 1 });
+                  }}>tbl</button>
         `}
     </div>
     ${ctxMenu && html`<${NoteContextMenu}
@@ -572,6 +749,16 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
         onUpdate=${(newBody) => dispatch(node.id, "change-body", newBody)}
         onClose=${() => setImgPopup(null)} />` : null;
     })()}
+    ${tableEdit && html`<${TableEditor}
+      rows=${tableEdit.rows}
+      headerCount=${tableEdit.headerCount}
+      onSave=${({ rows, headerCount }) => {
+        const newLines = tree.serializeOrgTable({ rows, headerCount });
+        const newBody = tree.replaceTableBlockInBody(node.body || "", tableEdit.tableIndex, newLines);
+        dispatch(node.id, "change-body", newBody);
+        setTableEdit(null);
+      }}
+      onCancel=${() => setTableEdit(null)} />`}
   `;
 }
 
@@ -1945,7 +2132,10 @@ function TodoView({ nodes, currentFile, onSelect, searchQuery, selectedTags }) {
     items = [...localItems, ...externalItems];
   }
 
-  if (searchQuery) items = items.filter((item) => tree.matchesQuery(searchQuery, item.title));
+  if (searchQuery) {
+    const pq = tree.parseSearchQuery(searchQuery);
+    items = items.filter((item) => tree.nodeMatchesQuery(pq, item));
+  }
   if (selectedTags && selectedTags.length > 0) {
     items = items.filter((item) => item.tags.some((t) => selectedTags.includes(t)));
   }
@@ -2329,10 +2519,12 @@ function AgendaView({ nodes, currentFile, onSelect, onEditNode, searchQuery, sel
     }));
   let items = [...localItems, ...externalItems];
 
-  if (searchQuery) items = items.filter((item) =>
-    tree.matchesQuery(searchQuery, item.title) ||
-    (item.ancestors || []).some((a) => tree.matchesQuery(searchQuery, a))
-  );
+  if (searchQuery) {
+    const pq = tree.parseSearchQuery(searchQuery);
+    items = items.filter((item) =>
+      tree.nodeMatchesQuery(pq, { ...item, body: (item.ancestors || []).join(" ") })
+    );
+  }
   if (selectedTags && selectedTags.length > 0) {
     items = items.filter((item) => (item.tags || []).some((t) => selectedTags.includes(t)));
   }
@@ -2487,10 +2679,11 @@ function JournalDayCard({ filename, onOpen, onOpenDetail, onOpenAt, searchQuery 
   const today = isToday(dateStr);
 
   // When filtering: hide card if content is loaded and nothing matches
-  const dateMatches = !searchQuery || tree.matchesQuery(searchQuery, dateStr) || tree.matchesQuery(searchQuery, dateDisplay);
+  const pq = tree.parseSearchQuery(searchQuery);
+  const dateMatches = !searchQuery || tree.nodeMatchesQuery(pq, { title: dateStr + " " + dateDisplay, body: "" });
   const allNodes = content && content.nodes ? content.nodes : [];
   const matchingNodes = searchQuery
-    ? allNodes.filter((n) => tree.matchesQuery(searchQuery, n.title))
+    ? allNodes.filter((n) => tree.nodeMatchesQuery(pq, n))
     : allNodes;
   // If content is loaded and neither the date nor any nodes match, hide the card entirely
   if (searchQuery && content && !dateMatches && matchingNodes.length === 0) return null;
@@ -5581,6 +5774,18 @@ function App() {
     URL.revokeObjectURL(url);
   }, [nodes, preamble, currentFile]);
 
+  const importFromMarkdown = useCallback((file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = parseMdToNodes(e.target.result);
+      setNodes(result.nodes);
+      if (result.preamble) setPreamble(result.preamble);
+      markDirty();
+    };
+    reader.readAsText(file);
+  }, [setNodes, setPreamble, markDirty]);
+
   const exportToOrg = useCallback(async () => {
     if (!currentFile || !nodesRef.current) return;
     try {
@@ -7014,7 +7219,7 @@ function App() {
           isHoisted=${isHoisted} canToggleHoist=${isHoisted || (focusedId && focusedId !== "preamble")}
           onToggleHoist=${toggleHoist}
           onFoldToLevel=${foldToLevel}
-          onExportToOrg=${exportToOrg} onExportToHtml=${exportToHtml} onExportToMarkdown=${exportToMarkdown}
+          onExportToOrg=${exportToOrg} onExportToHtml=${exportToHtml} onExportToMarkdown=${exportToMarkdown} onImportFromMarkdown=${importFromMarkdown}
           tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${toggleTagPanel}
           bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${toggleBookmarkPanel}
           workspaceConfig=${workspaceConfig}
@@ -7637,7 +7842,7 @@ function BacklinksSection({ currentFile, wikiEntries, onNavigate }) {
   const [backlinks, setBacklinks] = useState(null);
   const [unlinked, setUnlinked] = useState(null);
   const [open, setOpen] = useState(true);
-  const [unlinkedOpen, setUnlinkedOpen] = useState(false);
+  const [unlinkedOpen, setUnlinkedOpen] = useState(true);
 
   useEffect(() => {
     if (!currentFile) { setBacklinks([]); setUnlinked([]); return; }
@@ -8507,7 +8712,7 @@ function SettingsModal({
   textMode, onSetViewMode,
   isHoisted, canToggleHoist, onToggleHoist,
   onFoldToLevel,
-  onExportToOrg, onExportToHtml, onExportToMarkdown,
+  onExportToOrg, onExportToHtml, onExportToMarkdown, onImportFromMarkdown,
   tagPanelVisible, onToggleTagPanel,
   bookmarkPanelVisible, onToggleBookmarkPanel,
   workspaceConfig, onConfigureWorkspace,
@@ -8797,6 +9002,13 @@ function SettingsModal({
                   title=${!currentFile ? "Open a file first" : "Download Markdown file"}>
             Export…
           </button>
+        </${StgRow}>
+        <${StgRow} label="Import from Markdown" desc="Replace the current document with a .md file">
+          <label className="stg-btn stg-file-label" title=${!currentFile ? "Open a file first" : "Import a Markdown file into this document"} style=${currentFile ? "" : "opacity:.45;pointer-events:none"}>
+            Import…
+            <input type="file" accept=".md,text/markdown" style="display:none"
+                   onChange=${(e) => { const f = e.target.files?.[0]; if (f) { onImportFromMarkdown?.(f); onClose(); } e.target.value = ""; }} />
+          </label>
         </${StgRow}>
       </div>
     `;

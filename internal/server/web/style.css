@@ -3491,6 +3491,48 @@ body.dnd-dragging, body.dnd-dragging * { cursor: grabbing !important; user-selec
 .org-img-block:hover::after {
   opacity: 1;
 }
+.org-table { border-collapse: collapse; margin: 6px 0 10px; font-size: 13px; max-width: 100%; cursor: pointer; }
+.org-table th, .org-table td { border: 1px solid var(--border); padding: 5px 10px; text-align: left; vertical-align: top; }
+.org-table thead th { background: color-mix(in srgb, var(--accent) 8%, var(--bg)); font-weight: 600; }
+.org-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--text) 3%, var(--bg)); }
+.org-table tbody tr:hover { background: var(--focused-bg); }
+.node-body-preview .org-table:hover { outline: 2px solid var(--accent); border-radius: 3px; }
+
+/* Table editor modal */
+.te-overlay { position: fixed; inset: 0; background: var(--overlay); z-index: 9800; display: flex; align-items: center; justify-content: center; }
+.te-modal { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 40px rgba(0,0,0,.28); display: flex; flex-direction: column; max-height: 88vh; max-width: 92vw; overflow: hidden; }
+.te-header { display: flex; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); gap: 8px; flex-shrink: 0; }
+.te-title { font-weight: 600; font-size: 14px; flex: 1; }
+.te-close { background: none; border: none; cursor: pointer; color: var(--text-dim); font-size: 18px; padding: 0 4px; border-radius: 4px; line-height: 1; }
+.te-close:hover { background: var(--focused-bg); color: var(--text); }
+.te-body { flex: 1; overflow: auto; padding: 14px; min-height: 0; }
+.te-table-wrap { overflow: auto; }
+.te-grid { border-collapse: collapse; }
+.te-col-ctrls th { padding: 0 2px 5px; text-align: center; }
+.te-col-th { white-space: nowrap; }
+.te-col-th .te-btn { margin: 0 1px; }
+.te-row td { padding: 2px; vertical-align: middle; }
+.te-cell { padding: 2px; }
+.te-input { width: 100%; min-width: 90px; padding: 4px 7px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); font-size: 13px; font-family: inherit; outline: none; box-sizing: border-box; }
+.te-input:focus { border-color: var(--accent); background: var(--bg); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent); }
+.te-hdr-row .te-input { font-weight: 600; background: color-mix(in srgb, var(--accent) 6%, var(--bg)); }
+.te-sep-row td { padding: 0; }
+.te-sep-cell { padding: 3px 8px; font-size: 11px; font-weight: 600; color: var(--accent); text-align: center; background: color-mix(in srgb, var(--accent) 8%, var(--bg)); letter-spacing: .04em; }
+.te-row-acts { white-space: nowrap; padding-left: 6px; vertical-align: middle; }
+.te-btn { padding: 2px 7px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); font-size: 12px; cursor: pointer; white-space: nowrap; line-height: 1.6; }
+.te-btn:hover { background: var(--focused-bg); }
+.te-del:hover { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+.te-h-btn { font-weight: 700; font-size: 11px; min-width: 24px; }
+.te-h-on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.te-h-on:hover { opacity: .85; background: var(--accent); }
+.te-add-row-btn { display: block; width: 100%; margin-top: 6px; padding: 5px 8px; border: 1px dashed var(--border); border-radius: 5px; background: none; color: var(--text-dim); cursor: pointer; font-size: 12px; text-align: center; }
+.te-add-row-btn:hover { background: var(--focused-bg); color: var(--text); border-style: solid; }
+.te-footer { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 14px; border-top: 1px solid var(--border); flex-shrink: 0; }
+.te-footer-btn { padding: 6px 18px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 13px; cursor: pointer; }
+.te-footer-btn:hover { background: var(--focused-bg); }
+.te-save-btn { background: var(--accent); color: #fff; border-color: transparent; }
+.te-save-btn:hover { opacity: .9; background: var(--accent); }
+
 .img-edit-popup {
   background: var(--panel-bg);
   border: 1px solid var(--border);
@@ -5890,6 +5932,7 @@ a.org-file-link {
 .stg-btn { padding: 5px 12px; border-radius: 5px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 12px; cursor: pointer; white-space: nowrap; }
 .stg-btn:hover { background: var(--focused-bg); }
 .stg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.stg-file-label { display: inline-block; }
 .stg-btn-clear { color: var(--text-dim); }
 .stg-path { font-size: 12px; color: var(--text-dim); font-family: monospace; word-break: break-all; }
 /* Font select with custom input */

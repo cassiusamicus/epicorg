@@ -130,7 +130,7 @@ func (s *Store) BacklinkSearch(title, selfFile string) ([]TextSearchResult, erro
 			if !anyMatch(combined) {
 				continue
 			}
-			ctx := buildContext([]string{contextTerm}, item.Title, body)
+			ctx := buildContext([]searchTerm{{text: contextTerm, include: true}}, item.Title, body)
 			results = append(results, TextSearchResult{
 				File:     rel,
 				Title:    item.Title,
@@ -212,7 +212,7 @@ func (s *Store) UnlinkedMentions(title, selfFile string) ([]TextSearchResult, er
 			if hasFormal {
 				continue
 			}
-			ctx := buildContext([]string{title}, item.Title, body)
+			ctx := buildContext([]searchTerm{{text: title, include: true}}, item.Title, body)
 			results = append(results, TextSearchResult{
 				File:     rel,
 				Title:    item.Title,

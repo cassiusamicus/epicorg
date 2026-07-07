@@ -494,6 +494,48 @@ export function matchesQuery(query, text) {
   return (text || "").toLowerCase().includes(query.toLowerCase());
 }
 
+// --- Search query parser ---
+
+// Parse a search query into structured form so callers can apply
+// tag:, status:, and -exclusion operators in addition to plain text terms.
+export function parseSearchQuery(q) {
+  const result = { terms: [], tags: [], statuses: [] };
+  if (!q || !q.trim()) return result;
+  for (const w of q.trim().split(/\s+/)) {
+    if (!w) continue;
+    if (w.startsWith("tag:") && w.length > 4) {
+      result.tags.push(w.slice(4).toLowerCase());
+    } else if (w.startsWith("status:") && w.length > 7) {
+      result.statuses.push(w.slice(7).toLowerCase());
+    } else if (w.startsWith("-") && w.length > 1) {
+      result.terms.push({ include: false, text: w.slice(1) });
+    } else {
+      result.terms.push({ include: true, text: w });
+    }
+  }
+  return result;
+}
+
+// Check if a node (or agenda/todo item) matches a parsed search query.
+// node should have: title, body (optional), tags (optional), status (optional).
+export function nodeMatchesQuery(pq, node) {
+  const haystack = ((node.title || "") + "\n" + (node.body || "")).toLowerCase();
+  for (const t of pq.terms) {
+    const found = haystack.includes(t.text.toLowerCase());
+    if (t.include && !found) return false;
+    if (!t.include && found) return false;
+  }
+  const nodeTags = (node.tags || []).map((t) => t.toLowerCase());
+  for (const tag of pq.tags) {
+    if (!nodeTags.includes(tag)) return false;
+  }
+  if (pq.statuses.length > 0) {
+    const st = (node.status || "").toLowerCase();
+    if (!pq.statuses.includes(st)) return false;
+  }
+  return true;
+}
+
 // --- Org inline markup rendering ---
 // Renders a small subset of org-mode inline markup to safe HTML:
 // *bold*, /italic/, _underline_, =code= and [[url][label]] links.
@@ -552,6 +594,89 @@ const MARKUP_RE = /\*([^\s*][^*]*?)\*|\/([^\s/][^/]*?)\/|_([^\s_][^_]*?)_|=([^\s
 const LINK_PLACEHOLDER = String.fromCharCode(1);
 
 const IMAGE_EXTS_RE = /\.(?:png|gif|jpe?g|svg|tiff?|webp|bmp)$/i;
+
+const ORG_TABLE_SEP_RE = /^\|[\s\-\+:|]+\|/;
+const isSep = (line) => ORG_TABLE_SEP_RE.test(line.trim()) && !/[a-zA-Z0-9]/.test(line);
+const parseOrgRow = (line) => line.split("|").slice(1, -1).map((c) => c.trim());
+
+// Render a sequence of org-mode table lines (all starting with "|") as an HTML table.
+// The first group of data rows before any |---+---| separator row becomes <thead>.
+function renderOrgTable(tableLines, index) {
+  let headerRows = [], bodyRows = [];
+  let sepSeen = false;
+  for (const line of tableLines) {
+    if (isSep(line)) { sepSeen = true; continue; }
+    (sepSeen ? bodyRows : headerRows).push(parseOrgRow(line));
+  }
+  if (!sepSeen) { bodyRows = headerRows; headerRows = []; }
+
+  let out = `<table class="org-table" data-table-index="${index}" title="Click to edit table">`;
+  if (headerRows.length) {
+    out += "<thead>" + headerRows.map((r) =>
+      "<tr>" + r.map((c) => `<th>${renderOrgInline(c)}</th>`).join("") + "</tr>"
+    ).join("") + "</thead>";
+  }
+  out += "<tbody>" + bodyRows.map((r) =>
+    "<tr>" + r.map((c) => `<td>${renderOrgInline(c)}</td>`).join("") + "</tr>"
+  ).join("") + "</tbody></table>";
+  return out;
+}
+
+// Parse org table lines into { rows: string[][], headerCount: number }.
+export function parseOrgTableData(tableLines) {
+  const rows = [];
+  let headerCount = 0;
+  let sepSeen = false;
+  for (const line of tableLines) {
+    if (isSep(line)) { if (!sepSeen) headerCount = rows.length; sepSeen = true; continue; }
+    rows.push(parseOrgRow(line));
+  }
+  return { rows, headerCount };
+}
+
+// Serialize { rows, headerCount } back to org table lines with aligned columns.
+export function serializeOrgTable({ rows, headerCount }) {
+  if (!rows.length) return [];
+  const numCols = rows.reduce((m, r) => Math.max(m, r.length), 1);
+  const widths = Array(numCols).fill(3);
+  for (const row of rows) {
+    for (let c = 0; c < numCols; c++) widths[c] = Math.max(widths[c], (row[c] || "").length);
+  }
+  const fmtRow = (row) => "| " + widths.map((w, i) => (row[i] || "").padEnd(w)).join(" | ") + " |";
+  const fmtSep = () => "|" + widths.map((w) => "-".repeat(w + 2)).join("+") + "|";
+  const lines = [];
+  for (let i = 0; i < rows.length; i++) {
+    if (i === headerCount && headerCount > 0) lines.push(fmtSep());
+    lines.push(fmtRow(rows[i]));
+  }
+  return lines;
+}
+
+// Find all table blocks (consecutive |-prefixed lines) in a body string.
+// Returns [{start, end, lines}] where start/end are line indices (end is exclusive).
+export function findTableBlocksInBody(body) {
+  const lines = body.split("\n");
+  const blocks = [];
+  let i = 0;
+  while (i < lines.length) {
+    if (lines[i].startsWith("|")) {
+      const start = i;
+      while (i < lines.length && lines[i].startsWith("|")) i++;
+      blocks.push({ start, end: i, lines: lines.slice(start, i) });
+    } else { i++; }
+  }
+  return blocks;
+}
+
+// Replace a table block in body text, returning the updated body string.
+export function replaceTableBlockInBody(body, blockIndex, newOrgLines) {
+  const lines = body.split("\n");
+  const blocks = findTableBlocksInBody(body);
+  if (blockIndex >= blocks.length) return body;
+  const { start, end } = blocks[blockIndex];
+  lines.splice(start, end - start, ...newOrgLines);
+  return lines.join("\n");
+}
 const ATTR_ORG_LINE_RE = /^#\+ATTR_ORG:\s*(.+)$/i;
 const ATTR_HTML_LINE_RE = /^#\+ATTR_HTML:\s*(.+)$/i;
 const IMAGE_LINK_LINE_RE = /^\[\[file:([^\]]+)\]\]$/i;
@@ -565,6 +690,7 @@ export function renderOrgBody(text) {
   const outputParts = [];
   const pendingLines = [];
   let imgIndex = 0;
+  let tableIndex = 0;
 
   const flushPending = () => {
     if (pendingLines.length === 0) return;
@@ -604,6 +730,17 @@ export function renderOrgBody(text) {
       flushPending();
       outputParts.push(`<div class="${cls}" data-img-index="${imgIndex++}">${imgTag}</div>`);
       i = j + 1;
+      continue;
+    }
+
+    // Table block: one or more consecutive lines starting with "|"
+    if (lines[i].startsWith("|")) {
+      const tableLines = [];
+      while (i < lines.length && lines[i].startsWith("|")) {
+        tableLines.push(lines[i++]);
+      }
+      flushPending();
+      outputParts.push(renderOrgTable(tableLines, tableIndex++));
       continue;
     }
 

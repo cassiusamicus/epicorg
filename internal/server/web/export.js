@@ -1,4 +1,4 @@
-import { renderOrgInline } from "./tree.js";
+import { renderOrgInline, renderOrgBody, newId } from "./tree.js";
 
 // Convert org-mode inline markup to Markdown equivalents.
 function orgToMdInline(text) {
@@ -83,6 +83,106 @@ export function generateMarkdown(nodes, preamble, filename) {
   return lines.join("\n");
 }
 
+// Convert GitHub-flavoured Markdown inline markup to org-mode inline markup.
+function mdInlineToOrg(text) {
+  if (!text) return "";
+  // Links: [label](url)
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, url) => `[[${url}][${label}]]`);
+  // Bold **text** → *text*
+  text = text.replace(/\*\*([^*]+?)\*\*/g, "*$1*");
+  // Italic *text* → /text/
+  text = text.replace(/\*([^*]+?)\*/g, "/$1/");
+  // Strikethrough ~~text~~ → +text+
+  text = text.replace(/~~([^~]+?)~~/g, "+$1+");
+  // Inline code `code` → =code=
+  text = text.replace(/`([^`]+?)`/g, "=$1=");
+  return text;
+}
+
+// Convert a block of Markdown body text (between headings) to org body text.
+function mdBodyToOrg(text) {
+  const lines = text.split("\n");
+  const out = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    // Fenced code block
+    const fenceMatch = line.match(/^```(\w*)\s*$/);
+    if (fenceMatch) {
+      const lang = fenceMatch[1] || "";
+      out.push(lang ? `#+BEGIN_SRC ${lang}` : "#+BEGIN_SRC");
+      i++;
+      while (i < lines.length && !lines[i].startsWith("```")) {
+        out.push(lines[i]);
+        i++;
+      }
+      out.push("#+END_SRC");
+      i++; // skip closing ```
+      continue;
+    }
+    // Blockquote > line → plain text (strip the >)
+    if (line.startsWith("> ")) {
+      out.push(mdInlineToOrg(line.slice(2)));
+    } else {
+      out.push(mdInlineToOrg(line));
+    }
+    i++;
+  }
+  return out.join("\n");
+}
+
+// Parse GitHub-flavoured Markdown text into an epicorg node tree.
+export function parseMdToNodes(text) {
+  const lines = text.split("\n");
+  const roots = [];
+  const stack = []; // {depth, node}
+
+  let i = 0;
+  // Collect any preamble text before the first heading
+  const preambleLines = [];
+  while (i < lines.length && !lines[i].match(/^#{1,6}\s/)) {
+    preambleLines.push(lines[i]);
+    i++;
+  }
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
+    if (!headingMatch) { i++; continue; }
+
+    const depth = headingMatch[1].length;
+    const titleMd = headingMatch[2].trim();
+    const title = mdInlineToOrg(titleMd);
+
+    const node = { id: newId(), title, body: "", children: [], tags: [], status: null, priority: null, properties: {}, collapsed: false };
+
+    // Collect body lines until next heading
+    i++;
+    const bodyLines = [];
+    while (i < lines.length && !lines[i].match(/^#{1,6}\s/)) {
+      bodyLines.push(lines[i]);
+      i++;
+    }
+    // Strip leading/trailing blank lines from body
+    while (bodyLines.length && !bodyLines[0].trim()) bodyLines.shift();
+    while (bodyLines.length && !bodyLines[bodyLines.length - 1].trim()) bodyLines.pop();
+    node.body = mdBodyToOrg(bodyLines.join("\n"));
+
+    // Find parent
+    while (stack.length && stack[stack.length - 1].depth >= depth) stack.pop();
+
+    if (!stack.length) {
+      roots.push(node);
+    } else {
+      stack[stack.length - 1].node.children.push(node);
+    }
+    stack.push({ depth, node });
+  }
+
+  const preamble = preambleLines.join("\n").trim();
+  return { nodes: roots, preamble };
+}
+
 function toLetters(n, upper) {
   let result = "";
   while (n > 0) { result = String.fromCharCode((upper ? 65 : 97) + (n - 1) % 26) + result; n = Math.floor((n - 1) / 26); }
@@ -116,7 +216,7 @@ function renderNodesHtml(nodes, depth, outlineFormat, levelFormats) {
     const siblingIndex = i + 1;
     const tags = (node.tags || []).join(",");
     const titleHtml = renderOrgInline(node.title || "");
-    const bodyHtml = node.body ? renderOrgInline(node.body) : "";
+    const bodyHtml = node.body ? renderOrgBody(node.body) : "";
     const status = node.status || "";
     const isDone = status === "DONE" || status === "CANCELLED";
     const tagChips = (node.tags || []).map(t =>

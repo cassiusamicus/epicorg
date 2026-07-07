@@ -46,14 +46,12 @@ func (s *Store) SearchTextWorkspace(query string, cfg *WorkspaceConfig) ([]TextS
 			if item.IsBody {
 				continue
 			}
-			// Build the searchable text for this node: title + body (if any)
 			body := ""
 			if i+1 < len(items) && items[i+1].IsBody {
 				body = items[i+1].Title
 			}
-			combined := item.Title + "\n" + body
 
-			if !allTermsMatch(terms, combined) {
+			if !allTermsMatch(terms, item.Title, body, item.Tags, item.Status) {
 				continue
 			}
 
@@ -78,9 +76,21 @@ func (s *Store) SearchText(query string) ([]TextSearchResult, error) {
 	return s.SearchTextWorkspace(query, DefaultWorkspace(s.Dir()))
 }
 
-// parseTerms splits a query into terms, honouring "quoted phrases".
-func parseTerms(query string) []string {
-	var terms []string
+// searchTerm represents one parsed token from a search query.
+type searchTerm struct {
+	text     string
+	include  bool // false = NOT/exclusion term (prefixed with -)
+	isTag    bool // true = tag: prefix
+	isStatus bool // true = status: prefix
+}
+
+// parseTerms splits a query into structured terms, honouring:
+//   - "quoted phrases"  → matched as a single unit
+//   - -word             → exclusion (NOT)
+//   - tag:name          → tag filter
+//   - status:keyword    → status filter
+func parseTerms(query string) []searchTerm {
+	var terms []searchTerm
 	query = strings.TrimSpace(query)
 	i := 0
 	for i < len(query) {
@@ -90,54 +100,91 @@ func parseTerms(query string) []string {
 		if i >= len(query) {
 			break
 		}
+		var word string
 		if query[i] == '"' {
-			// quoted phrase
 			i++
 			start := i
 			for i < len(query) && query[i] != '"' {
 				i++
 			}
-			phrase := strings.TrimSpace(query[start:i])
-			if phrase != "" {
-				terms = append(terms, phrase)
-			}
+			word = strings.TrimSpace(query[start:i])
 			if i < len(query) {
-				i++ // skip closing quote
+				i++
 			}
 		} else {
 			start := i
 			for i < len(query) && !unicode.IsSpace(rune(query[i])) {
 				i++
 			}
-			word := query[start:i]
-			if word != "" {
-				terms = append(terms, word)
-			}
+			word = query[start:i]
+		}
+		if word == "" {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(word, "tag:") && len(word) > 4:
+			terms = append(terms, searchTerm{text: strings.ToLower(word[4:]), include: true, isTag: true})
+		case strings.HasPrefix(word, "status:") && len(word) > 7:
+			terms = append(terms, searchTerm{text: strings.ToLower(word[7:]), include: true, isStatus: true})
+		case strings.HasPrefix(word, "-") && len(word) > 1:
+			terms = append(terms, searchTerm{text: word[1:], include: false})
+		default:
+			terms = append(terms, searchTerm{text: word, include: true})
 		}
 	}
 	return terms
 }
 
-func allTermsMatch(terms []string, text string) bool {
-	lower := strings.ToLower(text)
+func allTermsMatch(terms []searchTerm, title, body string, tags []string, status string) bool {
+	combined := strings.ToLower(title + "\n" + body)
+	tagSet := make([]string, len(tags))
+	for i, t := range tags {
+		tagSet[i] = strings.ToLower(t)
+	}
+	statusLower := strings.ToLower(status)
+
 	for _, t := range terms {
-		if !strings.Contains(lower, strings.ToLower(t)) {
-			return false
+		switch {
+		case t.isTag:
+			found := false
+			for _, tg := range tagSet {
+				if tg == t.text {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
+		case t.isStatus:
+			if statusLower != t.text {
+				return false
+			}
+		case t.include:
+			if !strings.Contains(combined, strings.ToLower(t.text)) {
+				return false
+			}
+		default: // exclusion
+			if strings.Contains(combined, strings.ToLower(t.text)) {
+				return false
+			}
 		}
 	}
 	return true
 }
 
-// buildContext finds the first term occurrence and returns a ±60-char snippet.
-func buildContext(terms []string, title, body string) string {
-	// Prefer a snippet from body if the match is there; else use title.
+// buildContext finds the first plain-text term occurrence and returns a ±60-char snippet.
+func buildContext(terms []searchTerm, title, body string) string {
 	for _, src := range []string{body, title} {
 		if src == "" {
 			continue
 		}
 		lower := strings.ToLower(src)
 		for _, t := range terms {
-			idx := strings.Index(lower, strings.ToLower(t))
+			if t.isTag || t.isStatus || !t.include {
+				continue // only use plain text terms for snippet positioning
+			}
+			idx := strings.Index(lower, strings.ToLower(t.text))
 			if idx < 0 {
 				continue
 			}
@@ -145,12 +192,11 @@ func buildContext(terms []string, title, body string) string {
 			if start < 0 {
 				start = 0
 			}
-			end := idx + len(t) + 60
+			end := idx + len(t.text) + 60
 			if end > len(src) {
 				end = len(src)
 			}
 			snippet := strings.TrimSpace(src[start:end])
-			// Collapse newlines to spaces for display
 			snippet = strings.ReplaceAll(snippet, "\n", " ")
 			if start > 0 {
 				snippet = "…" + snippet
