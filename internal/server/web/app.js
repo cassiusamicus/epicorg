@@ -9004,7 +9004,7 @@ function SettingsModal({
           </button>
         </${StgRow}>
         <${StgRow} label="Import from Markdown" desc="Replace the current document with a .md file">
-          <label className="stg-btn stg-file-label" title=${!currentFile ? "Open a file first" : "Import a Markdown file into this document"} style=${currentFile ? "" : "opacity:.45;pointer-events:none"}>
+          <label className="stg-btn stg-file-label" title=${!currentFile ? "Open a file first" : "Import a Markdown file into this document"} style=${currentFile ? {} : { opacity: 0.45, pointerEvents: "none" }}>
             Import…
             <input type="file" accept=".md,text/markdown" style="display:none"
                    onChange=${(e) => { const f = e.target.files?.[0]; if (f) { onImportFromMarkdown?.(f); onClose(); } e.target.value = ""; }} />
