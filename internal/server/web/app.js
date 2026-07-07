@@ -4666,6 +4666,7 @@ function App() {
   const [showToolbarCustomizer, setShowToolbarCustomizer] = useState(false);
   const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsSection, setSettingsSection] = useState("view");
   const [theme, setTheme] = useState(() => {
     try {
       const stored = localStorage.getItem("epicorg.theme");
@@ -6855,7 +6856,7 @@ function App() {
                   onShowShortcutEditor=${() => setShowShortcutEditor(true)}
                   onShowOutlineActions=${() => setShowOutlineActions(true)}
                   onShowToolbarCustomizer=${() => setShowToolbarCustomizer(true)}
-                  onOpenSettings=${() => setShowSettings(true)}
+                  onOpenSettings=${(sec) => { setShowSettings(true); if (sec) setSettingsSection(sec); }}
                   onExportToOrg=${exportToOrg}
                   onExportToHtml=${exportToHtml} />
       ${showOutlineActions && html`
@@ -7182,7 +7183,8 @@ function App() {
       `}
       ${showSettings && html`
         <${SettingsModal}
-          onClose=${() => setShowSettings(false)}
+          initialSection=${settingsSection}
+          onClose=${() => { setShowSettings(false); setSettingsSection("view"); }}
           theme=${theme} onToggleTheme=${toggleTheme}
           topBarColor=${topBarColor} onSetTopBarColor=${setTopBarColorPersisted}
           outlineFormat=${outlineFormat} onSetOutlineFormat=${setOutlineFormat}
@@ -8689,6 +8691,7 @@ function ColorPickerRow({ color, onChange, disabled }) {
 
 function SettingsModal({
   onClose,
+  initialSection,
   theme, onToggleTheme,
   topBarColor, onSetTopBarColor,
   outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat,
@@ -8717,7 +8720,7 @@ function SettingsModal({
   bookmarkPanelVisible, onToggleBookmarkPanel,
   workspaceConfig, onConfigureWorkspace,
 }) {
-  const [section, setSection] = useState("view");
+  const [section, setSection] = useState(initialSection || "view");
   const colorInputRef = useRef(null);
   const isCustomTopBarColor = topBarColor && topBarColor.startsWith("#");
 
@@ -9006,7 +9009,7 @@ function SettingsModal({
         <${StgRow} label="Import from Markdown" desc="Replace the current document with a .md file">
           <label className="stg-btn stg-file-label" title=${!currentFile ? "Open a file first" : "Import a Markdown file into this document"} style=${currentFile ? {} : { opacity: 0.45, pointerEvents: "none" }}>
             Import…
-            <input type="file" accept=".md,text/markdown" style="display:none"
+            <input type="file" accept=".md,text/markdown" style=${{ display: "none" }}
                    onChange=${(e) => { const f = e.target.files?.[0]; if (f) { onImportFromMarkdown?.(f); onClose(); } e.target.value = ""; }} />
           </label>
         </${StgRow}>
@@ -9382,7 +9385,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
           ${toolbarConfig.home && html`
             <div className="view-toggle">
               <button className=${"view-tab" + (homeFile && currentFile === homeFile ? " active" : "") + (!homeFile ? " toolbar-home-unset" : "")}
-                      onClick=${() => homeFile ? onGoHome() : onOpenSettings?.()}
+                      onClick=${() => homeFile ? onGoHome() : onOpenSettings?.("workspace")}
                       title=${homeFile ? "Go home: " + homeFile : "No home file set — click to configure"}><${IconHome} /></button>
             </div>
           `}
