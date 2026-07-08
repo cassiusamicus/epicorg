@@ -6962,7 +6962,7 @@ function App() {
           setShowPicker, setShowTextSearch, setShowFolderPicker,
           setShowHelp, insertFootnote, insertDateStamp,
           splitFocusedNode, joinFocusedWithNext,
-                exportToHtml, exportToOrg, currentFile,
+                exportToHtml, exportToOrg, exportToMarkdown, currentFile,
           copyAsFormatted, copyAsPlain,
           clearRecentFiles,
         })} onClose=${() => setShowHelp(false)} />`}
@@ -9679,7 +9679,7 @@ function buildCommands(ctx) {
     setShowPicker, setShowTextSearch, setShowFolderPicker, setShowHelp,
     insertFootnote, insertDateStamp,
     splitFocusedNode, joinFocusedWithNext,
-    exportToHtml, exportToOrg, currentFile,
+    exportToHtml, exportToOrg, exportToMarkdown, currentFile,
     copyAsFormatted, copyAsPlain,
     clearRecentFiles,
   } = ctx;
