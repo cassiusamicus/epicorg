@@ -2932,6 +2932,11 @@ const SHORTCUT_DEFS = [
   { id: "foldLevel1",  cat: "Reference", label: "Fold to Level 1",   def: "Alt+1",       fixed: true },
   { id: "foldLevel2",  cat: "Reference", label: "Fold to Level 2",   def: "Alt+2",       fixed: true },
   { id: "foldLevel3",  cat: "Reference", label: "Fold to Level 3",   def: "Alt+3",       fixed: true },
+  { id: "foldLevel4",  cat: "Reference", label: "Fold to Level 4",   def: "Alt+4",       fixed: true },
+  { id: "foldLevel5",  cat: "Reference", label: "Fold to Level 5",   def: "Alt+5",       fixed: true },
+  { id: "foldLevel6",  cat: "Reference", label: "Fold to Level 6",   def: "Alt+6",       fixed: true },
+  { id: "foldLevel7",  cat: "Reference", label: "Fold to Level 7",   def: "Alt+7",       fixed: true },
+  { id: "foldLevel8",  cat: "Reference", label: "Fold to Level 8",   def: "Alt+8",       fixed: true },
   { id: "expandAll",   cat: "Reference", label: "Expand All",        def: "Alt+9",       fixed: true },
 ];
 
@@ -3501,7 +3506,7 @@ function SidebarFileRow({ name, active, isFavorite, onSelect, onToggleFavorite, 
   `;
 }
 
-function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavorite, bookmarks, onNavigateToBookmark, onDeleteBookmark, onReorderBookmarks, bookmarkPanelVisible, onToggleBookmarkPanel, textMode, onToggleSidebar, onOpenTodayJournal, onOpenJournalList, onRenameFile, onClearRecentFiles, onOpenQuickSwitcher, onOpenTextSearch, onOpenWorkspace, savedSearches, onRunSavedSearch, onDeleteSavedSearch }) {
+function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavorite, bookmarks, onNavigateToBookmark, onDeleteBookmark, onReorderBookmarks, bookmarkPanelVisible, onToggleBookmarkPanel, textMode, onToggleSidebar, onOpenTodayJournal, onOpenJournalList, onRenameFile, onClearRecentFiles, onOpenQuickSwitcher, onOpenTextSearch, onOpenWorkspace, savedSearches, onRunSavedSearch, onDeleteSavedSearch, navPanelVisible, onToggleNavPanel }) {
   const dragIndexRef = useRef(null);
   const [renameConfirm, setRenameConfirm] = useState(null); // { oldName, newName }
   const [renameBusy, setRenameBusy] = useState(false);
@@ -3534,6 +3539,9 @@ function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavori
                 title="Full-text search across all files (Ctrl+Shift+F)"><${IconSearch} /></button>
         <button className="panel-toggle-btn" onClick=${onOpenWorkspace}
                 title="Workspace paths — configure included/excluded folders"><${IconWorkspace} /></button>
+        <button className=${"panel-toggle-btn" + (navPanelVisible ? " active" : "")}
+                onClick=${onToggleNavPanel} disabled=${textMode}
+                title=${textMode ? "Not available in reveal codes mode" : "Toggle navigation panel"}><${IconNavPanel} /></button>
       </div>
       <div className="sidebar-section">
         <div className="sidebar-section-header">
@@ -3673,6 +3681,69 @@ const UNDOABLE_ACTIONS = new Set([
 // rather than one per keystroke.
 const COALESCE_UNDO_ACTIONS = new Set(["change", "change-body", "change-preamble"]);
 const UNDO_COALESCE_MS = 800;
+
+// A single heading row in the Navigation panel — title only, no body text.
+// Expand/collapse here is local UI state, independent of the document's own
+// node.collapsed (browsing the table of contents shouldn't alter the actual
+// outline's fold state or mark the document dirty).
+function NavPanelNode({ node, depth, expandedIds, onToggleExpand, onJump, wrapMode }) {
+  const hasKids = node.children?.length > 0;
+  const isExpanded = expandedIds.has(node.id);
+  return html`
+    <div className="nav-panel-item">
+      <div className="nav-panel-row" style=${{ paddingLeft: (depth * 14) + "px" }}>
+        ${hasKids
+          ? html`<button className="nav-panel-tog" onClick=${() => onToggleExpand(node.id)} title=${isExpanded ? "Collapse" : "Expand"}>${isExpanded ? "▼" : "▶"}</button>`
+          : html`<span className="nav-panel-leaf"></span>`}
+        <span className=${"nav-panel-label" + (wrapMode ? " wrap" : " truncate")}
+              onClick=${() => onJump(node.id)}
+              title=${node.title || "(untitled)"}
+              dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(node.title || "(untitled)") }}>
+        </span>
+      </div>
+      ${hasKids && isExpanded && html`
+        <div className="nav-panel-children">
+          ${node.children.map((child) => html`
+            <${NavPanelNode} key=${child.id} node=${child} depth=${depth + 1}
+              expandedIds=${expandedIds} onToggleExpand=${onToggleExpand}
+              onJump=${onJump} wrapMode=${wrapMode} />
+          `)}
+        </div>
+      `}
+    </div>
+  `;
+}
+
+function NavPanel({ nodes, wrapMode, onToggleWrap, onJump }) {
+  const [expandedIds, setExpandedIds] = useState(() => new Set());
+  const onToggleExpand = useCallback((id) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+  return html`
+    <div className="nav-panel">
+      <div className="nav-panel-header">
+        <span>Navigation</span>
+        <button className="nav-panel-wrap-btn" onClick=${onToggleWrap}
+                title=${wrapMode ? "Show one line per heading (truncated)" : "Wrap headings to show full text"}>
+          ${wrapMode ? "Truncate" : "Wrap"}
+        </button>
+      </div>
+      <div className="nav-panel-list">
+        ${(nodes || []).length === 0
+          ? html`<div className="nav-panel-empty">No headings</div>`
+          : (nodes || []).map((n) => html`
+              <${NavPanelNode} key=${n.id} node=${n} depth=${0}
+                expandedIds=${expandedIds} onToggleExpand=${onToggleExpand}
+                onJump=${onJump} wrapMode=${wrapMode} />
+            `)}
+      </div>
+    </div>
+  `;
+}
 
 function FootnotePopup({ popup, onClose, onSave }) {
   const [text, setText] = useState(popup.text || "");
@@ -4411,6 +4482,29 @@ function App() {
     setSidebarVisible((p) => {
       const next = !p;
       try { localStorage.setItem("epicorg.sidebarVisible", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  }, []);
+  const [navPanelVisible, setNavPanelVisible] = useState(() => {
+    try { return localStorage.getItem("epicorg.navPanelVisible") === "1"; } catch { return false; }
+  });
+  const toggleNavPanel = useCallback(() => {
+    setNavPanelVisible((p) => {
+      const next = !p;
+      try { localStorage.setItem("epicorg.navPanelVisible", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  }, []);
+  // Whether each heading's label wraps to show the full text, or stays on a
+  // single truncated line (with an ellipsis) — independent of the panel's
+  // own expand/collapse state per node.
+  const [navPanelWrap, setNavPanelWrap] = useState(() => {
+    try { return localStorage.getItem("epicorg.navPanelWrap") === "1"; } catch { return false; }
+  });
+  const toggleNavPanelWrap = useCallback(() => {
+    setNavPanelWrap((p) => {
+      const next = !p;
+      try { localStorage.setItem("epicorg.navPanelWrap", next ? "1" : "0"); } catch {}
       return next;
     });
   }, []);
@@ -5177,6 +5271,15 @@ function App() {
     setNodes((prev) => prev ? tree.foldToLevel(prev, level) : prev);
     markDirty();
   }, [markDirty]);
+
+  // Unlike "Expand All" (which only unfolds headings), this also force-shows
+  // inline notes — a single command for "reveal absolutely everything",
+  // regardless of whichever state notes visibility happened to be in.
+  const expandAllWithNotes = useCallback(() => {
+    foldToLevel(9);
+    setNotesVisible(true);
+    try { localStorage.setItem("epicorg.notesVisible", "1"); } catch {}
+  }, [foldToLevel]);
 
   // Save an edited footnote definition back into the node body that contains it.
   const saveFootnoteDef = useCallback((label, newText) => {
@@ -6954,10 +7057,11 @@ function App() {
           toggleVerticalLines, verticalLines,
           toggleReadingWidth, readingWidth,
           toggleSidebar, sidebarVisible,
+          toggleNavPanel,
           toggleHoist, isHoisted,
           toggleTagPanel, tagPanelVisible,
           toggleBookmarkPanel, bookmarkPanelVisible,
-          foldToLevel,
+          foldToLevel, expandAllWithNotes,
           setView, view,
           setShowPicker, setShowTextSearch, setShowFolderPicker,
           setShowHelp, insertFootnote, insertDateStamp,
@@ -7071,7 +7175,12 @@ function App() {
             onOpenWorkspace=${() => setShowWorkspaceModal(true)}
             savedSearches=${savedSearches}
             onRunSavedSearch=${runSavedSearch}
-            onDeleteSavedSearch=${deleteSavedSearch} />
+            onDeleteSavedSearch=${deleteSavedSearch}
+            navPanelVisible=${navPanelVisible} onToggleNavPanel=${toggleNavPanel} />
+        `}
+        ${navPanelVisible && !textMode && html`
+          <${NavPanel} nodes=${nodes} wrapMode=${navPanelWrap}
+            onToggleWrap=${toggleNavPanelWrap} onJump=${jumpToNode} />
         `}
         ${bookmarkPanelVisible && !textMode && html`
           <${BookmarkPanel} globalBMs=${globalBMs}
@@ -7421,6 +7530,16 @@ function IconSidebar() {
     <svg ...${ICON_PROPS}>
       <rect x="3" y="4" width="18" height="16" rx="2" />
       <line x1="9" y1="4" x2="9" y2="20" />
+    </svg>
+  `;
+}
+
+function IconNavPanel() {
+  return html`
+    <svg ...${ICON_PROPS}>
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="3" y1="12" x2="15" y2="12" />
+      <line x1="3" y1="18" x2="18" y2="18" />
     </svg>
   `;
 }
@@ -9671,10 +9790,11 @@ function buildCommands(ctx) {
     toggleVerticalLines, verticalLines,
     toggleReadingWidth, readingWidth,
     toggleSidebar, sidebarVisible,
+    toggleNavPanel,
     toggleHoist, isHoisted,
     toggleTagPanel, tagPanelVisible,
     toggleBookmarkPanel, bookmarkPanelVisible,
-    foldToLevel,
+    foldToLevel, expandAllWithNotes,
     setView, view,
     setShowPicker, setShowTextSearch, setShowFolderPicker, setShowHelp,
     insertFootnote, insertDateStamp,
@@ -9694,6 +9814,7 @@ function buildCommands(ctx) {
     { category: "View", label: "Agenda View",              desc: "Show scheduled items",           keys: "",              action: () => setView("agenda") },
     { category: "View", label: "TODO View",                desc: "Show all TODO items",            keys: "",              action: () => setView("todo") },
     { category: "View", label: "Toggle Sidebar",           desc: "Show/hide the file sidebar",     keys: "",              action: toggleSidebar },
+    { category: "View", label: "Toggle Navigation Panel",  desc: "Show/hide the heading-only navigation panel", keys: "", action: toggleNavPanel },
     { category: "View", label: "Toggle Tag Panel",         desc: "Show/hide the tag panel",        keys: "",              action: toggleTagPanel },
     { category: "View", label: "Toggle Bookmark Panel",    desc: "Show/hide bookmarks",            keys: "",              action: toggleBookmarkPanel },
     { category: "View", label: "Toggle Detail Panel",      desc: "Show/hide the detail pane",      keys: "",              action: () => {} }, // wired below
@@ -9714,7 +9835,12 @@ function buildCommands(ctx) {
     { category: "Folding", label: "Fold to Level 2",      desc: "Expand to level 2",              keys: "Alt+2",         action: () => foldToLevel(2) },
     { category: "Folding", label: "Fold to Level 3",      desc: "Expand to level 3",              keys: "Alt+3",         action: () => foldToLevel(3) },
     { category: "Folding", label: "Fold to Level 4",      desc: "Expand to level 4",              keys: "Alt+4",         action: () => foldToLevel(4) },
+    { category: "Folding", label: "Fold to Level 5",      desc: "Expand to level 5",              keys: "Alt+5",         action: () => foldToLevel(5) },
+    { category: "Folding", label: "Fold to Level 6",      desc: "Expand to level 6",              keys: "Alt+6",         action: () => foldToLevel(6) },
+    { category: "Folding", label: "Fold to Level 7",      desc: "Expand to level 7",              keys: "Alt+7",         action: () => foldToLevel(7) },
+    { category: "Folding", label: "Fold to Level 8",      desc: "Expand to level 8",              keys: "Alt+8",         action: () => foldToLevel(8) },
     { category: "Folding", label: "Expand All",           desc: "Unfold everything",              keys: "Alt+9",         action: () => foldToLevel(9) },
+    { category: "Folding", label: "Expand All + Notes",   desc: "Unfold every heading and show all inline notes", keys: "", action: expandAllWithNotes },
     // Edit
     { category: "Edit", label: "Undo",                    desc: "Undo last change",               keys: displayCombo(getShortcutCombo("undo")),            action: undo,      disabled: !canUndo },
     { category: "Edit", label: "Redo",                    desc: "Redo last undone change",        keys: displayCombo(getShortcutCombo("redo")),            action: redo,      disabled: !canRedo },
