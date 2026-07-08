@@ -2173,6 +2173,12 @@ header.header-tinted {
   background: var(--bg);
 }
 
+.nav-panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .nav-panel-wrap-btn {
   background: none;
   border: 1px solid var(--border);
@@ -2186,6 +2192,18 @@ header.header-tinted {
 }
 
 .nav-panel-wrap-btn:hover { color: var(--text); background: var(--focused-bg); }
+
+.nav-panel-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.nav-panel-close:hover { color: var(--text); }
 
 .nav-panel-list {
   display: flex;

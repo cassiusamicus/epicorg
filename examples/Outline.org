@@ -866,7 +866,7 @@ Epicurus used to say that philosophy is an activity which by arguments and discu
 *** /Plutarch, Against Epicurean Happiness 1095c (Usener 20)/ :RoleOfPhilosophy:
 Epicurus in his Problems declares that the wise man is a theatre-lover, who gets more joy than anyone else from festival concerts and shows. Yet he allows no place, even at table, for issues of musical theory or for literary-critical questions. (L&S-THP)
 /This collection is organized for study and reference. Citations from Diogenes Laertius Book X and additional Lucretius references to be added./
-* HISTORYORGANIZATION
+* HISTORY AND ORGANIZATION
 ** Leaders :Epicureans:
 *** Epicurus :Epicurus:
 *** Metrodorus :Metrodorus:

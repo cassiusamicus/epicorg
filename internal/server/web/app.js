@@ -3714,7 +3714,7 @@ function NavPanelNode({ node, depth, expandedIds, onToggleExpand, onJump, wrapMo
   `;
 }
 
-function NavPanel({ nodes, wrapMode, onToggleWrap, onJump }) {
+function NavPanel({ nodes, wrapMode, onToggleWrap, onJump, onClose }) {
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const onToggleExpand = useCallback((id) => {
     setExpandedIds((prev) => {
@@ -3727,10 +3727,13 @@ function NavPanel({ nodes, wrapMode, onToggleWrap, onJump }) {
     <div className="nav-panel">
       <div className="nav-panel-header">
         <span>Navigation</span>
-        <button className="nav-panel-wrap-btn" onClick=${onToggleWrap}
-                title=${wrapMode ? "Show one line per heading (truncated)" : "Wrap headings to show full text"}>
-          ${wrapMode ? "Truncate" : "Wrap"}
-        </button>
+        <div className="nav-panel-header-actions">
+          <button className="nav-panel-wrap-btn" onClick=${onToggleWrap}
+                  title=${wrapMode ? "Show one line per heading (truncated)" : "Wrap headings to show full text"}>
+            ${wrapMode ? "Truncate" : "Wrap"}
+          </button>
+          <button className="nav-panel-close" onClick=${onClose} title="Close navigation panel">×</button>
+        </div>
       </div>
       <div className="nav-panel-list">
         ${(nodes || []).length === 0
@@ -7180,7 +7183,7 @@ function App() {
         `}
         ${navPanelVisible && !textMode && html`
           <${NavPanel} nodes=${nodes} wrapMode=${navPanelWrap}
-            onToggleWrap=${toggleNavPanelWrap} onJump=${jumpToNode} />
+            onToggleWrap=${toggleNavPanelWrap} onJump=${jumpToNode} onClose=${toggleNavPanel} />
         `}
         ${bookmarkPanelVisible && !textMode && html`
           <${BookmarkPanel} globalBMs=${globalBMs}
