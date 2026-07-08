@@ -1716,7 +1716,7 @@ header.header-tinted {
 [data-theme="dark"] .file-picker-file .folder-picker-dir-name { color: rgba(255,255,255,0.70); }
 [data-theme="dark"] .fp-nav-dir { color: rgba(255,255,255,0.88); }
 [data-theme="dark"] .fp-nav-file { color: rgba(255,255,255,0.75); }
-[data-theme="dark"] .fp-nav-path-title { color: rgba(255,255,255,0.60); }
+[data-theme="dark"] .fp-current-path { color: rgba(255,255,255,0.60); }
 [data-theme="dark"] .folder-picker-path-text { color: rgba(255,255,255,0.60); }
 
 .org-file-picker-create {
@@ -2032,17 +2032,19 @@ header.header-tinted {
 }
 .file-picker-change-folder:hover,
 .file-picker-browse-btn:hover { color: var(--accent); background: var(--hover); }
-.fp-nav-path-title {
+.file-picker-header-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.fp-current-path {
   font-size: 12px;
   color: var(--text-dim);
   font-family: monospace;
-  font-weight: normal;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 340px;
-  display: inline-block;
-  vertical-align: middle;
+  margin-top: 2px;
 }
 
 /* Dir rows in workspace list */

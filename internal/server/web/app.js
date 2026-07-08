@@ -3267,7 +3267,13 @@ function FilePicker({ files, onSelect, onCreate, onClose, onRename, onDelete, on
     document.addEventListener("mouseup", onUp);
   }, [colWidths]);
 
-  const sorted = [...files].sort((a, b) => {
+  // `files` is the full recursive workspace listing (names like
+  // "Epicurus/DeWitt.org" for nested files) — at the workspace root, only
+  // root-level files belong in this flat list. Anything in a subfolder is
+  // already reachable by clicking into that folder's row above, so
+  // including it here too just duplicates the same file twice over.
+  const rootFiles = files.filter((f) => !f.name.includes("/"));
+  const sorted = [...rootFiles].sort((a, b) => {
     let cmp;
     if (sort.column === "name") cmp = a.name.localeCompare(b.name);
     else if (sort.column === "size") cmp = a.size - b.size;
@@ -3280,7 +3286,12 @@ function FilePicker({ files, onSelect, onCreate, onClose, onRename, onDelete, on
   return html`
     <div className="file-picker">
       <div className="file-picker-header">
-        <h2>${atWorkspace ? "Choose a file" : html`<span className="fp-nav-path-title" title=${navPath}>${navPath}</span>`}</h2>
+        <div className="file-picker-header-text">
+          <h2>Choose a file</h2>
+          <div className="fp-current-path" title=${navPath || workspacePath.current || ""}>
+            ${navPath || workspacePath.current || ""}
+          </div>
+        </div>
         ${onClose && html`
           <button className="file-picker-close" onClick=${onClose} title="Cancel" aria-label="Close">×</button>
         `}

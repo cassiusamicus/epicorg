@@ -78,6 +78,13 @@ type Meta struct {
 
 // NewStore opens a directory, ensures it's a git repo, and commits current state.
 func NewStore(dir string) (*Store, error) {
+	// Resolve to an absolute path up front — dir may arrive relative (e.g.
+	// "." from `make run`, or a bare directory name), and callers such as
+	// the file picker's current-path display depend on Dir() always being
+	// the full, unambiguous path rather than whatever form was passed in.
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
 	info, err := os.Stat(dir)
 	if err != nil {
 		return nil, err
@@ -210,7 +217,11 @@ func (s *Store) Dir() string {
 // SetDir changes the working directory at runtime. All cached file state is
 // cleared and git is initialized in the new directory.
 func (s *Store) SetDir(dir string) error {
-	dir = filepath.Clean(dir)
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	} else {
+		dir = filepath.Clean(dir)
+	}
 	info, err := os.Stat(dir)
 	if err != nil {
 		return fmt.Errorf("cannot access directory: %w", err)
