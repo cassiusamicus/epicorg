@@ -5383,6 +5383,13 @@ function App() {
   }, []);
 
   const jumpToNode = useCallback((id) => {
+    // If hoisted into a subtree that doesn't contain the destination, the
+    // hoisted view would just filter the target out entirely — clicking a
+    // nav-panel/bookmark/search entry outside the isolated subtree would
+    // silently do nothing. Un-hoist first so navigation always succeeds.
+    setHoistedId((prevHoist) =>
+      prevHoist && !tree.isDescendantOrSelf(nodesRef.current || [], prevHoist, id) ? null : prevHoist
+    );
     setNodes((prev) => tree.uncollapseToNode(prev, id));
     focusNode(id);
     requestAnimationFrame(() => {
@@ -6720,6 +6727,9 @@ function App() {
   }, [dispatch, markDirty]);
 
   const navigateToBookmark = useCallback((bm) => {
+    setHoistedId((prevHoist) =>
+      prevHoist && !tree.isDescendantOrSelf(nodesRef.current || [], prevHoist, bm.id) ? null : prevHoist
+    );
     setNodes((prev) => tree.uncollapseToNode(prev, bm.id));
     focusNode(bm.id);
   }, [focusNode]);
