@@ -6,6 +6,8 @@ A free, open-source outline editor built on the robust org-mode format. Outline-
 
 This program was developed by Cassius Amicus for his own use in the study of Epicurean philosophy, but you are welcome to use it for your own purposes.  Epicorq was programmed using Go entirely by Claude.AI.  As of this writing it has been tested only on Linux, although Claude indicates that the Windows and MAC builds should work as well.  It is certainly not intended as a replacement for Emacs or Logseq or any other major program, but it is intended to be a basic single-pane outliner, easy to use (with menus) for non-specialists, while running under-the-hood on the powerful Org-mode outlining format, rather than markdown.
 
+**How it runs:** epicorg is not a native desktop app — running the binary starts a small local web server on your own machine, and you use it through your regular web browser (the same pattern Jupyter notebooks use). Nothing is installed into your OS beyond the one binary, nothing leaves your computer, and no internet connection is required. Closing the browser tab doesn't stop the server; use Ctrl+C in the terminal (or close the terminal) to shut it down.
+
 ![Outline view](docs/images/outline-view.png)
 
 ![Agenda view](docs/images/agenda-view.png)

@@ -209,17 +209,24 @@ function collectAllTags(nodes) {
   return [...tags].sort();
 }
 
+// Returns { html, tags: Set } — tags is the union of this node list's own
+// tags and every descendant's tags. Ancestors need the full union (not just
+// their own tags) in their data-tags attribute: the tag-panel filter hides
+// any .ns whose data-tags doesn't contain the active tag, and since a
+// hidden element hides its DOM descendants too, an ancestor lacking the
+// aggregated set would blank out a deeply-tagged descendant along with it.
 function renderNodesHtml(nodes, depth, outlineFormat, levelFormats) {
   let out = "";
+  const allTags = new Set();
   for (let i = 0; i < (nodes || []).length; i++) {
     const node = nodes[i];
     const siblingIndex = i + 1;
-    const tags = (node.tags || []).join(",");
+    const ownTags = node.tags || [];
     const titleHtml = renderOrgInline(node.title || "");
     const bodyHtml = node.body ? renderOrgBody(node.body) : "";
     const status = node.status || "";
     const isDone = status === "DONE" || status === "CANCELLED";
-    const tagChips = (node.tags || []).map(t =>
+    const tagChips = ownTags.map(t =>
       `<span class="tc" onclick="setTag('${esc(t)}')" data-tag="${esc(t)}">${esc(t)}</span>`
     ).join("");
 
@@ -231,40 +238,42 @@ function renderNodesHtml(nodes, depth, outlineFormat, levelFormats) {
     const isIndexed = fmt === "numbers" || fmt === "letters" || fmt === "upper";
     const label = fmt === "letters" ? toLetters(siblingIndex) : fmt === "upper" ? toLetters(siblingIndex, true) : siblingIndex + ".";
 
-    out += `<div class="ns" data-level="${depth}" data-tags="${esc(tags)}" id="n-${esc(node.id || "")}">`;
-    out += `<div class="nh${isDone ? " done" : ""}">`;
+    let inner = `<div class="nh${isDone ? " done" : ""}">`;
     if (isIndexed) {
       if (hasKids) {
-        out += `<span class="nb-caret tog" onclick="toggleNode(this,'${chId}')" title="Collapse">▼</span>`;
+        inner += `<span class="nb-caret tog" onclick="toggleNode(this,'${chId}')" title="Collapse">▼</span>`;
       } else {
-        out += `<span class="nb-caret"></span>`;
+        inner += `<span class="nb-caret"></span>`;
       }
-      out += `<span class="nb-idx">${esc(label)}</span>`;
+      inner += `<span class="nb-idx">${esc(label)}</span>`;
     } else {
       if (hasKids) {
-        out += `<span class="nb tog" onclick="toggleNode(this,'${chId}')" title="Collapse">▼</span>`;
+        inner += `<span class="nb tog" onclick="toggleNode(this,'${chId}')" title="Collapse">▼</span>`;
       } else {
-        out += `<span class="nb"></span>`;
+        inner += `<span class="nb"></span>`;
       }
     }
-    if (status) out += `<span class="sbadge s-${status.toLowerCase()}">${esc(status)}</span>`;
-    out += `<span class="nt">${titleHtml}</span>`;
-    if (tagChips) out += `<span class="tg">${tagChips}</span>`;
-    out += `</div>`;
+    if (status) inner += `<span class="sbadge s-${status.toLowerCase()}">${esc(status)}</span>`;
+    inner += `<span class="nt">${titleHtml}</span>`;
+    if (tagChips) inner += `<span class="tg">${tagChips}</span>`;
+    inner += `</div>`;
 
     if (node.body) {
-      out += `<div class="nbody">${bodyHtml}</div>`;
+      inner += `<div class="nbody">${bodyHtml}</div>`;
     }
 
+    const nodeTags = new Set(ownTags);
     if (hasKids) {
-      out += `<div class="ch" id="${chId}">`;
-      out += renderNodesHtml(node.children, depth + 1, outlineFormat, levelFormats);
-      out += `</div>`;
+      const childResult = renderNodesHtml(node.children, depth + 1, outlineFormat, levelFormats);
+      inner += `<div class="ch" id="${chId}">${childResult.html}</div>`;
+      childResult.tags.forEach((t) => nodeTags.add(t));
     }
+    nodeTags.forEach((t) => allTags.add(t));
 
-    out += `</div>`;
+    const aggTags = Array.from(nodeTags).join(",");
+    out += `<div class="ns" data-level="${depth}" data-tags="${esc(aggTags)}" id="n-${esc(node.id || "")}">${inner}</div>`;
   }
-  return out;
+  return { html: out, tags: allTags };
 }
 
 function buildNavHtml(nodes) {
@@ -299,7 +308,7 @@ function extractOrgTitle(preamble) {
 export function generateExportHtml(nodes, preamble, filename, theme, accentColor, outlineFormat, levelFormats) {
   const accentBg = accentColor || null;
   const allTags = collectAllTags(nodes);
-  const contentHtml = renderNodesHtml(nodes, 1, outlineFormat, levelFormats);
+  const contentHtml = renderNodesHtml(nodes, 1, outlineFormat, levelFormats).html;
   const navHtml = buildNavHtml(nodes);
   const fileTitle = (filename || "Document").replace(/\.org$/, "");
   const orgTitle = extractOrgTitle(preamble) || fileTitle;
