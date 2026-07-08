@@ -160,6 +160,28 @@ body {
   flex-direction: column;
 }
 
+/* Top-bar collapse — deliberately never a full "hide"; while collapsed, this
+   small corner tab is the guaranteed way back (toggled via Settings > View
+   or the command palette, not a permanently-visible button). */
+.header-collapsed-tab {
+  position: fixed;
+  top: 0;
+  right: 24px;
+  z-index: 50;
+  border: none;
+  border-radius: 0 0 6px 6px;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  opacity: 0.85;
+}
+
+.header-collapsed-tab:hover {
+  opacity: 1;
+}
+
 header {
   flex-shrink: 0;
   padding: 0 0 12px;

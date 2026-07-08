@@ -4516,6 +4516,20 @@ function App() {
       return next;
     });
   }, []);
+  // Collapses the top bar down to a small clickable tab in the corner —
+  // deliberately never a full "hide entirely" option, since that would take
+  // the Settings/hamburger access away with it and leave no way back in
+  // short of editing localStorage by hand.
+  const [headerCollapsed, setHeaderCollapsed] = useState(() => {
+    try { return localStorage.getItem("epicorg.headerCollapsed") === "1"; } catch { return false; }
+  });
+  const toggleHeaderCollapsed = useCallback(() => {
+    setHeaderCollapsed((p) => {
+      const next = !p;
+      try { localStorage.setItem("epicorg.headerCollapsed", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  }, []);
   const [currentFile, setCurrentFile] = useState(null);
   // True until the initial-mount auto-load attempt (last file / default file /
   // sole file) has settled. Keeps the loading screen up instead of flashing
@@ -7009,6 +7023,12 @@ function App() {
 
   return html`
     <div className="app-shell">
+      ${headerCollapsed && html`
+        <button className="header-collapsed-tab" onClick=${toggleHeaderCollapsed}
+                style=${{ background: resolveTopBarColor(topBarColor) || "var(--panel-bg)", color: resolveTopBarColor(topBarColor) ? "#fff" : "var(--text)" }}
+                title="Show top bar">▾</button>
+      `}
+      ${!headerCollapsed && html`
       <${Header} onHelp=${() => setShowHelp(true)} syncStatus=${syncStatus}
                   view=${view} setView=${setView} currentFile=${currentFile}
                   searchQuery=${searchQuery} setSearchQuery=${setSearchQuery}
@@ -7060,6 +7080,7 @@ function App() {
                   onOpenSettings=${(sec) => { setShowSettings(true); if (sec) setSettingsSection(sec); }}
                   onExportToOrg=${exportToOrg}
                   onExportToHtml=${exportToHtml} />
+      `}
       ${showOutlineActions && html`
         <${OutlineActionsPanel}
           focusedId=${focusedId}
@@ -7075,7 +7096,7 @@ function App() {
           toggleVerticalLines, verticalLines,
           toggleReadingWidth, readingWidth,
           toggleSidebar, sidebarVisible,
-          toggleNavPanel,
+          toggleNavPanel, toggleHeaderCollapsed,
           toggleHoist, isHoisted,
           toggleTagPanel, tagPanelVisible,
           toggleBookmarkPanel, bookmarkPanelVisible,
@@ -7412,6 +7433,7 @@ function App() {
           onChangeJournalDir=${() => { setShowSettings(false); setShowJournalFolderPicker(true); }}
           onClearJournalDir=${() => { setShowSettings(false); clearJournalDir(); }}
           statusBarVisible=${statusBarVisible} onToggleStatusBar=${toggleStatusBarVisible}
+          headerCollapsed=${headerCollapsed} onToggleHeaderCollapsed=${toggleHeaderCollapsed}
           titleFormatMode=${titleFormatMode} onToggleTitleFormat=${toggleTitleFormatMode}
           notesVisible=${notesVisible} onToggleNotesVisible=${toggleNotesVisible}
           dateStampFmt=${dateStampFmt} onSetDateStampFmt=${setDateStampFmt}
@@ -8927,6 +8949,7 @@ function SettingsModal({
   homeFile, onSetHomeFile, currentFile,
   journalDir, onChangeJournalDir, onClearJournalDir,
   statusBarVisible, onToggleStatusBar,
+  headerCollapsed, onToggleHeaderCollapsed,
   titleFormatMode, onToggleTitleFormat,
   notesVisible, onToggleNotesVisible,
   dateStampFmt, onSetDateStampFmt,
@@ -8968,6 +8991,9 @@ function SettingsModal({
     if (section === "view") return html`
       <div className="stg-section">
         <p className="stg-section-title">Main View</p>
+        <${StgRow} label="Top bar" desc="Uncheck to collapse it to a small corner tab — click the tab to bring it back">
+          <input type="checkbox" checked=${!headerCollapsed} onChange=${onToggleHeaderCollapsed} />
+        </${StgRow}>
         <${StgRow} label="Status bar" desc="Shows the current file and workspace path at the bottom of the window">
           <input type="checkbox" checked=${statusBarVisible} onChange=${onToggleStatusBar} />
         </${StgRow}>
@@ -9803,7 +9829,7 @@ function buildCommands(ctx) {
     toggleVerticalLines, verticalLines,
     toggleReadingWidth, readingWidth,
     toggleSidebar, sidebarVisible,
-    toggleNavPanel,
+    toggleNavPanel, toggleHeaderCollapsed,
     toggleHoist, isHoisted,
     toggleTagPanel, tagPanelVisible,
     toggleBookmarkPanel, bookmarkPanelVisible,
@@ -9828,6 +9854,7 @@ function buildCommands(ctx) {
     { category: "View", label: "TODO View",                desc: "Show all TODO items",            keys: "",              action: () => setView("todo") },
     { category: "View", label: "Toggle Sidebar",           desc: "Show/hide the file sidebar",     keys: "",              action: toggleSidebar },
     { category: "View", label: "Toggle Navigation Panel",  desc: "Show/hide the heading-only navigation panel", keys: "", action: toggleNavPanel },
+    { category: "View", label: "Collapse Top Bar",         desc: "Shrink the top bar down to a small corner tab (click the tab to restore it)", keys: "", action: toggleHeaderCollapsed },
     { category: "View", label: "Toggle Tag Panel",         desc: "Show/hide the tag panel",        keys: "",              action: toggleTagPanel },
     { category: "View", label: "Toggle Bookmark Panel",    desc: "Show/hide bookmarks",            keys: "",              action: toggleBookmarkPanel },
     { category: "View", label: "Toggle Detail Panel",      desc: "Show/hide the detail pane",      keys: "",              action: () => {} }, // wired below
