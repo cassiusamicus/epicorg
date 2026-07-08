@@ -2498,6 +2498,18 @@ function AgendaView({ nodes, currentFile, onSelect, onEditNode, searchQuery, sel
     setDateFilter((f) => DATE_FILTERS[(DATE_FILTERS.indexOf(f) + 1) % DATE_FILTERS.length]);
   }, []);
 
+  // Must run unconditionally (before the early "no items" return below) —
+  // calling hooks after a conditional return violates the Rules of Hooks and
+  // makes React throw "rendered fewer hooks than expected" the moment the
+  // list empties out, which (with no error boundary anywhere) unmounts the
+  // entire app instead of just this view.
+  const agendaDatePickerRef = useRef(null);
+  const openAgendaDatePicker = useCallback(() => {
+    const el = agendaDatePickerRef.current;
+    if (!el) return;
+    try { el.showPicker(); } catch { el.click(); }
+  }, []);
+
   const isFiltering = !!searchQuery || (selectedTags && selectedTags.length > 0);
   // Local items come from the current in-memory nodes.
   const localItems = collectDatedItems(nodes);
@@ -2552,13 +2564,6 @@ function AgendaView({ nodes, currentFile, onSelect, onEditNode, searchQuery, sel
     if (!cur || cur.date !== item.date) { cur = { date: item.date, items: [] }; groups.push(cur); }
     cur.items.push(item);
   }
-
-  const agendaDatePickerRef = useRef(null);
-  const openAgendaDatePicker = useCallback(() => {
-    const el = agendaDatePickerRef.current;
-    if (!el) return;
-    try { el.showPicker(); } catch { el.click(); }
-  }, []);
 
   return html`
     <div className="agenda-view">
