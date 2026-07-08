@@ -55,3 +55,9 @@
 ** Metrodorus
 * TAG1
 * TAG2
+* Artwork
+* Computer
+* Epicurean
+* Personal
+* Schedule
+* Walker

@@ -8968,6 +8968,9 @@ function SettingsModal({
     if (section === "view") return html`
       <div className="stg-section">
         <p className="stg-section-title">Main View</p>
+        <${StgRow} label="Status bar" desc="Shows the current file and workspace path at the bottom of the window">
+          <input type="checkbox" checked=${statusBarVisible} onChange=${onToggleStatusBar} />
+        </${StgRow}>
         <${StgRow} label="View mode">
           <div className="stg-segmented">
             ${[
@@ -9226,14 +9229,6 @@ function SettingsModal({
             return html`<span className="stg-path">${summary}</span>`;
           })()}
           <button className="stg-btn" onClick=${onConfigureWorkspace}>Configure…</button>
-        </${StgRow}>
-      </div>
-      <div className="stg-section">
-        <p className="stg-section-title">Interface</p>
-        <${StgRow} label="Status bar">
-          <button className="stg-btn" onClick=${onToggleStatusBar}>
-            ${statusBarVisible ? "Visible" : "Hidden"}
-          </button>
         </${StgRow}>
       </div>
       <div className="stg-section">
