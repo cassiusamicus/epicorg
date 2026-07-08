@@ -261,6 +261,20 @@ func Register(mux *http.ServeMux, store *orgfile.Store, onSave func(), defaultFi
 		}
 	})
 
+	// Saved workspace profiles — named presets bundling home dir, tag list,
+	// bookmark list, journal dir, and home file, for switching between
+	// entirely separate working contexts.
+	mux.HandleFunc("/api/saved-workspaces", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			h.getSavedWorkspaces(w, r)
+		case http.MethodPut:
+			h.putSavedWorkspaces(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	// Workspace-wide agenda scan — returns all nodes with SCHEDULED or DEADLINE across all files.
 	mux.HandleFunc("/api/agenda", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {

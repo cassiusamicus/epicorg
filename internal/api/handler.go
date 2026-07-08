@@ -63,6 +63,33 @@ func (h *handlers) putWorkspace(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, cfg)
 }
 
+func (h *handlers) getSavedWorkspaces(w http.ResponseWriter, r *http.Request) {
+	profiles, err := orgfile.LoadWorkspaceProfiles()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]interface{}{"workspaces": profiles})
+}
+
+func (h *handlers) putSavedWorkspaces(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Workspaces []orgfile.WorkspaceProfile `json:"workspaces"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if req.Workspaces == nil {
+		req.Workspaces = []orgfile.WorkspaceProfile{}
+	}
+	if err := orgfile.SaveWorkspaceProfiles(req.Workspaces); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]interface{}{"workspaces": req.Workspaces})
+}
+
 func (h *handlers) createFile(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Filename string `json:"filename"`

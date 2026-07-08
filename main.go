@@ -25,6 +25,9 @@ import (
 //go:embed examples/Outline.org
 var embeddedOutline []byte
 
+//go:embed examples/TagList.org
+var embeddedTagList []byte
+
 // reorderArgs moves recognized flags (and their values) ahead of positional
 // arguments. The standard flag package stops parsing at the first
 // non-flag token, so without this, "epicorg DIR -file x.org" would silently
@@ -98,11 +101,17 @@ func main() {
 		log.Fatalf("failed to open directory: %v", err)
 	}
 
-	// On first run (empty directory), seed with the built-in example outline.
+	// On first run (empty directory), seed with the built-in example outline
+	// and its matching tag list, so the tag panel shows the same grouped
+	// hierarchy (Physics/Canonics/Ethics/...) instead of a flat auto-merged list.
 	if files, _ := store.ListFiles(); len(files) == 0 {
 		dest := filepath.Join(dir, "Outline.org")
 		if err := os.WriteFile(dest, embeddedOutline, 0644); err != nil {
 			log.Printf("warning: could not write example outline: %v", err)
+		}
+		tagListDest := filepath.Join(dir, orgfile.TagListFilename)
+		if err := os.WriteFile(tagListDest, embeddedTagList, 0644); err != nil {
+			log.Printf("warning: could not write example tag list: %v", err)
 		}
 	}
 

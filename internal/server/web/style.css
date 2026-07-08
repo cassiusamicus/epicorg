@@ -5990,6 +5990,7 @@ a.org-file-link {
 .stg-color-none { background: none !important; border: 2px solid var(--border); color: var(--text-dim); font-size: 14px; line-height: 18px; text-align: center; }
 .stg-color-swatch:disabled { opacity: 0.4; cursor: not-allowed; }
 .stg-hex-input { width: 72px; padding: 3px 6px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 11px; font-family: monospace; }
+.stg-text-input { padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 12px; width: 160px; }
 /* Per-level font/color grid */
 .stg-level-grid { display: flex; flex-wrap: wrap; gap: 8px; }
 .stg-level-item { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }

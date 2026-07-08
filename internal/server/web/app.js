@@ -4459,6 +4459,7 @@ function App() {
   const [showTextSearch, setShowTextSearch] = useState(false);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
   const [workspaceConfig, setWorkspaceConfig] = useState(null);
+  const [savedWorkspaceProfiles, setSavedWorkspaceProfiles] = useState([]);
   const [savedSearches, setSavedSearches] = useState(() => {
     try { return JSON.parse(localStorage.getItem("epicorg.savedSearches") || "[]"); } catch { return []; }
   });
@@ -5584,6 +5585,7 @@ function App() {
     api.get("/api/taglistfile").then((d) => setTagListFile(d.file)).catch(() => {});
     api.get("/api/bookmarklistfile").then((d) => setBookmarkListFile(d.file)).catch(() => {});
     api.get("/api/workspace").then((d) => setWorkspaceConfig(d)).catch(() => {});
+    api.get("/api/saved-workspaces").then((d) => setSavedWorkspaceProfiles(d.workspaces || [])).catch(() => {});
   }, []);
 
   const changeHomeDir = useCallback(async (dir) => {
@@ -5746,6 +5748,55 @@ function App() {
     if (flat.length > 0) focusNode(flat[0].id);
     if (!histNavRef.current) navDispatch({ type: "push", entry: { file: name, title: null } });
   }, [focusNode, clearUndoHistory, navDispatch]);
+
+  // Saved workspace profiles: named presets bundling home dir, tag list,
+  // bookmark list, journal dir, and home file, so switching between e.g. the
+  // GitHub examples folder and a personal notes vault is a single click
+  // instead of reconfiguring four settings by hand each time.
+  const saveCurrentAsWorkspaceProfile = useCallback(async (name) => {
+    const profile = {
+      name,
+      homeDir: homeDir || "",
+      tagListFile: tagListFile || "",
+      bookmarkListFile: bookmarkListFile || "",
+      journalDir: journalDir || "",
+      homeFile: homeFile || "",
+    };
+    const next = [...savedWorkspaceProfiles.filter((p) => p.name !== name), profile];
+    const saved = await api.put("/api/saved-workspaces", { workspaces: next });
+    setSavedWorkspaceProfiles(saved.workspaces || []);
+  }, [savedWorkspaceProfiles, homeDir, tagListFile, bookmarkListFile, journalDir, homeFile]);
+
+  const deleteWorkspaceProfile = useCallback(async (name) => {
+    const next = savedWorkspaceProfiles.filter((p) => p.name !== name);
+    const saved = await api.put("/api/saved-workspaces", { workspaces: next });
+    setSavedWorkspaceProfiles(saved.workspaces || []);
+  }, [savedWorkspaceProfiles]);
+
+  const switchToWorkspaceProfile = useCallback(async (profile) => {
+    // Close Settings first: changeHomeDir clears currentFile, which unmounts
+    // the document view (Settings included) until the new home file loads —
+    // leaving Settings open would just reset its tab back to "View" on remount.
+    setShowSettings(false);
+    await changeHomeDir(profile.homeDir);
+    // Reset search paths to just the new home dir — otherwise the file list
+    // keeps showing whatever multi-root paths were configured for the
+    // previous workspace, which no longer makes sense in the new context.
+    const wsCfg = await api.put("/api/workspace", { paths: [{ path: profile.homeDir, included: true }] });
+    setWorkspaceConfig(wsCfg);
+    await changeTagListFile(profile.tagListFile || "");
+    await changeBookmarkListFile(profile.bookmarkListFile || "");
+    await changeJournalDir(profile.journalDir || "");
+    setHomeFilePersisted(profile.homeFile || null);
+    // changeHomeDir already fetched the file list, but before the search-path
+    // reset above took effect — fetch it once more so it reflects that reset.
+    const data = await api.get("/api/files");
+    setFiles(data.files || []);
+    if (profile.homeFile) {
+      await loadFile(profile.homeFile);
+      setView("outline");
+    }
+  }, [changeHomeDir, changeTagListFile, changeBookmarkListFile, changeJournalDir, setHomeFilePersisted, loadFile, setView]);
 
   const goToJournalDate = useCallback(async (dateStr) => {
     if (!dateStr) return;
@@ -7255,7 +7306,11 @@ function App() {
           tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${toggleTagPanel}
           bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${toggleBookmarkPanel}
           workspaceConfig=${workspaceConfig}
-          onConfigureWorkspace=${() => { setShowSettings(false); setShowWorkspaceModal(true); }} />
+          onConfigureWorkspace=${() => { setShowSettings(false); setShowWorkspaceModal(true); }}
+          savedWorkspaceProfiles=${savedWorkspaceProfiles}
+          onSaveCurrentAsWorkspaceProfile=${saveCurrentAsWorkspaceProfile}
+          onDeleteWorkspaceProfile=${deleteWorkspaceProfile}
+          onSwitchWorkspaceProfile=${switchToWorkspaceProfile} />
       `}
     </div>
     ${fnPopup && html`<${FootnotePopup} popup=${fnPopup} onClose=${() => setFnPopup(null)} onSave=${saveFootnoteDef} />`}
@@ -8750,10 +8805,12 @@ function SettingsModal({
   tagPanelVisible, onToggleTagPanel,
   bookmarkPanelVisible, onToggleBookmarkPanel,
   workspaceConfig, onConfigureWorkspace,
+  savedWorkspaceProfiles, onSaveCurrentAsWorkspaceProfile, onDeleteWorkspaceProfile, onSwitchWorkspaceProfile,
 }) {
   const [section, setSection] = useState(initialSection || "view");
   const colorInputRef = useRef(null);
   const isCustomTopBarColor = topBarColor && topBarColor.startsWith("#");
+  const [newWorkspaceProfileName, setNewWorkspaceProfileName] = useState("");
 
   useEffect(() => {
     const h = (e) => { if (e.key === "Escape") onClose(); };
@@ -8960,6 +9017,47 @@ function SettingsModal({
       </div>
     `;
     if (section === "workspace") return html`
+      <div className="stg-section">
+        <p className="stg-section-title">Saved Workspaces</p>
+        <p className="stg-desc" style=${{ marginBottom: "10px" }}>
+          Switch between entirely separate working folders — each remembers its own
+          home folder, tag list, bookmark list, journal folder, and home file.
+        </p>
+        ${savedWorkspaceProfiles.length === 0 && html`
+          <p className="stg-desc" style=${{ fontStyle: "italic", marginBottom: "10px" }}>No saved workspaces yet.</p>
+        `}
+        ${savedWorkspaceProfiles.map((p) => html`
+          <div key=${p.name} className="stg-row">
+            <div className="stg-row-label">
+              <span className="stg-label">${p.name}</span>
+              <span className="stg-desc">${p.homeDir}</span>
+            </div>
+            <div className="stg-row-ctrl">
+              <button className="stg-btn" disabled=${p.homeDir === homeDir}
+                      onClick=${() => onSwitchWorkspaceProfile(p)}>
+                ${p.homeDir === homeDir ? "Current" : "Switch"}
+              </button>
+              <button className="stg-btn stg-btn-clear" title="Delete"
+                      onClick=${() => onDeleteWorkspaceProfile(p.name)}>×</button>
+            </div>
+          </div>
+        `)}
+        <${StgRow} label="Save current as…" desc="Remembers the settings below under this name">
+          <input type="text" className="stg-text-input" placeholder="Workspace name"
+                 value=${newWorkspaceProfileName}
+                 onChange=${(e) => setNewWorkspaceProfileName(e.target.value)}
+                 onKeyDown=${(e) => {
+                   if (e.key === "Enter" && newWorkspaceProfileName.trim()) {
+                     onSaveCurrentAsWorkspaceProfile(newWorkspaceProfileName.trim());
+                     setNewWorkspaceProfileName("");
+                   }
+                 }} />
+          <button className="stg-btn" disabled=${!newWorkspaceProfileName.trim()}
+                  onClick=${() => { onSaveCurrentAsWorkspaceProfile(newWorkspaceProfileName.trim()); setNewWorkspaceProfileName(""); }}>
+            Save
+          </button>
+        </${StgRow}>
+      </div>
       <div className="stg-section">
         <p className="stg-section-title">Workspace</p>
         <${StgRow} label="Home Folder" desc="Root directory for org files">
