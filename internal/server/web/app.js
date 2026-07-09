@@ -4134,6 +4134,20 @@ function highlightMatch(text, query) {
   return parts.join("");
 }
 
+function countMatches(text, query) {
+  if (!text || !query.trim()) return 0;
+  const q = query.toLowerCase();
+  const t = text.toLowerCase();
+  let count = 0, i = 0;
+  while (true) {
+    const idx = t.indexOf(q, i);
+    if (idx === -1) break;
+    count++;
+    i = idx + q.length;
+  }
+  return count;
+}
+
 // Markdown search results (from the "include .md files" option) can't be
 // opened through the normal org-file loader/preview — it parses everything
 // as org syntax, so a markdown file would render wrong and, if edited and
@@ -4167,14 +4181,14 @@ function findNodeWithAncestors(nodes, predicate, ancestors = []) {
 // Mode bar stays visible regardless of which tab is active.
 // Find tab embeds the FindBar; Search tab shows a compact results list;
 // Filter tab focuses the header search and shows a hint.
-function SearchPanel({ nodes, currentFile,
+function SearchPanel({ nodes, currentFile, homeDir,
   findQuery, setFindQuery, findMatchIds, findIdx, findNavigate, findInputRef, setFindOpen,
   filterQuery, setFilterQuery, onFoldToLevel,
   onNavigate, onJumpToNode, onClose,
   onSaveSearch, activeSavedSearch, onActiveSavedSearchConsumed }) {
   const [tab, setTab] = useState("search");
   const [query, setQuery] = useState("");
-  const [scope, setScope] = useState("note");
+  const [scope, setScope] = useState("all");
   const [includeMarkdown, setIncludeMarkdown] = useState(() => {
     try { return localStorage.getItem("epicorg.searchIncludeMarkdown") === "1"; } catch { return false; }
   });
@@ -4190,12 +4204,20 @@ function SearchPanel({ nodes, currentFile,
   const [loading, setLoading] = useState(false);
   const [contextNodes, setContextNodes] = useState(null);
   const [contextLoading, setContextLoading] = useState(false);
+  // Raw-text preview for markdown results — separate from contextNodes
+  // since markdown isn't parsed into org nodes at all (see isMarkdownFile).
+  const [mdPreview, setMdPreview] = useState(null);
+  const [mdPreviewLoading, setMdPreviewLoading] = useState(false);
+  const [mdMatchIdx, setMdMatchIdx] = useState(0);
+  const [mdPathCopied, setMdPathCopied] = useState(false);
+  const mdPreviewRef = useRef(null);
   const [panelHeight, setPanelHeight] = useState(380);
   const searchInputRef = useRef(null);
   const filterInputRef = useRef(null);
   const resultsRef = useRef(null);
   const debounceRef = useRef(null);
   const ctxCacheRef = useRef(new Map());
+  const mdCacheRef = useRef(new Map());
   const isDragging = useRef(false);
   const dragStartY = useRef(0);
   const heightAtDrag = useRef(0);
@@ -4320,6 +4342,41 @@ function SearchPanel({ nodes, currentFile,
       .catch(() => setContextNodes([]))
       .finally(() => setContextLoading(false));
   }, [selected?.nodeId, selected?.file, scope, nodes]);
+
+  // Read-only raw-text preview for markdown results — fetched separately
+  // from the org context above since markdown files are never parsed into
+  // nodes (see isMarkdownFile / openResult for why they're not editable).
+  useEffect(() => {
+    if (!selected || !isMarkdownFile(selected.file)) { setMdPreview(null); return; }
+    if (mdCacheRef.current.has(selected.file)) {
+      setMdPreview(mdCacheRef.current.get(selected.file)); return;
+    }
+    setMdPreviewLoading(true);
+    api.get(`/api/raw?file=${encodeURIComponent(selected.file)}`)
+      .then((d) => { const c = d.content || ""; mdCacheRef.current.set(selected.file, c); setMdPreview(c); })
+      .catch(() => setMdPreview(""))
+      .finally(() => setMdPreviewLoading(false));
+  }, [selected?.file]);
+
+  // Reset which match is "current" whenever the previewed file or the
+  // search term changes, so stepping through matches always starts fresh.
+  useEffect(() => { setMdMatchIdx(0); }, [selected?.file, query]);
+
+  const mdMatchCount = countMatches(mdPreview, query);
+
+  // Highlighting is all-matches-at-once via dangerouslySetInnerHTML (see
+  // highlightMatch), so "jump to the Nth match" is done post-render: mark
+  // the current <mark> distinctly and scroll it into view.
+  useEffect(() => {
+    const container = mdPreviewRef.current;
+    if (!container) return;
+    const marks = container.querySelectorAll("mark.sp-mark");
+    marks.forEach((m, i) => m.classList.toggle("sp-mark-current", i === mdMatchIdx));
+    marks[mdMatchIdx]?.scrollIntoView({ block: "center" });
+  }, [mdPreview, mdMatchIdx, query]);
+
+  const mdMatchPrev = () => setMdMatchIdx((i) => (mdMatchCount === 0 ? 0 : (i - 1 + mdMatchCount) % mdMatchCount));
+  const mdMatchNext = () => setMdMatchIdx((i) => (mdMatchCount === 0 ? 0 : (i + 1) % mdMatchCount));
 
   const ctxFound = contextNodes && selected
     ? findNodeWithAncestors(contextNodes,
@@ -4474,7 +4531,36 @@ function SearchPanel({ nodes, currentFile,
             </div>
             <div className="sp-context">
               ${!selected && html`<div className="sp-ctx-empty">Select a result to see it in context</div>`}
-              ${selected && isMarkdownFile(selected.file) && html`<div className="sp-ctx-empty">Markdown files aren't parsed for preview — this just confirms a match was found. Open the file manually to view it.</div>`}
+              ${selected && isMarkdownFile(selected.file) && html`
+                <div className="sp-ctx-inner">
+                  <div className="sp-ctx-topbar sp-ctx-topbar-md">
+                    <span className="sp-ctx-file sp-ctx-file-full" title="Click to copy"
+                          onClick=${() => {
+                            const full = selected.file.startsWith("/") ? selected.file : (homeDir ? homeDir + "/" + selected.file : selected.file);
+                            navigator.clipboard?.writeText(full).then(() => {
+                              setMdPathCopied(true);
+                              setTimeout(() => setMdPathCopied(false), 1500);
+                            }).catch(() => {});
+                          }}>
+                      ${selected.file.startsWith("/") ? selected.file : (homeDir ? homeDir + "/" + selected.file : selected.file)}
+                      ${mdPathCopied && html`<span className="sp-ctx-copied">Copied!</span>`}
+                    </span>
+                    <span className="sp-ctx-md-note" title="Markdown files can't be opened for editing here — the loader parses everything as org and could corrupt them if saved back">Read-only preview</span>
+                  </div>
+                  ${mdPreviewLoading && html`<div className="sp-ctx-empty">Loading…</div>`}
+                  ${!mdPreviewLoading && html`
+                    <div className="sp-md-nav">
+                      <span className="sp-md-nav-count">
+                        ${mdMatchCount > 0 ? `${mdMatchIdx + 1} / ${mdMatchCount} matches` : query.trim() ? "No matches" : ""}
+                      </span>
+                      <button className="find-bar-nav" onClick=${mdMatchPrev} disabled=${mdMatchCount === 0} title="Previous match">↑</button>
+                      <button className="find-bar-nav" onClick=${mdMatchNext} disabled=${mdMatchCount === 0} title="Next match">↓</button>
+                    </div>
+                    <pre ref=${mdPreviewRef} className="sp-ctx-md-preview"
+                         dangerouslySetInnerHTML=${{ __html: highlightMatch(mdPreview || "", query) }}></pre>
+                  `}
+                </div>
+              `}
               ${selected && !isMarkdownFile(selected.file) && contextLoading && html`<div className="sp-ctx-empty">Loading…</div>`}
               ${selected && !isMarkdownFile(selected.file) && !contextLoading && !ctxFound && html`<div className="sp-ctx-empty">Node not found in current view</div>`}
               ${selected && ctxFound && html`
@@ -7312,6 +7398,7 @@ function App() {
               <${SearchPanel}
                 nodes=${nodes}
                 currentFile=${currentFile}
+                homeDir=${homeDir}
                 findQuery=${findQuery}
                 setFindQuery=${setFindQuery}
                 findMatchIds=${findMatchIds}

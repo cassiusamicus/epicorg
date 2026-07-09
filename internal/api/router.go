@@ -47,6 +47,16 @@ func Register(mux *http.ServeMux, store *orgfile.Store, onSave func(), defaultFi
 		}
 	})
 
+	// Raw, unparsed file content — used to preview files (e.g. Markdown
+	// search results) that the org-file loader would mis-parse.
+	mux.HandleFunc("/api/raw", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		h.getRawFile(w, r)
+	})
+
 	// Lightweight disk-hash probe used by the frontend to detect external
 	// edits while idle, without paying the cost of a full reload.
 	mux.HandleFunc("/api/hash/", func(w http.ResponseWriter, r *http.Request) {

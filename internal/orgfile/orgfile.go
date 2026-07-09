@@ -320,6 +320,23 @@ func (s *Store) LoadFile(name string) (*FileState, error) {
 	return fs, nil
 }
 
+// ReadRawFile resolves name (same convention as LoadFile — relative to the
+// store dir, or absolute for files outside it) and returns its raw text
+// content verbatim, with no org/markdown parsing and no side effects (no
+// git snapshot, not marked as the active file). Used for read-only preview
+// of files that shouldn't be treated as edit targets, like Markdown search
+// results.
+func (s *Store) ReadRawFile(name string) (string, error) {
+	s.mu.RLock()
+	path := s.resolveFilePath(name)
+	s.mu.RUnlock()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
 // SaveResult reports the outcome of SaveFile, including the merged
 // document when an external edit was detected so the caller can hand the
 // reconciled content back to the client instead of letting it re-overwrite

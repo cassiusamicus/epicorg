@@ -212,6 +212,24 @@ func (h *handlers) renameFile(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// getRawFile returns a file's raw text content verbatim — no org parsing,
+// no side effects. Used to preview files (like Markdown search results)
+// that the normal org-file loader would mis-parse and shouldn't be treated
+// as edit targets in the first place.
+func (h *handlers) getRawFile(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("file")
+	if name == "" {
+		http.Error(w, "missing file parameter", http.StatusBadRequest)
+		return
+	}
+	content, err := h.store.ReadRawFile(name)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	writeJSON(w, map[string]string{"content": content})
+}
+
 func (h *handlers) getDoc(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Query().Get("abs")
 	if name == "" {
