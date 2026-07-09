@@ -6206,7 +6206,8 @@ a.wiki-link:hover { border-bottom-style: solid; }
 .qs-create-label { font-size: 13px; color: var(--accent); }
 .qs-hint { display: flex; justify-content: flex-end; padding: 6px 12px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-dim); }
 /* Find in note bar */
-.find-bar { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-bottom: 1px solid var(--border); background: var(--panel-bg, var(--bg)); position: sticky; top: 0; z-index: 50; flex-shrink: 0; }
+.find-bar { display: flex; flex-direction: column; gap: 4px; padding: 5px 10px; border-bottom: 1px solid var(--border); background: var(--panel-bg, var(--bg)); position: sticky; top: 0; z-index: 50; flex-shrink: 0; }
+.find-bar-row { display: flex; align-items: center; gap: 6px; }
 .find-bar-input { flex: 1; padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); font-size: 13px; outline: none; min-width: 0; }
 .find-bar-input:focus { border-color: var(--accent); }
 .find-bar-input::-webkit-search-cancel-button { display: none; }
@@ -6216,6 +6217,10 @@ a.wiki-link:hover { border-bottom-style: solid; }
 .find-bar-nav:not(:disabled):hover { background: var(--focused-bg); }
 .find-bar-close { padding: 2px 6px; border: none; background: none; color: var(--text-dim); cursor: pointer; font-size: 16px; line-height: 1; }
 .find-bar-close:hover { color: var(--text); }
+.find-bar-replace-btn { padding: 3px 9px; border: 1px solid var(--border); border-radius: 3px; background: none; color: var(--text); cursor: pointer; font-size: 12px; white-space: nowrap; }
+.find-bar-replace-btn:disabled { opacity: 0.35; cursor: default; }
+.find-bar-replace-btn:not(:disabled):hover { background: var(--focused-bg); }
+.find-bar-replace-msg { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
 /* Find match highlights */
 .node-row.find-match { background: color-mix(in srgb, var(--accent) 8%, transparent); border-radius: 4px; }
 .node-row.find-match-current { background: color-mix(in srgb, var(--accent) 20%, transparent); outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 4px; }

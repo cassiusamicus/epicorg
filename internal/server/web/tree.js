@@ -155,6 +155,37 @@ export function mapNode(nodes, id, fn) {
   });
 }
 
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Replaces every occurrence of `find` (case-insensitive) with `replace`
+// across every node's title and body. Pass `onlyId` to scope the replace to
+// a single node (used for "replace in this match, then move on"). Returns
+// { nodes, count } — count is the total number of occurrences replaced.
+export function replaceInTree(nodes, find, replace, onlyId = null) {
+  if (!find) return { nodes, count: 0 };
+  const re = new RegExp(escapeRegExp(find), "gi");
+  const safeReplacement = String(replace).replace(/\$/g, "$$$$");
+  let count = 0;
+  const replaceField = (val) => {
+    if (typeof val !== "string" || !val) return val;
+    const matches = val.match(re);
+    if (!matches) return val;
+    count += matches.length;
+    return val.replace(re, safeReplacement);
+  };
+  const walk = (list) => list.map((n) => {
+    const apply = !onlyId || n.id === onlyId;
+    const newTitle = apply ? replaceField(n.title) : n.title;
+    const newBody = apply ? replaceField(n.body) : n.body;
+    const newChildren = n.children?.length > 0 ? walk(n.children) : n.children;
+    if (newTitle === n.title && newBody === n.body && newChildren === n.children) return n;
+    return { ...n, title: newTitle, body: newBody, children: newChildren };
+  });
+  return { nodes: walk(nodes), count };
+}
+
 // --- Structural operations ---
 
 export function insertAfter(nodes, afterId, nn) {

@@ -676,6 +676,7 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
               if (el) { bodyRefs.current[node.id] = el; adjustTextareaHeight(el); }
             }}
             className="node-body-textarea"
+            data-node-id=${node.id}
             value=${node.body || ""}
             placeholder="Add notes..."
             onChange=${(e) => { dispatch(node.id, "change-body", tree.orgifyPaths(e.target.value)); triggerLinkPicker(e.target, e, true); }}
@@ -3028,8 +3029,25 @@ function formatMarkerForKey(e) {
 // Clicking the command palette or OAP moves focus away from the textarea, so
 // document.activeElement is no longer useful — this lets applyMarkerToFocused
 // still find the right element. Updated by a global focusin listener in App.
+//
+// A body note's textarea unmounts the instant it blurs (it re-renders as a
+// formatted preview — see "stop-edit-body"), so by the time a palette command
+// runs, el.closest(...) can no longer walk up to find its owning node: the
+// element has already been detached from the tree. _lastOutlineTextareaMeta
+// captures the node id and field name right now, while el is still attached.
 let _lastOutlineTextarea = null;
-export function _setLastOutlineTextarea(el) { _lastOutlineTextarea = el; }
+let _lastOutlineTextareaMeta = null;
+export function _setLastOutlineTextarea(el) {
+  _lastOutlineTextarea = el;
+  _lastOutlineTextareaMeta = fieldMetaForTextarea(el);
+}
+
+function fieldMetaForTextarea(el) {
+  const row = el.closest("[data-node-id]");
+  if (row) return { nodeId: row.dataset.nodeId, field: el.classList.contains("node-body-textarea") ? "change-body" : "change" };
+  if (el.closest(".preamble-row")) return { nodeId: "preamble", field: "change-preamble" };
+  return null;
+}
 
 // Apply an org inline marker to the last focused outline textarea.
 // selectionStart/selectionEnd survive blur in all modern browsers, so the
@@ -3045,6 +3063,24 @@ function applyMarkerToFocused(marker) {
   el.dispatchEvent(new Event("input", { bubbles: true }));
   el.focus();
   requestAnimationFrame(() => el.setSelectionRange(start + marker.length, end + marker.length));
+}
+
+// Collapses extra inline whitespace and hard line-wraps in messily pasted
+// text, while preserving paragraph breaks (blank lines) — leading spaces/
+// tabs on each line are stripped, runs of spaces/tabs become one space, and
+// single newlines (a wrapped line, not a new paragraph) become a space too.
+function cleanUpText(text) {
+  return text
+    .replace(/\r\n?/g, "\n")
+    .split(/\n[ \t]*\n+/)
+    .map((para) => para
+      .split("\n")
+      .map((line) => line.replace(/^[ \t]+/, "").replace(/[ \t]+$/, ""))
+      .join(" ")
+      .replace(/[ \t]+/g, " ")
+      .trim())
+    .filter((para) => para.length > 0)
+    .join("\n\n");
 }
 
 // Wraps the current selection (or, for a collapsed selection, just the
@@ -4183,6 +4219,7 @@ function findNodeWithAncestors(nodes, predicate, ancestors = []) {
 // Filter tab focuses the header search and shows a hint.
 function SearchPanel({ nodes, currentFile, homeDir,
   findQuery, setFindQuery, findMatchIds, findIdx, findNavigate, findInputRef, setFindOpen,
+  replaceQuery, setReplaceQuery, replaceCurrentMatch, replaceAllMatches, replaceMessage,
   filterQuery, setFilterQuery, onFoldToLevel,
   onNavigate, onJumpToNode, onClose,
   onSaveSearch, activeSavedSearch, onActiveSavedSearchConsumed }) {
@@ -4452,7 +4489,12 @@ function SearchPanel({ nodes, currentFile, homeDir,
           onNext=${() => findNavigate(1)}
           onPrev=${() => findNavigate(-1)}
           onClose=${() => { switchTab("search"); }}
-          inputRef=${findInputRef} />
+          inputRef=${findInputRef}
+          replaceQuery=${replaceQuery}
+          onReplaceQuery=${setReplaceQuery}
+          onReplaceOne=${replaceCurrentMatch}
+          onReplaceAll=${replaceAllMatches}
+          replaceMessage=${replaceMessage} />
       `}
 
       ${tab === "search" && html`
@@ -4752,6 +4794,8 @@ function App() {
   const [findMatchIds, setFindMatchIds] = useState([]);
   const [findIdx, setFindIdx] = useState(0);
   const findInputRef = useRef(null);
+  const [replaceQuery, setReplaceQuery] = useState("");
+  const [replaceMessage, setReplaceMessage] = useState("");
   const [navState, navDispatch] = useReducer(navReducer, { history: [], index: -1 });
   const histNavRef = useRef(false); // true while back/forward is in progress (suppresses push)
   const [searchQuery, setSearchQuery] = useState("");
@@ -5783,6 +5827,10 @@ function App() {
     return () => document.removeEventListener("keydown", handler, true);
   }, [findOpen]);
 
+  // Clear the "Replaced N" feedback once the user changes what they're
+  // searching/replacing for, so it doesn't linger and look stale.
+  useEffect(() => { setReplaceMessage(""); }, [findQuery, replaceQuery]);
+
   // Recompute matches when query or nodes change.
   useEffect(() => {
     document.querySelectorAll(".node-row.find-match, .node-row.find-match-current").forEach((el) => {
@@ -5817,6 +5865,28 @@ function App() {
       return next;
     });
   }, [findMatchIds]);
+
+  // Replaces all occurrences of findQuery within the currently-matched node
+  // only (title + body), then advances — a step-through-and-confirm flow.
+  const replaceCurrentMatch = useCallback(() => {
+    const nodeId = findMatchIds[findIdx];
+    if (!nodeId || !findQuery.trim() || !nodes) return;
+    const { nodes: updated, count } = tree.replaceInTree(nodes, findQuery, replaceQuery, nodeId);
+    if (count === 0) return;
+    setNodes(updated);
+    markDirty();
+    setReplaceMessage(`Replaced ${count} in this item`);
+  }, [nodes, findMatchIds, findIdx, findQuery, replaceQuery, markDirty]);
+
+  // Replaces every occurrence of findQuery across the whole file at once.
+  const replaceAllMatches = useCallback(() => {
+    if (!findQuery.trim() || !nodes) return;
+    const { nodes: updated, count } = tree.replaceInTree(nodes, findQuery, replaceQuery);
+    if (count === 0) { setReplaceMessage("No matches found"); return; }
+    setNodes(updated);
+    markDirty();
+    setReplaceMessage(`Replaced ${count} occurrence${count === 1 ? "" : "s"}`);
+  }, [nodes, findQuery, replaceQuery, markDirty]);
 
   const runTextSearch = useCallback(async (query, includeMarkdown) => {
     setShowTextSearch(false);
@@ -6544,9 +6614,12 @@ function App() {
 
   // Track the last outline textarea that had focus so applyMarkerToFocused
   // can target it even after the command palette or OAP has stolen focus.
+  // Body notes render outside their node's .node-row (as a sibling, not a
+  // descendant), so they're matched by class rather than the row ancestor.
   useEffect(() => {
     const onFocusIn = (e) => {
-      if (e.target.tagName === "TEXTAREA" && e.target.closest(".node-row, .preamble-row")) {
+      if (e.target.tagName === "TEXTAREA"
+          && (e.target.closest(".node-row, .preamble-row") || e.target.classList.contains("node-body-textarea"))) {
         _setLastOutlineTextarea(e.target);
       }
     };
@@ -6751,6 +6824,28 @@ function App() {
       markDirty(); return;
     }
   }, [focusNode, markDirty, maybeSnapshotForUndo]);
+
+  // Cleans up the selected text via dispatch (not a raw DOM "input" event)
+  // because a body note's textarea unmounts into a formatted preview the
+  // instant it blurs (see "stop-edit-body" above) — by the time this command
+  // runs from the palette, focus has already left the textarea and it's been
+  // detached from the tree, so el.closest(...) can no longer find its node.
+  // _lastOutlineTextareaMeta was captured earlier, while still attached.
+  const cleanUpSelectedText = useCallback(() => {
+    const isLive = document.activeElement?.tagName === "TEXTAREA";
+    const el = isLive ? document.activeElement : _lastOutlineTextarea;
+    if (!el || el.tagName !== "TEXTAREA") return;
+    const meta = isLive ? fieldMetaForTextarea(el) : _lastOutlineTextareaMeta;
+    if (!meta) return;
+    const { selectionStart: start, selectionEnd: end, value } = el;
+    if (start === end) return;
+    const cleaned = cleanUpText(value.slice(start, end));
+    const newVal = value.slice(0, start) + cleaned + value.slice(end);
+    dispatch(meta.nodeId, meta.field, newVal);
+    requestAnimationFrame(() => {
+      if (document.body.contains(el)) el.setSelectionRange(start, start + cleaned.length);
+    });
+  }, [dispatch]);
 
   const onBulletMouseDown = useCallback((nodeId, hasChildren, e) => {
     dragStateRef.current = { nodeId, hasChildren, startX: e.clientX, startY: e.clientY, pending: true };
@@ -7249,6 +7344,8 @@ function App() {
                 exportToHtml, exportToOrg, exportToMarkdown, currentFile,
           copyAsFormatted, copyAsPlain,
           clearRecentFiles,
+          setFindOpen, findInputRef,
+          cleanUpSelectedText,
         })} onClose=${() => setShowHelp(false)} />`}
       ${showShortcutEditor && html`
         <${ShortcutEditor}
@@ -7411,6 +7508,11 @@ function App() {
                 findNavigate=${findNavigate}
                 findInputRef=${findInputRef}
                 setFindOpen=${setFindOpen}
+                replaceQuery=${replaceQuery}
+                setReplaceQuery=${setReplaceQuery}
+                replaceCurrentMatch=${replaceCurrentMatch}
+                replaceAllMatches=${replaceAllMatches}
+                replaceMessage=${replaceMessage}
                 filterQuery=${searchQuery}
                 setFilterQuery=${setSearchQuery}
                 onFoldToLevel=${foldToLevel}
@@ -7430,7 +7532,12 @@ function App() {
                 onNext=${() => findNavigate(1)}
                 onPrev=${() => findNavigate(-1)}
                 onClose=${() => { setFindOpen(false); setFindQuery(""); }}
-                inputRef=${findInputRef} />
+                inputRef=${findInputRef}
+                replaceQuery=${replaceQuery}
+                onReplaceQuery=${setReplaceQuery}
+                onReplaceOne=${replaceCurrentMatch}
+                onReplaceAll=${replaceAllMatches}
+                replaceMessage=${replaceMessage} />
             `}
             <div className=${"outline-content" + (readingWidth ? " reading-width" : "")}>
               ${!isFiltering && !isHoisted && html`<${PreambleRow} focused=${isPreambleFocused} preamble=${preamble} dispatch=${dispatch} inputRefs=${inputRefs} />`}
@@ -8045,27 +8152,45 @@ function WikiHoverPopup({ popup, onMouseEnter, onMouseLeave }) {
 }
 
 // Find in note bar — Ctrl+F, sticky at top of outline pane.
-function FindBar({ query, matchCount, matchIdx, onQuery, onNext, onPrev, onClose, inputRef }) {
+function FindBar({ query, matchCount, matchIdx, onQuery, onNext, onPrev, onClose, inputRef,
+                    replaceQuery, onReplaceQuery, onReplaceOne, onReplaceAll, replaceMessage }) {
   return html`
     <div className="find-bar">
-      <input ref=${inputRef} type="search" className="find-bar-input"
-             placeholder="Find in note…"
-             value=${query}
-             autoComplete="off"
-             data-form-type="other"
-             data-bwignore="true"
-             onInput=${(e) => onQuery(e.target.value)}
-             onKeyDown=${(e) => {
-               if (e.key === "Escape") { e.preventDefault(); onClose(); }
-               else if (e.key === "Enter") { e.preventDefault(); e.shiftKey ? onPrev() : onNext(); }
-               else if (e.key === "F3") { e.preventDefault(); e.shiftKey ? onPrev() : onNext(); }
-             }} />
-      <span className="find-bar-count">
-        ${matchCount > 0 ? `${matchIdx + 1} / ${matchCount}` : query.trim() ? "No matches" : ""}
-      </span>
-      <button className="find-bar-nav" onClick=${onPrev} disabled=${matchCount === 0} title="Previous (Shift+Enter)">↑</button>
-      <button className="find-bar-nav" onClick=${onNext} disabled=${matchCount === 0} title="Next (Enter)">↓</button>
-      <button className="find-bar-close" onClick=${onClose} title="Close (Esc)">×</button>
+      <div className="find-bar-row">
+        <input ref=${inputRef} type="search" className="find-bar-input"
+               placeholder="Find in file…"
+               value=${query}
+               autoComplete="off"
+               data-form-type="other"
+               data-bwignore="true"
+               onInput=${(e) => onQuery(e.target.value)}
+               onKeyDown=${(e) => {
+                 if (e.key === "Escape") { e.preventDefault(); onClose(); }
+                 else if (e.key === "Enter") { e.preventDefault(); e.shiftKey ? onPrev() : onNext(); }
+                 else if (e.key === "F3") { e.preventDefault(); e.shiftKey ? onPrev() : onNext(); }
+               }} />
+        <span className="find-bar-count">
+          ${matchCount > 0 ? `${matchIdx + 1} / ${matchCount}` : query.trim() ? "No matches" : ""}
+        </span>
+        <button className="find-bar-nav" onClick=${onPrev} disabled=${matchCount === 0} title="Previous (Shift+Enter)">↑</button>
+        <button className="find-bar-nav" onClick=${onNext} disabled=${matchCount === 0} title="Next (Enter)">↓</button>
+        <button className="find-bar-close" onClick=${onClose} title="Close (Esc)">×</button>
+      </div>
+      <div className="find-bar-row">
+        <input type="text" className="find-bar-input"
+               placeholder="Replace with…"
+               value=${replaceQuery}
+               autoComplete="off"
+               data-form-type="other"
+               data-bwignore="true"
+               onInput=${(e) => onReplaceQuery(e.target.value)}
+               onKeyDown=${(e) => { if (e.key === "Escape") { e.preventDefault(); onClose(); } }} />
+        <button className="find-bar-replace-btn" onClick=${onReplaceOne}
+                disabled=${matchCount === 0} title="Replace all occurrences in the current match, then move to the next">Replace</button>
+        <button className="find-bar-replace-btn" onClick=${onReplaceAll}
+                disabled=${!query.trim()} title="Replace every occurrence in the whole file">Replace All</button>
+        ${replaceMessage && html`<span className="find-bar-replace-msg">${replaceMessage}</span>`}
+      </div>
     </div>
   `;
 }
@@ -10020,6 +10145,8 @@ function buildCommands(ctx) {
     exportToHtml, exportToOrg, exportToMarkdown, currentFile,
     copyAsFormatted, copyAsPlain,
     clearRecentFiles,
+    setFindOpen, findInputRef,
+    cleanUpSelectedText,
   } = ctx;
 
   return [
@@ -10067,6 +10194,7 @@ function buildCommands(ctx) {
     { category: "Edit", label: "Italic selection",        desc: "Wrap selection in /italic/",     keys: displayCombo(getShortcutCombo("italic")),          action: () => applyMarkerToFocused("/") },
     { category: "Edit", label: "Underline selection",     desc: "Wrap selection in _underline_",  keys: displayCombo(getShortcutCombo("underline")),       action: () => applyMarkerToFocused("_") },
     { category: "Edit", label: "Strikethrough selection", desc: "Wrap selection in +strike+",     keys: displayCombo(getShortcutCombo("strikethrough")),   action: () => applyMarkerToFocused("+") },
+    { category: "Edit", label: "Clean Up Pasted Text",    desc: "Remove extra spaces, leading indentation, and hard line breaks from the selected text (keeps paragraph breaks)", keys: "", action: cleanUpSelectedText },
     { category: "Edit", label: "Insert Footnote",         desc: "Add [fn:N] at cursor in notes",  keys: displayCombo(getShortcutCombo("insertFootnote")),  action: insertFootnote },
     { category: "Edit", label: "Insert Date Stamp",       desc: "Insert formatted date/time at cursor", keys: displayCombo(getShortcutCombo("insertDateStamp")), action: insertDateStamp },
     { category: "Edit", label: "Split Node at Cursor",    desc: "Split title at cursor into two sibling nodes", keys: displayCombo(getShortcutCombo("splitNode")), action: splitFocusedNode },
@@ -10074,6 +10202,7 @@ function buildCommands(ctx) {
     { category: "Edit", label: "Hoist / Unhoist",         desc: isHoisted ? "Unhoist — show full tree" : "Hoist focused item", keys: displayCombo(getShortcutCombo("hoist")), action: toggleHoist },
     // Search
     { category: "Search", label: "Full-text Search…",    desc: "Search across all org files",    keys: displayCombo(getShortcutCombo("textSearch")),      action: () => setShowTextSearch(true) },
+    { category: "Search", label: "Find and Replace…",    desc: "Find and replace text across the whole file", keys: "Ctrl+F", action: () => { setFindOpen(true); requestAnimationFrame(() => findInputRef.current?.focus()); } },
     // Settings
     { category: "Settings", label: "Toggle Dark/Light Theme", desc: "Switch colour theme",       keys: "",              action: toggleTheme },
     { category: "Settings", label: "Cycle View Mode",       desc: textMode ? "Reveal codes → Plain" : titleFormatMode ? "Formatted → Reveal codes" : "Plain → Formatted titles", keys: "", action: cycleViewMode },
