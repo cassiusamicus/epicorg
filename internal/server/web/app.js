@@ -3083,6 +3083,94 @@ function cleanUpText(text) {
     .join("\n\n");
 }
 
+// Converts one <td>/<th> cell's inline content to org markup, recursing
+// through simple formatting tags. A literal "|" would break the table's
+// column structure, so it's swapped for a visually similar character.
+function htmlCellToOrgInline(el) {
+  let out = "";
+  const walk = (node) => {
+    if (node.nodeType === Node.TEXT_NODE) { out += node.textContent; return; }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    switch (node.tagName.toLowerCase()) {
+      case "br": out += " "; return;
+      case "b": case "strong": out += "*"; node.childNodes.forEach(walk); out += "*"; return;
+      case "i": case "em": out += "/"; node.childNodes.forEach(walk); out += "/"; return;
+      case "u": out += "_"; node.childNodes.forEach(walk); out += "_"; return;
+      case "s": case "strike": case "del": out += "+"; node.childNodes.forEach(walk); out += "+"; return;
+      case "code": case "tt": out += "="; node.childNodes.forEach(walk); out += "="; return;
+      case "a": {
+        const href = node.getAttribute("href");
+        const label = node.textContent.trim();
+        if (href) { out += (label && label !== href) ? `[[${href}][${label}]]` : `[[${href}]]`; return; }
+        node.childNodes.forEach(walk);
+        return;
+      }
+      default: node.childNodes.forEach(walk);
+    }
+  };
+  el.childNodes.forEach(walk);
+  return out.replace(/\s+/g, " ").trim().replace(/\|/g, "¦");
+}
+
+// Converts one <table> element into { rows, headerCount } for
+// tree.serializeOrgTable, or null if it has no rows. A <thead>, or a first
+// row made entirely of <th>, is treated as the header row.
+function tableElementToOrgRows(table) {
+  const trs = [...table.querySelectorAll("tr")];
+  if (!trs.length) return null;
+  const rows = trs.map((tr) => [...tr.children].map(htmlCellToOrgInline));
+  const firstRowAllTh = trs[0].children.length > 0 && trs[0].querySelectorAll("th").length === trs[0].children.length;
+  const headerCount = (table.querySelector("thead") || firstRowAllTh) ? 1 : 0;
+  return { rows, headerCount };
+}
+
+// Tags whose inline content (bold/italic/links/etc.) matters but that don't
+// start a new block on their own — e.g. a bare <b> or <span> sitting
+// directly in the clipboard HTML without a wrapping <p>.
+const ORG_INLINE_TAGS = new Set(["b", "strong", "i", "em", "u", "s", "strike", "del", "code", "tt", "a", "span", "br"]);
+
+// Walks a browser-clipboard HTML fragment into a sequence of org-mode
+// blocks — plain paragraphs (as strings) and tables (as {rows, headerCount}
+// objects) — in the order they appear. A paste that mixes prose with an
+// embedded table would otherwise lose the prose if only the table were
+// extracted, so every paragraph/heading/list-item/table is preserved in place.
+function htmlToOrgBlocks(root) {
+  const blocks = [];
+  let buffer = "";
+  const flush = () => {
+    const t = buffer.replace(/\s+/g, " ").trim();
+    if (t) blocks.push(t);
+    buffer = "";
+  };
+  const walk = (node) => {
+    for (const child of node.childNodes) {
+      if (child.nodeType === Node.TEXT_NODE) { buffer += child.textContent; continue; }
+      if (child.nodeType !== Node.ELEMENT_NODE) continue;
+      const tag = child.tagName.toLowerCase();
+      if (tag === "script" || tag === "style") continue;
+      if (tag === "table") {
+        flush();
+        const t = tableElementToOrgRows(child);
+        if (t) blocks.push(t);
+        continue;
+      }
+      if (tag === "p" || tag === "li" || tag === "blockquote" || /^h[1-6]$/.test(tag)) {
+        flush();
+        const t = htmlCellToOrgInline(child);
+        if (t) blocks.push(t);
+        continue;
+      }
+      if (tag === "ul" || tag === "ol") { flush(); walk(child); continue; }
+      if (ORG_INLINE_TAGS.has(tag)) { buffer += htmlCellToOrgInline(child); continue; }
+      // Generic wrapper (div, body, section, etc.) — keep searching inside it.
+      walk(child);
+    }
+  };
+  walk(root);
+  flush();
+  return blocks;
+}
+
 // Wraps the current selection (or, for a collapsed selection, just the
 // cursor position) in `marker` on both sides, then re-selects the original
 // text so the markup is visible and another press toggles it right back
@@ -5156,12 +5244,50 @@ function App() {
       textarea.setSelectionRange(start + links.length, start + links.length);
     };
 
-    // Paste a bare file path or URL → auto-wrap as an org link.
+    // Paste a bare file path or URL → auto-wrap as an org link, or a
+    // browser-copied HTML table → an org-mode table.
     // Only fires when the active element is a textarea (node title or body).
     const onPaste = (e) => {
       const ta = document.activeElement;
       if (!ta || ta.tagName !== "TEXTAREA") return;
-      const text = (e.clipboardData || window.clipboardData).getData("text/plain").trim();
+      const cd = e.clipboardData || window.clipboardData;
+
+      // Titles are single-line org headlines — a multi-line table can only
+      // ever make sense in a body/notes field, so skip conversion there.
+      if (!ta.classList.contains("node-title")) {
+        const html = cd.getData("text/html");
+        if (html && /<table[\s>]/i.test(html)) {
+          const doc = new DOMParser().parseFromString(html, "text/html");
+          const blocks = htmlToOrgBlocks(doc.body || doc.documentElement);
+          // Only intercept if a table actually turned up (the regex above is
+          // just a cheap pre-check and can false-positive on escaped text);
+          // otherwise fall through to the plain-text paste below.
+          if (blocks.some((b) => typeof b !== "string")) {
+            e.preventDefault();
+            const orgText = blocks
+              .map((b) => (typeof b === "string" ? b : tree.serializeOrgTable(b).join("\n")))
+              .join("\n\n");
+            const start = ta.selectionStart ?? ta.value.length;
+            const end   = ta.selectionEnd   ?? ta.value.length;
+            const before = ta.value.slice(0, start);
+            const after  = ta.value.slice(end);
+            // A table only parses as a table when each row starts its own
+            // line, so make sure it lands on fresh lines rather than fusing
+            // its first/last row onto whatever text is next to the cursor.
+            const leadingNl  = before === "" || before.endsWith("\n") ? "" : "\n";
+            const trailingNl = after  === "" || after.startsWith("\n") ? "" : "\n";
+            const insertText = leadingNl + orgText + trailingNl;
+            const newVal = before + insertText + after;
+            const proto = window.HTMLTextAreaElement.prototype;
+            Object.getOwnPropertyDescriptor(proto, "value").set.call(ta, newVal);
+            ta.dispatchEvent(new Event("input", { bubbles: true }));
+            ta.setSelectionRange(start + insertText.length, start + insertText.length);
+            return;
+          }
+        }
+      }
+
+      const text = cd.getData("text/plain").trim();
       let link;
       if (/^\/[^\s]+$/.test(text)) {
         // Absolute file path → [[file:path][filename]]
@@ -7188,19 +7314,46 @@ function App() {
     });
   }, []);
 
-  // Multi-node delete: drag-select across rows and press Delete/Backspace.
+  // Multi-node delete: drag-select across whole rows and press Delete/Backspace.
+  // A node only counts as "selected" here when every part of it (title, and
+  // body if shown — they're DOM siblings, not nested) lies entirely inside
+  // the range. A selection that merely starts or ends mid-text in a
+  // boundary node is a normal text selection that happens to cross a node
+  // boundary, not a request to delete that whole node — treating it as one
+  // would silently destroy far more than the user selected.
   useEffect(() => {
     const onKeyDown = (e) => {
       if (e.key !== "Delete" && e.key !== "Backspace") return;
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
       const range = sel.getRangeAt(0);
-      const rows = [...document.querySelectorAll(".node-row[data-node-id]")];
-      const selected = rows.filter((r) => range.intersectsNode(r));
-      if (selected.length < 2) return;
+
+      const els = [...document.querySelectorAll(".node-row[data-node-id], .node-body-preview[data-node-id]")];
+      const byNode = new Map();
+      for (const el of els) {
+        const id = el.dataset.nodeId;
+        if (!byNode.has(id)) byNode.set(id, []);
+        byNode.get(id).push(el);
+      }
+
+      const boundsRange = document.createRange();
+      const fullyCovers = (el) => {
+        boundsRange.selectNodeContents(el);
+        return range.compareBoundaryPoints(Range.START_TO_START, boundsRange) <= 0
+            && range.compareBoundaryPoints(Range.END_TO_END, boundsRange) >= 0;
+      };
+
+      const selectedIds = [];
+      for (const [id, parts] of byNode) {
+        if (!parts.some((el) => range.intersectsNode(el))) continue;
+        if (!parts.every(fullyCovers)) return; // partial coverage — bail, delete nothing
+        selectedIds.push(id);
+      }
+      if (selectedIds.length < 2) return;
+
       e.preventDefault();
       sel.removeAllRanges();
-      [...selected].reverse().forEach((r) => { if (r.dataset.nodeId) dispatch(r.dataset.nodeId, "delete"); });
+      [...selectedIds].reverse().forEach((id) => dispatch(id, "delete"));
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);

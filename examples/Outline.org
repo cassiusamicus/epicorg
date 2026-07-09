@@ -934,6 +934,49 @@ This is the single most consequential point of confusion in the modern reception
 *** Epicurus, Letter to Menoeceus [129] :PleasureNotTranquilityIsHighestGood:
 [Epicurus names pleasure itself -- not tranquility or freedom from disturbance as an end in its own right -- as the beginning and end of the blessed life, the standard against which every other good is measured.]
 And for this cause we call pleasure the beginning and end of the blessed life. For we recognize pleasure as the first good innate in us, and from pleasure we begin every act of choice and avoidance, and to pleasure we return again, using the feeling as the standard by which we judge every good.
+*** Consideration of the Principal Doctrines
+
+Q. - In the document known as the principal doctrines of Epicurus, do words referencing eudaimonia or happiness or tranquility appear, or are all references to pleasure?
+
+A - The short answer is no. The Principal Doctrines do not present εὐδαιμονία (eudaimonia) as their organizing concept, nor do they repeatedly speak of "happiness" or "tranquility." Instead, they consistently make pleasure (ἡδονή, hēdonē) the standard of the good.
+
+A few observations:
+
+The noun εὐδαιμονία ("happiness," "flourishing") does not appear in the Principal Doctrines.
+Ἡδονή (pleasure) and related forms appear repeatedly and explicitly as the goal and criterion of life.
+Ἀταραξία (ataraxia, tranquility/freedom from disturbance) does not appear as a central term in the Principal Doctrines. The doctrines instead speak descriptively of being "free from disturbance" or "without fear" rather than elevating ataraxia itself as the goal.
+Ἀπονία (aponia, absence of bodily pain) likewise is not emphasized as an independent goal; rather, the doctrines repeatedly define the limit of pleasure as the removal of pain.
+For example:
+
+PD 3: "The limit of the magnitude of pleasures is the removal of all pain."
+PD 5: "It is impossible to live pleasantly (hēdeōs) without living prudently, honorably, and justly..."
+PD 18: "...the flesh does not need unlimited pleasure..."
+PD 25: "...if you do not refer each of your actions to nature's end, but instead turn elsewhere... your actions will not agree with your principles."
+PD 26: distinguishes natural desires by whether they produce pain if unfulfilled.
+PD 29–30: classify desires according to pleasure and pain.
+Where later interpreters often speak of "tranquility," the Principal Doctrines themselves usually express the idea through phrases such as:
+
+freedom from fear,
+freedom from disturbance,
+confidence,
+security,
+living pleasantly.
+
+This is an important point because many modern presentations summarize Epicurean ethics as aiming at *ataraxia*. That summary is more characteristic of later doxographical tradition than of Epicurus' own ethical formulations in the [[https://www.epicureanfriends.com/wcf/lexicon/entry/109-principal-doctrines/][Principal Doctrines]]. In these doctrines, the *explicit telos is pleasure*, while tranquility is presented as a consequence or characteristic of the pleasant life rather than as a separate or higher end.
+
+Indeed, if one simply counts the vocabulary, the contrast is striking:
+
+| Concept                       | Presence in the[[https://www.epicureanfriends.com/wcf/lexicon/entry/109-principal-doctrines/][Principal Doctrines]] |
+|-------------------------------+---------------------------------------------------------------------------------------------------------------------|
+| Pleasure (/hēdonē/)           | Frequent and central                                                                                                |
+| Pain (/algos/, /ponos/, etc.) | Frequent and central                                                                                                |
+| Happiness (/eudaimonia/)      | Absent                                                                                                              |
+| Tranquility (/ataraxia/)      | Absent as a noun                                                                                                    |
+| Blessed (/makarios/)          | Present, especially in PD 1 regarding the gods                                                                      |
+
+This lexical pattern strongly supports the view that Epicurus himself framed his ethics in terms of *pleasure*, not *eudaimonia* or *ataraxia*, even though later authors—and many modern scholars—often use "happiness" or "tranquility" as convenient summaries of the results of living pleasurably.
+*** test
+                                                                  |
 ** Not All Desire Is Itself Painful :AllDesireNotPainful:
 *** Commentary
 It is sometimes claimed that desire itself is inherently a form of suffering, so that the only escape from pain is the extinguishing of desire altogether. Epicurus's own classification of desires refutes this directly: only some desires cause pain if left unfulfilled -- the natural and necessary ones; others, left unfulfilled, involve nothing worse than a craving that is easily dispelled, with no pain attached at all. Desire is not uniformly painful; whether an unfulfilled desire hurts depends on which category it falls into and how firmly it is examined. This is why Epicurus's answer to an unwanted desire was never simply "extinguish all desire," but "examine the desire and ask what will happen if it is, or is not, satisfied."
