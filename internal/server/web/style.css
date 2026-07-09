@@ -1116,13 +1116,19 @@ header h1 {
   cursor: pointer;
 }
 
-/* Search box */
+/* Search box — collapses to an icon-sized toggle button (matching the
+   other view-toggle icons) until clicked or invoked via Ctrl+K, so it only
+   claims header width while actually in use instead of sitting wide at
+   all times. */
 .search-box {
   position: relative;
   display: flex;
   align-items: center;
-  flex: 0 1 95px;
-  min-width: 60px;
+  flex: 0 0 auto;
+}
+
+.search-box-expanded {
+  flex: 0 0 160px;
 }
 
 .search-input {

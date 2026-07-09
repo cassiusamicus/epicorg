@@ -4756,6 +4756,7 @@ function App() {
   const histNavRef = useRef(false); // true while back/forward is in progress (suppresses push)
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef(null);
+  const [filterExpanded, setFilterExpanded] = useState(false);
   const [selectedTags, setSelectedTags] = useState([]);
   const toggleTag = useCallback((tag) => {
     setSelectedTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]);
@@ -5467,8 +5468,11 @@ function App() {
       }
       if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "/")) {
         e.preventDefault();
-        const el = searchInputRef.current;
-        if (el) { el.focus(); el.select(); }
+        setFilterExpanded(true);
+        requestAnimationFrame(() => {
+          const el = searchInputRef.current;
+          if (el) { el.focus(); el.select(); }
+        });
         return;
       }
       if (matchShortcut("textSearch", e)) {
@@ -7169,6 +7173,7 @@ function App() {
                   view=${view} setView=${setView} currentFile=${currentFile}
                   searchQuery=${searchQuery} setSearchQuery=${setSearchQuery}
                   searchInputRef=${searchInputRef}
+                  filterExpanded=${filterExpanded} setFilterExpanded=${setFilterExpanded}
                   allTags=${allTags} selectedTags=${selectedTags}
                   onToggleTag=${toggleTag} onClearTags=${clearTags}
                   detailVisible=${detailVisible}
@@ -7917,6 +7922,14 @@ function IconSearch() {
     <svg ...${SMALL_ICON_PROPS}>
       <circle cx="10" cy="10" r="6" />
       <line x1="14.9" y1="14.9" x2="20" y2="20" />
+    </svg>
+  `;
+}
+
+function IconFilter() {
+  return html`
+    <svg ...${SMALL_ICON_PROPS}>
+      <polygon points="3 4 21 4 14 12.5 14 19 10 21 10 12.5 3 4" />
     </svg>
   `;
 }
@@ -9760,7 +9773,7 @@ function OutlineActionsPanel({ onAction, focusedId, onClose }) {
   `;
 }
 
-function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat, globalFont, onSetGlobalFont, levelFonts, onSetLevelFont, globalColor, onSetGlobalColor, levelColors, onSetLevelColor, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, onOpenSearchPanel, searchPanelOpen, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer, onExportToOrg, onExportToHtml, onOpenSettings }) {
+function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, filterExpanded, setFilterExpanded, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat, globalFont, onSetGlobalFont, levelFonts, onSetLevelFont, globalColor, onSetGlobalColor, levelColors, onSetLevelColor, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, onOpenSearchPanel, searchPanelOpen, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer, onExportToOrg, onExportToHtml, onOpenSettings }) {
   // Whether the toolbar/search/etc. actually fit is measured, not
   // guessed from viewport width — a long filename or a pile of tags
   // eats into the same space a phone-width media query would assume is
@@ -9911,24 +9924,38 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
             <${IconSearchPanel} />
           </button>
         </div>
-        <div className="search-box" style=${{ opacity: textMode ? 0.4 : 1, pointerEvents: textMode ? "none" : "auto" }}>
-          <input
-            ref=${expanded ? null : searchInputRef}
-            type="text"
-            className="search-input"
-            placeholder="Filter… (Ctrl+K)"
-            value=${searchQuery || ""}
-            onChange=${(e) => setSearchQuery(e.target.value)}
-            onKeyDown=${(e) => {
-              if (e.key === "Escape") {
-                e.preventDefault();
-                setSearchQuery("");
-                e.target.blur();
-              }
-            }}
-          />
-          ${searchQuery && html`
-            <button className="search-clear" onClick=${() => setSearchQuery("")} title="Clear (Esc)">×</button>
+        <div className=${"search-box" + ((expanded || filterExpanded || searchQuery) ? " search-box-expanded" : "")} style=${{ opacity: textMode ? 0.4 : 1, pointerEvents: textMode ? "none" : "auto" }}>
+          ${(expanded || filterExpanded || searchQuery) ? html`
+            <input
+              ref=${expanded ? null : searchInputRef}
+              type="text"
+              className="search-input"
+              placeholder="Filter… (Ctrl+K)"
+              autoFocus=${!expanded}
+              value=${searchQuery || ""}
+              onChange=${(e) => setSearchQuery(e.target.value)}
+              onBlur=${() => { if (!searchQuery) setFilterExpanded(false); }}
+              onKeyDown=${(e) => {
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setSearchQuery("");
+                  setFilterExpanded(false);
+                  e.target.blur();
+                }
+              }}
+            />
+            ${searchQuery && html`
+              <button className="search-clear"
+                      onClick=${() => { setSearchQuery(""); setFilterExpanded(false); }}
+                      title="Clear (Esc)">×</button>
+            `}
+          ` : html`
+            <div className="view-toggle">
+              <button className="view-tab" title="Filter this note (Ctrl+K)"
+                      onClick=${() => setFilterExpanded(true)}>
+                <${IconFilter} />
+              </button>
+            </div>
           `}
         </div>
         </div>
