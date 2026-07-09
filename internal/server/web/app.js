@@ -2313,13 +2313,21 @@ function SearchResultsView({ searchResults, currentFile, onBack, onNavigate }) {
             ? html`No nodes tagged <code>:${searchResults.query}:</code> found in any org file.`
             : html`No matches for <code>${searchResults.query}</code> found in any org file.`}
       </div>
-    ` : filtered.map((r, i) => html`
+    ` : filtered.map((r, i) => {
+      // Markdown results come from the "include .md files" search option —
+      // they can't be opened through the normal org-file loader (it would
+      // parse and could resave markdown as if it were org syntax), so treat
+      // them like subfolder results: shown, but not directly clickable.
+      const isMarkdown = isMarkdownFile(r.file);
+      const notNavigable = r.inSubdir || isMarkdown;
+      return html`
       <div key=${i}
            className=${"tag-search-result" + (r.inSubdir ? " tag-search-result-subdir" : "")}
-           onClick=${r.inSubdir ? undefined : () => onNavigate(r)}>
+           onClick=${notNavigable ? undefined : () => onNavigate(r)}>
         <div className="tag-search-result-file">
           ${r.file}
           ${r.inSubdir && html`<span className="tag-search-result-subdir-badge" title="In subdirectory — open manually">subfolder</span>`}
+          ${!r.inSubdir && isMarkdown && html`<span className="tag-search-result-subdir-badge" title="Markdown file — open manually">markdown</span>`}
         </div>
         <div className="tag-search-result-title"
              dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(r.title) }} />
@@ -2331,7 +2339,8 @@ function SearchResultsView({ searchResults, currentFile, onBack, onNavigate }) {
           </div>
         `}
       </div>
-    `)}
+    `;
+    })}
   `;
 }
 
@@ -4125,6 +4134,14 @@ function highlightMatch(text, query) {
   return parts.join("");
 }
 
+// Markdown search results (from the "include .md files" option) can't be
+// opened through the normal org-file loader/preview — it parses everything
+// as org syntax, so a markdown file would render wrong and, if edited and
+// autosaved, get corrupted with org-ified content written back into it.
+function isMarkdownFile(name) {
+  return /\.md$/i.test(name || "");
+}
+
 function buildSnippet(text, query) {
   if (!text) return "";
   const q = query.toLowerCase();
@@ -4158,6 +4175,16 @@ function SearchPanel({ nodes, currentFile,
   const [tab, setTab] = useState("search");
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState("note");
+  const [includeMarkdown, setIncludeMarkdown] = useState(() => {
+    try { return localStorage.getItem("epicorg.searchIncludeMarkdown") === "1"; } catch { return false; }
+  });
+  const toggleIncludeMarkdown = () => {
+    setIncludeMarkdown((prev) => {
+      const next = !prev;
+      try { localStorage.setItem("epicorg.searchIncludeMarkdown", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  };
   const [results, setResults] = useState([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -4255,7 +4282,8 @@ function SearchPanel({ nodes, currentFile,
     } else {
       debounceRef.current = setTimeout(() => {
         setLoading(true);
-        api.get(`/api/search/text?q=${encodeURIComponent(query)}`)
+        const url = `/api/search/text?q=${encodeURIComponent(query)}` + (includeMarkdown ? "&md=1" : "");
+        api.get(url)
           .then((data) => {
             setResults((data.results || []).map((r) => ({
               nodeId: null,
@@ -4271,7 +4299,7 @@ function SearchPanel({ nodes, currentFile,
       }, 280);
       return () => clearTimeout(debounceRef.current);
     }
-  }, [tab, query, scope, nodes, currentFile]);
+  }, [tab, query, scope, nodes, currentFile, includeMarkdown]);
 
   useEffect(() => {
     resultsRef.current?.children[selectedIdx]?.scrollIntoView({ block: "nearest" });
@@ -4281,6 +4309,7 @@ function SearchPanel({ nodes, currentFile,
 
   useEffect(() => {
     if (!selected) { setContextNodes(null); return; }
+    if (isMarkdownFile(selected.file)) { setContextNodes(null); return; }
     if (scope === "note") { setContextNodes(nodes); return; }
     if (ctxCacheRef.current.has(selected.file)) {
       setContextNodes(ctxCacheRef.current.get(selected.file)); return;
@@ -4298,7 +4327,7 @@ function SearchPanel({ nodes, currentFile,
     : null;
 
   const openResult = (r) => {
-    if (!r) return;
+    if (!r || isMarkdownFile(r.file)) return;
     onClose();
     if (scope === "all") { onNavigate(r.file); }
     else if (r.nodeId) { requestAnimationFrame(() => onJumpToNode(r.nodeId)); }
@@ -4318,7 +4347,7 @@ function SearchPanel({ nodes, currentFile,
       <div className="sp-mode-bar">
         <button className=${"sp-mode-btn" + (tab === "filter" ? " sp-mode-active" : "")}
                 onClick=${() => switchTab("filter")}>
-          <span className="sp-mode-name">⊟ Filter this file</span>
+          <span className="sp-mode-name">⊟ Filter Headings</span>
           <span className="sp-mode-hint">collapses non-matching headings · depth 1|2|3|4</span>
         </button>
         <button className=${"sp-mode-btn" + (tab === "find" ? " sp-mode-active" : "")}
@@ -4389,6 +4418,12 @@ function SearchPanel({ nodes, currentFile,
                       onClick=${() => { setSaveName(query.trim()); setSaveFormOpen(true); }}>☆</button>
             `}
           </div>
+          ${scope === "all" && html`
+            <label className="sp-md-toggle">
+              <input type="checkbox" checked=${includeMarkdown} onChange=${toggleIncludeMarkdown} />
+              Include Markdown (.md) files
+            </label>
+          `}
           ${saveFormOpen && html`
             <div className="sp-save-form">
               <input className="sp-save-input" autoFocus
@@ -4422,6 +4457,7 @@ function SearchPanel({ nodes, currentFile,
                   <div className="sp-result-body">
                     <div className="sp-result-crumb">
                       ${scope === "all" ? r.file.replace(/\.org$/, "") + (r.breadcrumb.length ? " › " : "") : ""}${r.breadcrumb.join(" › ")}
+                      ${isMarkdownFile(r.file) && html`<span className="sp-result-md-badge" title="Markdown file — open manually">md</span>`}
                     </div>
                     <div className="sp-result-title"
                          dangerouslySetInnerHTML=${{ __html: highlightMatch(r.title, query) }} />
@@ -4430,15 +4466,17 @@ function SearchPanel({ nodes, currentFile,
                            dangerouslySetInnerHTML=${{ __html: highlightMatch(r.snippet, query) }} />
                     `}
                   </div>
-                  <button className="sp-result-open" title="Open and close search panel"
+                  <button className="sp-result-open" title=${isMarkdownFile(r.file) ? "Markdown file — open manually" : "Open and close search panel"}
+                          disabled=${isMarkdownFile(r.file)}
                           onClick=${(e) => { e.stopPropagation(); openResult(r); }}>↗</button>
                 </div>
               `)}
             </div>
             <div className="sp-context">
               ${!selected && html`<div className="sp-ctx-empty">Select a result to see it in context</div>`}
-              ${selected && contextLoading && html`<div className="sp-ctx-empty">Loading…</div>`}
-              ${selected && !contextLoading && !ctxFound && html`<div className="sp-ctx-empty">Node not found in current view</div>`}
+              ${selected && isMarkdownFile(selected.file) && html`<div className="sp-ctx-empty">Markdown files aren't parsed for preview — this just confirms a match was found. Open the file manually to view it.</div>`}
+              ${selected && !isMarkdownFile(selected.file) && contextLoading && html`<div className="sp-ctx-empty">Loading…</div>`}
+              ${selected && !isMarkdownFile(selected.file) && !contextLoading && !ctxFound && html`<div className="sp-ctx-empty">Node not found in current view</div>`}
               ${selected && ctxFound && html`
                 <div className="sp-ctx-inner">
                   <div className="sp-ctx-topbar">
@@ -5690,12 +5728,13 @@ function App() {
     });
   }, [findMatchIds]);
 
-  const runTextSearch = useCallback(async (query) => {
+  const runTextSearch = useCallback(async (query, includeMarkdown) => {
     setShowTextSearch(false);
     setSearchResults({ type: "text", query, results: null });
     setView("search");
     try {
-      const data = await api.get("/api/search/text?q=" + encodeURIComponent(query));
+      const url = "/api/search/text?q=" + encodeURIComponent(query) + (includeMarkdown ? "&md=1" : "");
+      const data = await api.get(url);
       setSearchResults({ type: "text", query, results: data.results || [] });
     } catch {
       setSearchResults({ type: "text", query, results: [] });
@@ -8262,13 +8301,24 @@ function FileLinkPicker({ files, onSelect, onCreate, onCancel }) {
 // search and shows results in the main panel.
 function TextSearchDialog({ onSearch, onCancel }) {
   const [query, setQuery] = useState("");
+  const [includeMarkdown, setIncludeMarkdown] = useState(() => {
+    try { return localStorage.getItem("epicorg.searchIncludeMarkdown") === "1"; } catch { return false; }
+  });
   const inputRef = useRef(null);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
+  const toggleIncludeMarkdown = () => {
+    setIncludeMarkdown((prev) => {
+      const next = !prev;
+      try { localStorage.setItem("epicorg.searchIncludeMarkdown", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  };
+
   const submit = () => {
     const q = query.trim();
-    if (q) onSearch(q);
+    if (q) onSearch(q, includeMarkdown);
   };
 
   return html`
@@ -8296,6 +8346,10 @@ function TextSearchDialog({ onSearch, onCancel }) {
               Search
             </button>
           </div>
+          <label className="text-search-md-toggle">
+            <input type="checkbox" checked=${includeMarkdown} onChange=${toggleIncludeMarkdown} />
+            Include Markdown (.md) files
+          </label>
           <div className="text-search-hint">
             <p>Searches headlines and notes in all org files in the home folder.</p>
             <p>

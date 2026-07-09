@@ -21,15 +21,30 @@ type TextSearchResult struct {
 // (case-insensitive). Quoted phrases are matched as a unit.
 // For homeDir files (rootLabel == ""), File is the relative displayName.
 // For other-root files, File is the absolute path.
+// Org files only; see SearchTextWorkspaceOpts to also include Markdown files.
 func (s *Store) SearchTextWorkspace(query string, cfg *WorkspaceConfig) ([]TextSearchResult, error) {
+	return s.SearchTextWorkspaceOpts(query, cfg, false)
+}
+
+// SearchTextWorkspaceOpts is SearchTextWorkspace with an option to also
+// search ".md" files. Markdown files have no org headline/body structure,
+// so each file is split into sections by its ATX (#) headings instead —
+// each heading plus the text under it (up to the next heading) is treated
+// like one org item's title+body for matching and snippet purposes.
+func (s *Store) SearchTextWorkspaceOpts(query string, cfg *WorkspaceConfig, includeMarkdown bool) ([]TextSearchResult, error) {
 	terms := parseTerms(query)
 	if len(terms) == 0 {
 		return nil, nil
 	}
 
+	exts := []string{".org"}
+	if includeMarkdown {
+		exts = append(exts, ".md")
+	}
+
 	var results []TextSearchResult
 
-	err := WalkWorkspace(cfg, func(absPath, displayName, rootLabel string) error {
+	err := WalkWorkspaceExts(cfg, exts, func(absPath, displayName, rootLabel string) error {
 		fileID := displayName
 		if rootLabel != "" {
 			fileID = absPath
@@ -39,6 +54,22 @@ func (s *Store) SearchTextWorkspace(query string, cfg *WorkspaceConfig) ([]TextS
 		if err != nil {
 			return nil
 		}
+
+		if strings.HasSuffix(strings.ToLower(absPath), ".md") {
+			for _, sec := range splitMarkdownSections(string(data), filepath.Base(absPath)) {
+				if !allTermsMatch(terms, sec.title, sec.body, nil, "") {
+					continue
+				}
+				results = append(results, TextSearchResult{
+					File:     fileID,
+					Title:    sec.title,
+					Context:  buildContext(terms, sec.title, sec.body),
+					InSubdir: strings.Contains(displayName, "/"),
+				})
+			}
+			return nil
+		}
+
 		doc := parseOrg(string(data), filepath.Base(absPath))
 		items := model.FromDocument(doc)
 
@@ -66,6 +97,45 @@ func (s *Store) SearchTextWorkspace(query string, cfg *WorkspaceConfig) ([]TextS
 		return nil
 	})
 	return results, err
+}
+
+type markdownSection struct {
+	title string
+	body  string
+}
+
+// splitMarkdownSections splits markdown text into sections at each ATX (#)
+// heading. Content before the first heading (if any) is grouped under
+// fallbackTitle (the filename), matching how a headline-less org preamble
+// would otherwise be invisible to search.
+func splitMarkdownSections(content, fallbackTitle string) []markdownSection {
+	var sections []markdownSection
+	cur := markdownSection{title: fallbackTitle}
+	var bodyLines []string
+
+	flush := func() {
+		cur.body = strings.TrimSpace(strings.Join(bodyLines, "\n"))
+		if cur.title != "" || cur.body != "" {
+			sections = append(sections, cur)
+		}
+	}
+
+	for _, line := range strings.Split(content, "\n") {
+		trimmed := strings.TrimLeft(line, " \t")
+		level := 0
+		for level < len(trimmed) && level < 6 && trimmed[level] == '#' {
+			level++
+		}
+		if level > 0 && level < len(trimmed) && (trimmed[level] == ' ' || trimmed[level] == '\t') {
+			flush()
+			cur = markdownSection{title: strings.TrimSpace(trimmed[level:])}
+			bodyLines = nil
+			continue
+		}
+		bodyLines = append(bodyLines, line)
+	}
+	flush()
+	return sections
 }
 
 // SearchText walks the entire home directory tree and returns nodes whose

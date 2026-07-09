@@ -74,6 +74,23 @@ func SaveWorkspace(cfg *WorkspaceConfig) error {
 // Hidden directories are skipped. Excluded subtrees (Included=false entries) are skipped.
 // Duplicate absolute paths are skipped.
 func WalkWorkspace(cfg *WorkspaceConfig, fn func(absPath, displayName, rootLabel string) error) error {
+	return WalkWorkspaceExts(cfg, []string{".org"}, fn)
+}
+
+// WalkWorkspaceExts is like WalkWorkspace but matches files by any of the
+// given extensions (case-insensitive) instead of just ".org" — e.g. to also
+// pick up ".md" files when searching.
+func WalkWorkspaceExts(cfg *WorkspaceConfig, exts []string, fn func(absPath, displayName, rootLabel string) error) error {
+	matchesExt := func(name string) bool {
+		name = strings.ToLower(name)
+		for _, e := range exts {
+			if strings.HasSuffix(name, strings.ToLower(e)) {
+				return true
+			}
+		}
+		return false
+	}
+
 	// Build a set of excluded absolute paths.
 	excluded := make(map[string]bool)
 	for _, p := range cfg.Paths {
@@ -118,7 +135,7 @@ func WalkWorkspace(cfg *WorkspaceConfig, fn func(absPath, displayName, rootLabel
 				return nil
 			}
 
-			if !strings.HasSuffix(d.Name(), ".org") {
+			if !matchesExt(d.Name()) {
 				return nil
 			}
 

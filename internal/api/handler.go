@@ -661,7 +661,8 @@ func (h *handlers) searchText(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		cfg = orgfile.DefaultWorkspace(h.store.Dir())
 	}
-	results, err := h.store.SearchTextWorkspace(q, cfg)
+	includeMarkdown := r.URL.Query().Get("md") == "1"
+	results, err := h.store.SearchTextWorkspaceOpts(q, cfg, includeMarkdown)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
