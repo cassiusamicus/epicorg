@@ -361,8 +361,12 @@ ${exportCss(tbBgL, tbBgD, tbFgL, tbFgD)}
     <button class="lb" data-lvl="3" onclick="lvl(3)">3</button>
     <button class="lb" data-lvl="4" onclick="lvl(4)">4</button>
   </div>
-  <input id="srch" type="search" placeholder="Filter…" oninput="applyFilters()" autocomplete="off"
-         onkeydown="if(event.key==='Enter'){event.preventDefault();event.shiftKey?fltPrev():fltNext();}">
+  <div class="srch-wrap">
+    <input id="srch" type="search" placeholder="Filter…" oninput="applyFilters()" autocomplete="off"
+           onkeydown="if(event.key==='Enter'){event.preventDefault();event.shiftKey?fltPrev():fltNext();}
+                      else if(event.key==='Escape'&&this.value){event.preventDefault();clearSearch();}">
+    <button id="srch-clear" onclick="clearSearch()" title="Clear (Esc)" hidden>&times;</button>
+  </div>
   <button class="tb-btn" onclick="toggleRW()" title="Toggle reading width">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
   </button>
@@ -433,9 +437,14 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .lb{background:rgba(128,128,128,.2);border:none;color:var(--tfg);cursor:pointer;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:500}
 .lb:hover{background:rgba(128,128,128,.35)}
 .lb.active{background:rgba(128,128,128,.5);font-weight:700}
-#srch{background:rgba(128,128,128,.18);border:1px solid rgba(128,128,128,.28);color:var(--tfg);padding:5px 10px;border-radius:6px;font-size:13px;outline:none;width:170px}
+.srch-wrap{position:relative;display:flex;align-items:center}
+#srch{background:rgba(128,128,128,.18);border:1px solid rgba(128,128,128,.28);color:var(--tfg);padding:5px 24px 5px 10px;border-radius:6px;font-size:13px;outline:none;width:170px}
 #srch:focus{background:rgba(128,128,128,.26);border-color:rgba(128,128,128,.5)}
 #srch::placeholder{color:var(--tfg);opacity:.55}
+#srch::-webkit-search-cancel-button,#srch::-webkit-search-decoration{-webkit-appearance:none;appearance:none}
+#srch-clear{position:absolute;right:4px;background:none;border:none;color:var(--tfg);opacity:.7;cursor:pointer;font-size:15px;line-height:1;padding:2px 4px;border-radius:3px}
+#srch-clear:hover{opacity:1;background:rgba(128,128,128,.25)}
+#srch-clear[hidden]{display:none}
 
 /* FILTER MATCH HIGHLIGHTING + FLOATING FIND NAV */
 mark.flt-mark{background:#ffe066;color:#1a1a1a;border-radius:2px;padding:0 1px}
@@ -656,9 +665,19 @@ function fltPrev(){
   updateFltCurrent();
 }
 
+function clearSearch(){
+  var input=document.getElementById('srch');
+  input.value='';
+  input.focus();
+  applyFilters();
+}
+
 function applyFilters(){
-  var q=(document.getElementById('srch').value||'').toLowerCase().trim();
+  var raw=document.getElementById('srch').value||'';
+  var q=raw.toLowerCase().trim();
   curSearch=q;
+  var clearBtn=document.getElementById('srch-clear');
+  if(clearBtn)clearBtn.hidden=!raw;
   document.querySelectorAll('#outline .ns').forEach(function(el){
     var level=parseInt(el.dataset.level)||1;
     var tags=el.dataset.tags?el.dataset.tags.split(',').filter(Boolean):[];
