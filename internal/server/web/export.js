@@ -281,7 +281,7 @@ function buildNavHtml(nodes) {
   for (const node of nodes || []) {
     const hasKids = node.children?.length > 0;
     const href = `#n-${esc(node.id || "")}`;
-    const label = esc(node.title || "(untitled)");
+    const label = node.title ? renderOrgInline(node.title) : "(untitled)";
     out += `<div class="ni">`;
     out += `<div class="ni-row">`;
     if (hasKids) {
