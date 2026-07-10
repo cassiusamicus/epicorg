@@ -355,7 +355,6 @@ ${exportCss(tbBgL, tbBgD, tbFgL, tbFgD)}
   <span class="tb-title">${esc(orgTitle)}</span>
   <span class="tb-spacer"></span>
   <div class="lvl-row" title="Show outline to this depth">
-    <span class="lvl-label">Depth</span>
     <button class="lb active" data-lvl="0" onclick="lvl(0)">All</button>
     <button class="lb" data-lvl="1" onclick="lvl(1)">1</button>
     <button class="lb" data-lvl="2" onclick="lvl(2)">2</button>
@@ -431,7 +430,6 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 .tb-title{position:absolute;left:50%;transform:translateX(-50%);font-weight:700;font-size:18px;pointer-events:none;max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;letter-spacing:-.01em;opacity:.95}
 .tb-spacer{flex:1}
 .lvl-row{display:flex;align-items:center;gap:3px;flex-shrink:0}
-.lvl-label{font-size:11px;opacity:.65;margin-right:2px}
 .lb{background:rgba(128,128,128,.2);border:none;color:var(--tfg);cursor:pointer;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:500}
 .lb:hover{background:rgba(128,128,128,.35)}
 .lb.active{background:rgba(128,128,128,.5);font-weight:700}
