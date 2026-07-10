@@ -61,7 +61,7 @@ Opens `~/org` (created if it doesn't exist) and launches a browser tab. If the d
 
 ## Download
 
-Pre-built binaries for Linux, macOS, and Windows are published automatically as [nightly releases](../../releases/tag/nightly) from the main branch.
+Pre-built binaries for Linux, macOS, and Windows are published automatically as [nightly releases](../../releases/tag/nightly) from the main branch.  **NOTE:  This program has been tested only on Linux as of the time of this writing.**  
 
 ## Keyboard shortcuts
 
