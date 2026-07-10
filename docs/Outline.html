@@ -14,7 +14,7 @@
   --cancelled-bg:#f0f0f0;--cancelled-text:#777;
   --next-bg:#e8f0fe;--next-text:#3c4ee0;
   --bullet:#c0c0c0;
-  --tbg:#225167;--tfg:#fff;
+  --tbg:#32799a;--tfg:#fff;
   --nav-bg:#fafafa;--tags-bg:#fafafa;
 }
 [data-theme=dark]{
@@ -25,7 +25,7 @@
   --cancelled-bg:#2a2a2c;--cancelled-text:#888;
   --next-bg:#1a2240;--next-text:#7a9ef7;
   --bullet:#555;
-  --tbg:#225167;--tfg:#fff;
+  --tbg:#32799a;--tfg:#fff;
   --nav-bg:#212123;--tags-bg:#212123;
 }
 html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.55;font-size:14px}
@@ -48,6 +48,15 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #srch{background:rgba(128,128,128,.18);border:1px solid rgba(128,128,128,.28);color:var(--tfg);padding:5px 10px;border-radius:6px;font-size:13px;outline:none;width:170px}
 #srch:focus{background:rgba(128,128,128,.26);border-color:rgba(128,128,128,.5)}
 #srch::placeholder{color:var(--tfg);opacity:.55}
+
+/* FILTER MATCH HIGHLIGHTING + FLOATING FIND NAV */
+mark.flt-mark{background:#ffe066;color:#1a1a1a;border-radius:2px;padding:0 1px}
+mark.flt-mark.flt-current{background:#ff9f1c}
+#flt-nav{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 8px;display:flex;align-items:center;gap:4px;font-size:12px;box-shadow:0 2px 10px rgba(0,0,0,.25);z-index:50}
+#flt-nav[hidden]{display:none}
+#flt-count{min-width:44px;text-align:center;opacity:.8}
+#flt-nav button{background:none;border:none;color:var(--text);cursor:pointer;padding:3px 7px;border-radius:5px;display:flex;align-items:center}
+#flt-nav button:hover{background:rgba(128,128,128,.25)}
 
 /* LAYOUT */
 #layout{display:flex;height:calc(100vh - 52px);overflow:hidden}
@@ -165,7 +174,8 @@ sup.fn-def-marker{cursor:default;font-weight:700}
     <button class="lb" data-lvl="3" onclick="lvl(3)">3</button>
     <button class="lb" data-lvl="4" onclick="lvl(4)">4</button>
   </div>
-  <input id="srch" type="search" placeholder="Filter…" oninput="applyFilters()" autocomplete="off">
+  <input id="srch" type="search" placeholder="Filter…" oninput="applyFilters()" autocomplete="off"
+         onkeydown="if(event.key==='Enter'){event.preventDefault();event.shiftKey?fltPrev():fltNext();}">
   <button class="tb-btn" onclick="toggleRW()" title="Toggle reading width">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
   </button>
@@ -341,6 +351,11 @@ Moreover, the wise man will marry and have children, as Epicurus says in the Pro
     </div>
   </aside>
 </div>
+<div id="flt-nav" hidden>
+  <span id="flt-count"></span>
+  <button onclick="fltPrev()" title="Previous match (Shift+Enter)">&#8593;</button>
+  <button onclick="fltNext()" title="Next match (Enter)">&#8595;</button>
+</div>
 <script>
 
 var curLvl=0,curTags=[],curSearch="";
@@ -374,6 +389,82 @@ function setTag(tag){
   applyFilters();
 }
 
+var fltMatches=[],fltIdx=0;
+
+// Removes all filter-match <mark> wrappers, restoring the original text
+// nodes, so the next filter pass starts from a clean slate.
+function clearHighlights(){
+  document.querySelectorAll('#outline mark.flt-mark').forEach(function(m){
+    var parent=m.parentNode;
+    if(!parent)return;
+    parent.replaceChild(document.createTextNode(m.textContent),m);
+    parent.normalize();
+  });
+}
+
+// Wraps every case-insensitive occurrence of q in el's text (skipping
+// script/style/existing marks) in a <mark>, walking only text nodes so
+// existing formatting (bold, links, tables) is left completely intact.
+function highlightIn(el,q){
+  var walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,{
+    acceptNode:function(node){
+      var tag=node.parentElement&&node.parentElement.tagName;
+      if(tag==='SCRIPT'||tag==='STYLE'||tag==='MARK')return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  var nodes=[],n;
+  while(n=walker.nextNode())nodes.push(n);
+  nodes.forEach(function(node){
+    var text=node.nodeValue;
+    var lower=text.toLowerCase();
+    var idx=lower.indexOf(q);
+    if(idx<0)return;
+    var frag=document.createDocumentFragment();
+    var pos=0;
+    while(idx>=0){
+      if(idx>pos)frag.appendChild(document.createTextNode(text.slice(pos,idx)));
+      var mark=document.createElement('mark');
+      mark.className='flt-mark';
+      mark.textContent=text.slice(idx,idx+q.length);
+      frag.appendChild(mark);
+      pos=idx+q.length;
+      idx=lower.indexOf(q,pos);
+    }
+    if(pos<text.length)frag.appendChild(document.createTextNode(text.slice(pos)));
+    node.parentNode.replaceChild(frag,node);
+  });
+}
+
+function updateFltCurrent(){
+  fltMatches.forEach(function(m,i){m.classList.toggle('flt-current',i===fltIdx);});
+  var countEl=document.getElementById('flt-count');
+  if(countEl)countEl.textContent=(fltMatches.length?(fltIdx+1):0)+' / '+fltMatches.length;
+  if(fltMatches[fltIdx])fltMatches[fltIdx].scrollIntoView({block:'center',behavior:'smooth'});
+}
+
+function updateFindNav(){
+  fltMatches=[].slice.call(document.querySelectorAll('#outline mark.flt-mark'));
+  var nav=document.getElementById('flt-nav');
+  if(!nav)return;
+  if(fltMatches.length===0){nav.hidden=true;fltIdx=0;return;}
+  nav.hidden=false;
+  fltIdx=0;
+  updateFltCurrent();
+}
+
+function fltNext(){
+  if(!fltMatches.length)return;
+  fltIdx=(fltIdx+1)%fltMatches.length;
+  updateFltCurrent();
+}
+
+function fltPrev(){
+  if(!fltMatches.length)return;
+  fltIdx=(fltIdx-1+fltMatches.length)%fltMatches.length;
+  updateFltCurrent();
+}
+
 function applyFilters(){
   var q=(document.getElementById('srch').value||'').toLowerCase().trim();
   curSearch=q;
@@ -394,6 +485,13 @@ function applyFilters(){
     var tog=ns&&ns.querySelector(':scope>.nh .tog');
     if(tog){tog.textContent=ch.hidden?'▶':'▼';tog.title=ch.hidden?'Expand':'Collapse';}
   });
+  clearHighlights();
+  if(q){
+    document.querySelectorAll('#outline .ns:not([hidden])').forEach(function(el){
+      highlightIn(el,q);
+    });
+  }
+  updateFindNav();
 }
 
 function navToggle(btn){
