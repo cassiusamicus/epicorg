@@ -321,7 +321,10 @@ export function generateExportHtml(nodes, preamble, filename, theme, accentColor
 
   const tagPanelHtml = `
   <aside id="tag-panel" hidden>
-    <div class="ph">Tags</div>
+    <div class="ph ph-row">
+      <span>Tags</span>
+      <button class="ph-clear" onclick="setTag('')" title="Clear all selected tags">&times;</button>
+    </div>
     <div id="tlist">
       <button class="tbtn active" onclick="setTag('')">All items</button>
       ${allTags.map(t => `<button class="tbtn" onclick="setTag('${esc(t)}')" data-tag="${esc(t)}">${esc(t)}</button>`).join("\n      ")}
@@ -437,6 +440,9 @@ html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFo
 #nav-panel{width:260px;flex-shrink:0;background:var(--nav-bg);border-right:1px solid var(--border);display:flex;flex-direction:column}
 #nav-panel[hidden]{display:none}
 .ph{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--dim);padding:10px 12px 8px;flex-shrink:0;border-bottom:1px solid var(--border)}
+.ph-row{display:flex;align-items:center;justify-content:space-between}
+.ph-clear{background:none;border:none;color:var(--dim);cursor:pointer;font-size:15px;line-height:1;padding:0;text-transform:none;letter-spacing:normal;font-weight:400}
+.ph-clear:hover{color:var(--text)}
 #nav-body{padding:4px 0;flex:1;overflow-y:auto}
 .ni{display:block}
 .ni-row{display:flex;align-items:center;gap:1px;padding:0 4px}
@@ -530,7 +536,7 @@ sup.fn-def-marker{cursor:default;font-weight:700}
 
 function exportJs() {
   return `
-var curLvl=0,curTag="",curSearch="";
+var curLvl=0,curTags=[],curSearch="";
 
 function toggleNav(){var p=document.getElementById('nav-panel');p.hidden=!p.hidden;}
 function toggleTags(){var p=document.getElementById('tag-panel');if(p)p.hidden=!p.hidden;}
@@ -544,12 +550,19 @@ function lvl(n){
 }
 
 function setTag(tag){
-  curTag=tag;
+  if(tag===''){
+    curTags=[];
+  } else {
+    var idx=curTags.indexOf(tag);
+    if(idx>=0) curTags.splice(idx,1);
+    else curTags.push(tag);
+  }
   document.querySelectorAll('.tbtn').forEach(function(b){
-    b.classList.toggle('active',(!tag&&!b.dataset.tag)||b.dataset.tag===tag);
+    var t=b.dataset.tag||'';
+    b.classList.toggle('active',t===''?curTags.length===0:curTags.indexOf(t)>=0);
   });
   document.querySelectorAll('.tc').forEach(function(tc){
-    tc.classList.toggle('tag-active',tag!==''&&tc.dataset.tag===tag);
+    tc.classList.toggle('tag-active',curTags.indexOf(tc.dataset.tag)>=0);
   });
   applyFilters();
 }
@@ -562,7 +575,7 @@ function applyFilters(){
     var tags=el.dataset.tags?el.dataset.tags.split(',').filter(Boolean):[];
     var levelOk=curLvl===0||level<=curLvl;
     var searchOk=!q||el.textContent.toLowerCase().indexOf(q)>=0;
-    var tagOk=!curTag||tags.indexOf(curTag)>=0;
+    var tagOk=curTags.length===0||tags.some(function(tg){return curTags.indexOf(tg)>=0;});
     el.hidden=!(levelOk&&searchOk&&tagOk);
   });
   // Sync each .ch container and its toggle arrow with child visibility so
