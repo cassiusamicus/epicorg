@@ -9496,6 +9496,12 @@ function SettingsModal({
                 ${lvl}
               </button>
             `)}
+            <button className="stg-segmented-btn"
+                    disabled=${textMode || view !== "outline"}
+                    onClick=${() => { onFoldToLevel(9); onClose(); }}
+                    title="Expand all levels">
+              ∞
+            </button>
           </div>
         </${StgRow}>
       </div>
@@ -10139,6 +10145,10 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
                         onClick=${() => onFoldToLevel(lvl)}
                         title=${textMode ? "Not available in reveal codes mode" : "Fold to level " + lvl + " (Alt+" + lvl + ")"}>${lvl}</button>
               `)}
+              <button className="view-tab"
+                      disabled=${textMode}
+                      onClick=${() => onFoldToLevel(9)}
+                      title=${textMode ? "Not available in reveal codes mode" : "Expand all levels (Alt+9)"}>∞</button>
             </div>
           `}
           ${view === "outline" && toolbarConfig.moveGroup && html`
