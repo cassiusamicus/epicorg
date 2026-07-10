@@ -720,5 +720,15 @@ function navClick(e,a){
       });
     });
   },{passive:true});
+})();
+
+// On a wide enough screen, open the nav panel by default — and the tag
+// panel too if there's room for both alongside the main content.
+(function(){
+  var w=window.innerWidth;
+  var nav=document.getElementById('nav-panel');
+  var tags=document.getElementById('tag-panel');
+  if(nav&&w>=900)nav.hidden=false;
+  if(tags&&w>=1300)tags.hidden=false;
 })();`;
 }

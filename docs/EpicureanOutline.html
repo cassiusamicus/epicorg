@@ -14,7 +14,7 @@
   --cancelled-bg:#f0f0f0;--cancelled-text:#777;
   --next-bg:#e8f0fe;--next-text:#3c4ee0;
   --bullet:#c0c0c0;
-  --tbg:#225167;--tfg:#fff;
+  --tbg:#32799a;--tfg:#fff;
   --nav-bg:#fafafa;--tags-bg:#fafafa;
 }
 [data-theme=dark]{
@@ -25,7 +25,7 @@
   --cancelled-bg:#2a2a2c;--cancelled-text:#888;
   --next-bg:#1a2240;--next-text:#7a9ef7;
   --bullet:#555;
-  --tbg:#225167;--tfg:#fff;
+  --tbg:#32799a;--tfg:#fff;
   --nav-bg:#212123;--tags-bg:#212123;
 }
 html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.55;font-size:14px}
@@ -517,6 +517,16 @@ function navClick(e,a){
       });
     });
   },{passive:true});
+})();
+
+// On a wide enough screen, open the nav panel by default — and the tag
+// panel too if there's room for both alongside the main content.
+(function(){
+  var w=window.innerWidth;
+  var nav=document.getElementById('nav-panel');
+  var tags=document.getElementById('tag-panel');
+  if(nav&&w>=900)nav.hidden=false;
+  if(tags&&w>=1300)tags.hidden=false;
 })();
 </script>
 </body>
