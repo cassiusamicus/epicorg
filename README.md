@@ -12,6 +12,8 @@ This program was developed by Cassius Amicus for his own use in the study of Epi
 
 ![Agenda view](docs/images/agenda-view.png)
 
+**[Sample Exported Outline](https://cassiusamicus.github.io/epicorg/EpicureanOutline.html)** — see what an HTML export from epicorg actually looks like.
+
 ## Features
 
 - **Infinite nesting** — headings, sub-headings, and body text to any depth

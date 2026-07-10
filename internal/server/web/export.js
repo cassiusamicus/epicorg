@@ -373,7 +373,7 @@ ${exportCss(tbBgL, tbBgD, tbFgL, tbFgD)}
     <div class="ph">Navigation</div>
     <div id="nav-body">${navHtml || "<span class='nav-empty'>No headings</span>"}</div>
   </nav>
-  <main id="content">
+  <main id="content" class="rw">
     <div id="outline">${contentHtml}</div>
   </main>
   ${tagPanelHtml}

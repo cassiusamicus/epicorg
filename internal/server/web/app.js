@@ -4749,7 +4749,13 @@ function App() {
     try { localStorage.removeItem("epicorg.recentFiles"); } catch {}
   }, []);
   const [sidebarVisible, setSidebarVisible] = useState(() => {
-    try { return localStorage.getItem("epicorg.sidebarVisible") !== "0"; } catch { return true; }
+    try {
+      const v = localStorage.getItem("epicorg.sidebarVisible");
+      if (v === "0") return false;
+      if (v === "1") return true;
+      // No explicit preference yet — default open only on a wide enough screen.
+      return window.innerWidth >= 900;
+    } catch { return true; }
   });
   const toggleSidebar = useCallback(() => {
     setSidebarVisible((p) => {
@@ -5349,7 +5355,14 @@ function App() {
     else root.style.removeProperty("--accent");
   }, [topBarColor]);
   const [tagPanelVisible, setTagPanelVisible] = useState(() => {
-    try { return localStorage.getItem("epicorg.tagPanelVisible") === "1"; } catch { return false; }
+    try {
+      const v = localStorage.getItem("epicorg.tagPanelVisible");
+      if (v === "1") return true;
+      if (v === "0") return false;
+      // No explicit preference yet — default open only when there's enough
+      // room for the sidebar, main content, AND the tag panel all at once.
+      return window.innerWidth >= 1300;
+    } catch { return false; }
   });
   const [globalTags, setGlobalTags] = useState([]);
   const globalTagsRef = useRef([]);
