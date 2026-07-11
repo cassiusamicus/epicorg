@@ -57,6 +57,16 @@ func Register(mux *http.ServeMux, store *orgfile.Store, onSave func(), defaultFi
 		h.getRawFile(w, r)
 	})
 
+	// Fetches a pasted URL server-side and returns its <title>, so link
+	// paste can label the link with the page title, not just the hostname.
+	mux.HandleFunc("/api/url-title", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		h.getURLTitle(w, r)
+	})
+
 	// Lightweight disk-hash probe used by the frontend to detect external
 	// edits while idle, without paying the cost of a full reload.
 	mux.HandleFunc("/api/hash/", func(w http.ResponseWriter, r *http.Request) {

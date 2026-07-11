@@ -5300,10 +5300,36 @@ function App() {
         const name = text.split("/").filter(Boolean).pop() || text;
         link = `[[file:${text}][${name}]]`;
       } else if (/^https?:\/\/\S+$/.test(text)) {
-        // HTTP/HTTPS URL → [[url][hostname]]
-        let name = text;
-        try { name = new URL(text).hostname.replace(/^www\./, ""); } catch {}
-        link = `[[${text}][${name}]]`;
+        // HTTP/HTTPS URL → [[url][hostname]], upgraded in place to
+        // "hostname - Page Title" once the title loads (fetched server-side
+        // to sidestep browser CORS restrictions on arbitrary sites).
+        let hostname = text;
+        try { hostname = new URL(text).hostname.replace(/^www\./, ""); } catch {}
+        link = `[[${text}][${hostname}]]`;
+        const meta = fieldMetaForTextarea(ta);
+        if (meta) {
+          const placeholderLink = link;
+          fetch("/api/url-title?url=" + encodeURIComponent(text))
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data) => {
+              const title = data && data.title && data.title.trim();
+              if (!title) return;
+              const newLink = `[[${text}][${hostname} - ${title}]]`;
+              let current;
+              if (meta.field === "change-preamble") {
+                current = preambleRef.current;
+              } else {
+                const node = tree.findNode(nodesRef.current || [], meta.nodeId);
+                if (!node) return;
+                current = meta.field === "change-body" ? node.body : node.title;
+              }
+              // Only patch if the placeholder link is still there unmodified —
+              // the user may have since edited or deleted it.
+              if (typeof current !== "string" || !current.includes(placeholderLink)) return;
+              dispatch(meta.nodeId, meta.field, current.replace(placeholderLink, newLink));
+            })
+            .catch(() => {});
+        }
       } else {
         return;
       }

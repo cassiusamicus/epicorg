@@ -2,10 +2,14 @@ package api
 
 import (
 	"encoding/json"
+	"html"
+	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -228,6 +232,54 @@ func (h *handlers) getRawFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]string{"content": content})
+}
+
+var titleTagRe = regexp.MustCompile(`(?is)<title[^>]*>(.*?)</title>`)
+
+// getURLTitle fetches a URL server-side (avoiding browser CORS restrictions)
+// and extracts its <title> tag, so a pasted link can be labeled with the
+// actual page title instead of just the bare hostname. Best-effort: any
+// failure (timeout, non-200, no <title>) yields an empty title rather than
+// an error, so the frontend can just fall back to the hostname-only label.
+func (h *handlers) getURLTitle(w http.ResponseWriter, r *http.Request) {
+	raw := r.URL.Query().Get("url")
+	parsed, err := url.Parse(raw)
+	if raw == "" || err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		http.Error(w, "missing or invalid url parameter", http.StatusBadRequest)
+		return
+	}
+
+	client := &http.Client{Timeout: 6 * time.Second}
+	req, err := http.NewRequest(http.MethodGet, raw, nil)
+	if err != nil {
+		writeJSON(w, map[string]string{"title": ""})
+		return
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; epicorg/1.0; +local outliner)")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		writeJSON(w, map[string]string{"title": ""})
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		writeJSON(w, map[string]string{"title": ""})
+		return
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 300*1024))
+	if err != nil {
+		writeJSON(w, map[string]string{"title": ""})
+		return
+	}
+
+	title := ""
+	if m := titleTagRe.FindSubmatch(body); m != nil {
+		title = strings.TrimSpace(html.UnescapeString(string(m[1])))
+		title = strings.Join(strings.Fields(title), " ")
+	}
+	writeJSON(w, map[string]string{"title": title})
 }
 
 func (h *handlers) getDoc(w http.ResponseWriter, r *http.Request) {
