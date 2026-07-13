@@ -4483,11 +4483,50 @@ function SearchPanel({ nodes, currentFile, homeDir,
       .finally(() => setMdPreviewLoading(false));
   }, [selected?.file]);
 
-  // Reset which match is "current" whenever the previewed file or the
-  // search term changes, so stepping through matches always starts fresh.
-  useEffect(() => { setMdMatchIdx(0); }, [selected?.file, query]);
-
   const mdMatchCount = countMatches(mdPreview, query);
+
+  const ctxFound = contextNodes && selected
+    ? findNodeWithAncestors(contextNodes,
+        selected.nodeId ? (n) => n.id === selected.nodeId : (n) => n.title === selected.title)
+    : null;
+
+  const ctxPreviewRef = useRef(null);
+
+  // Current-match position within the selected result — used both to mark
+  // one <mark> distinctly (highlightMatch renders every match, all at once)
+  // and to know, from the global nav buttons below, whether stepping past
+  // the end/start of this result should just move the index or advance to
+  // the next/previous result entirely.
+  const [ctxMatchIdx, setCtxMatchIdx] = useState(0);
+
+  const ctxMatchCount = ctxFound
+    ? countMatches(ctxFound.node.title, query) + countMatches(ctxFound.node.body, query)
+    : 0;
+
+  // When global nav moves to a different result, whether that result should
+  // open on its first match (stepping forward) or its last (stepping
+  // backward) — the target result's match count isn't known until its
+  // context/preview finishes loading, so this is consumed by the reset
+  // effects below rather than computed synchronously in globalNext/Prev.
+  const [landOnLastMatch, setLandOnLastMatch] = useState(false);
+
+  useEffect(() => {
+    if (!selected || !isMarkdownFile(selected.file)) return;
+    const count = countMatches(mdPreview, query);
+    setMdMatchIdx(landOnLastMatch ? Math.max(0, count - 1) : 0);
+    setLandOnLastMatch(false);
+  }, [mdPreview, selected?.file, query]);
+
+  useEffect(() => {
+    // Deliberately depends on contextNodes (stable — only changes reference
+    // when setContextNodes actually runs), not the derived ctxFound, which
+    // is a brand-new object literal every render and would re-fire this
+    // effect (and reset the index back to 0) after every single render.
+    if (!selected || isMarkdownFile(selected.file) || !ctxFound) return;
+    const count = countMatches(ctxFound.node.title, query) + countMatches(ctxFound.node.body, query);
+    setCtxMatchIdx(landOnLastMatch ? Math.max(0, count - 1) : 0);
+    setLandOnLastMatch(false);
+  }, [contextNodes, selected?.file, selected?.nodeId, query]);
 
   // Highlighting is all-matches-at-once via dangerouslySetInnerHTML (see
   // highlightMatch), so "jump to the Nth match" is done post-render: mark
@@ -4500,13 +4539,47 @@ function SearchPanel({ nodes, currentFile, homeDir,
     marks[mdMatchIdx]?.scrollIntoView({ block: "center" });
   }, [mdPreview, mdMatchIdx, query]);
 
-  const mdMatchPrev = () => setMdMatchIdx((i) => (mdMatchCount === 0 ? 0 : (i - 1 + mdMatchCount) % mdMatchCount));
-  const mdMatchNext = () => setMdMatchIdx((i) => (mdMatchCount === 0 ? 0 : (i + 1) % mdMatchCount));
+  useEffect(() => {
+    // See the contextNodes-vs-ctxFound note above — same reasoning applies
+    // here: depending on ctxFound would re-run this (and force-scroll) after
+    // every render, fighting any manual scrolling the user does.
+    const container = ctxPreviewRef.current;
+    if (!container) return;
+    const marks = container.querySelectorAll("mark.sp-mark");
+    marks.forEach((m, i) => m.classList.toggle("sp-mark-current", i === ctxMatchIdx));
+    marks[ctxMatchIdx]?.scrollIntoView({ block: "center" });
+  }, [contextNodes, ctxMatchIdx, query]);
 
-  const ctxFound = contextNodes && selected
-    ? findNodeWithAncestors(contextNodes,
-        selected.nodeId ? (n) => n.id === selected.nodeId : (n) => n.title === selected.title)
-    : null;
+  // Global match nav — lives in the search row (next to This file/All
+  // files), not per-result. Steps through every occurrence in the selected
+  // result first; once at the end (or start), it moves to the next
+  // (or previous) result in the list and lands on that result's first
+  // (or last) match, wrapping around the whole result list.
+  const isSelectedMd = selected && isMarkdownFile(selected.file);
+  const curMatchIdx = isSelectedMd ? mdMatchIdx : ctxMatchIdx;
+  const curMatchCount = isSelectedMd ? mdMatchCount : ctxMatchCount;
+
+  const globalMatchNext = () => {
+    if (results.length === 0) return;
+    if (curMatchCount > 0 && curMatchIdx < curMatchCount - 1) {
+      if (isSelectedMd) setMdMatchIdx((i) => i + 1); else setCtxMatchIdx((i) => i + 1);
+      return;
+    }
+    if (results.length <= 1) return;
+    setLandOnLastMatch(false);
+    setSelectedIdx((i) => (i + 1) % results.length);
+  };
+
+  const globalMatchPrev = () => {
+    if (results.length === 0) return;
+    if (curMatchCount > 0 && curMatchIdx > 0) {
+      if (isSelectedMd) setMdMatchIdx((i) => i - 1); else setCtxMatchIdx((i) => i - 1);
+      return;
+    }
+    if (results.length <= 1) return;
+    setLandOnLastMatch(true);
+    setSelectedIdx((i) => (i - 1 + results.length) % results.length);
+  };
 
   const openResult = (r) => {
     if (!r || isMarkdownFile(r.file)) return;
@@ -4594,6 +4667,17 @@ function SearchPanel({ nodes, currentFile, homeDir,
                    autoComplete="off" data-form-type="other" data-bwignore="true"
                    onInput=${(e) => setQuery(e.target.value)}
                    onKeyDown=${onSearchKeyDown} />
+            ${query.trim() && html`
+              <div className="sp-global-nav">
+                <span className="sp-global-nav-count" title="Result position — not every occurrence within this result">
+                  ${results.length > 0 ? `${selectedIdx + 1}/${results.length}` : ""}
+                </span>
+                <button className="find-bar-nav" onClick=${globalMatchPrev} disabled=${results.length === 0}
+                        title="Previous match — steps through every occurrence in every result">↑</button>
+                <button className="find-bar-nav" onClick=${globalMatchNext} disabled=${results.length === 0}
+                        title="Next match — steps through every occurrence in every result">↓</button>
+              </div>
+            `}
             <div className="sp-scope">
               <button className=${"sp-scope-btn" + (scope === "note" ? " active" : "")}
                       onClick=${() => setScope("note")}>This file</button>
@@ -4663,29 +4747,24 @@ function SearchPanel({ nodes, currentFile, homeDir,
               ${!selected && html`<div className="sp-ctx-empty">Select a result to see it in context</div>`}
               ${selected && isMarkdownFile(selected.file) && html`
                 <div className="sp-ctx-inner">
-                  <div className="sp-ctx-topbar sp-ctx-topbar-md">
-                    <span className="sp-ctx-file sp-ctx-file-full" title="Click to copy"
-                          onClick=${() => {
-                            const full = selected.file.startsWith("/") ? selected.file : (homeDir ? homeDir + "/" + selected.file : selected.file);
-                            navigator.clipboard?.writeText(full).then(() => {
-                              setMdPathCopied(true);
-                              setTimeout(() => setMdPathCopied(false), 1500);
-                            }).catch(() => {});
-                          }}>
-                      ${selected.file.startsWith("/") ? selected.file : (homeDir ? homeDir + "/" + selected.file : selected.file)}
-                      ${mdPathCopied && html`<span className="sp-ctx-copied">Copied!</span>`}
-                    </span>
-                    <span className="sp-ctx-md-note" title="Markdown files can't be opened for editing here — the loader parses everything as org and could corrupt them if saved back">Read-only preview</span>
+                  <div className="sp-ctx-sticky">
+                    <div className="sp-ctx-topbar sp-ctx-topbar-md">
+                      <span className="sp-ctx-file sp-ctx-file-full" title="Click to copy"
+                            onClick=${() => {
+                              const full = selected.file.startsWith("/") ? selected.file : (homeDir ? homeDir + "/" + selected.file : selected.file);
+                              navigator.clipboard?.writeText(full).then(() => {
+                                setMdPathCopied(true);
+                                setTimeout(() => setMdPathCopied(false), 1500);
+                              }).catch(() => {});
+                            }}>
+                        ${selected.file.startsWith("/") ? selected.file : (homeDir ? homeDir + "/" + selected.file : selected.file)}
+                        ${mdPathCopied && html`<span className="sp-ctx-copied">Copied!</span>`}
+                      </span>
+                      <span className="sp-ctx-md-note" title="Markdown files can't be opened for editing here — the loader parses everything as org and could corrupt them if saved back">Read-only preview</span>
+                    </div>
                   </div>
                   ${mdPreviewLoading && html`<div className="sp-ctx-empty">Loading…</div>`}
                   ${!mdPreviewLoading && html`
-                    <div className="sp-md-nav">
-                      <span className="sp-md-nav-count">
-                        ${mdMatchCount > 0 ? `${mdMatchIdx + 1} / ${mdMatchCount} matches` : query.trim() ? "No matches" : ""}
-                      </span>
-                      <button className="find-bar-nav" onClick=${mdMatchPrev} disabled=${mdMatchCount === 0} title="Previous match">↑</button>
-                      <button className="find-bar-nav" onClick=${mdMatchNext} disabled=${mdMatchCount === 0} title="Next match">↓</button>
-                    </div>
                     <pre ref=${mdPreviewRef} className="sp-ctx-md-preview"
                          dangerouslySetInnerHTML=${{ __html: highlightMatch(mdPreview || "", query) }}></pre>
                   `}
@@ -4694,12 +4773,14 @@ function SearchPanel({ nodes, currentFile, homeDir,
               ${selected && !isMarkdownFile(selected.file) && contextLoading && html`<div className="sp-ctx-empty">Loading…</div>`}
               ${selected && !isMarkdownFile(selected.file) && !contextLoading && !ctxFound && html`<div className="sp-ctx-empty">Node not found in current view</div>`}
               ${selected && ctxFound && html`
-                <div className="sp-ctx-inner">
-                  <div className="sp-ctx-topbar">
-                    ${scope === "all" && html`<span className="sp-ctx-file">${selected.file.replace(/\.org$/, "")}</span>`}
-                    <button className="sp-ctx-open" onClick=${openSelected}>
-                      ${scope === "all" ? "Open note →" : "Jump to →"}
-                    </button>
+                <div className="sp-ctx-inner" ref=${ctxPreviewRef}>
+                  <div className="sp-ctx-sticky">
+                    <div className="sp-ctx-topbar">
+                      ${scope === "all" && html`<span className="sp-ctx-file">${selected.file.replace(/\.org$/, "")}</span>`}
+                      <button className="sp-ctx-open" onClick=${openSelected}>
+                        ${scope === "all" ? "Open note →" : "Jump to →"}
+                      </button>
+                    </div>
                   </div>
                   ${ctxFound.ancestors.map((a, i) => html`
                     <div key=${i} className="sp-ctx-row sp-ctx-ancestor">

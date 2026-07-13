@@ -6292,6 +6292,9 @@ a.wiki-link:hover { border-bottom-style: solid; }
 .sp-input { flex: 1; min-width: 0; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 14px; outline: none; }
 .sp-input:focus { border-color: var(--accent); }
 .sp-input::-webkit-search-cancel-button { display: none; }
+.sp-global-nav { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.sp-global-nav-count { font-size: 11px; color: var(--text-dim); white-space: nowrap; min-width: 52px; text-align: right; }
+
 .sp-scope { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; flex-shrink: 0; }
 .sp-scope-btn { padding: 6px 12px; border: none; border-right: 1px solid var(--border); background: none; color: var(--text-dim); font-size: 12px; cursor: pointer; white-space: nowrap; }
 .sp-scope-btn:last-child { border-right: none; }
@@ -6332,6 +6335,20 @@ a.wiki-link:hover { border-bottom-style: solid; }
 /* Context pane content */
 .sp-ctx-empty { padding: 20px 16px; font-size: 13px; color: var(--text-dim); text-align: center; font-style: italic; }
 .sp-ctx-inner { padding: 10px 16px 16px; display: flex; flex-direction: column; gap: 3px; }
+
+/* Keeps the "Open note" button (and file path/read-only badge, for the
+   markdown preview) visible at the top of the scroll pane even after
+   scrollIntoView() has moved the current match further down. */
+.sp-ctx-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: -10px -16px 8px;
+  padding: 10px 16px;
+  background: color-mix(in srgb, var(--accent) 3%, var(--bg));
+  box-shadow: 0 4px 6px -4px rgba(0, 0, 0, 0.25);
+}
+
 .sp-ctx-topbar { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 8px; gap: 10px; }
 .sp-ctx-file { font-size: 11px; color: var(--text-dim); font-weight: 600; flex: 1; }
 .sp-ctx-open { padding: 3px 10px; border: 1px solid var(--accent); border-radius: 4px; background: none; color: var(--accent); font-size: 12px; cursor: pointer; white-space: nowrap; }
@@ -6360,11 +6377,8 @@ a.wiki-link:hover { border-bottom-style: solid; }
   letter-spacing: normal;
 }
 
-.sp-md-nav { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-
-.sp-md-nav-count { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
-
-.sp-ctx-md-preview mark.sp-mark-current {
+.sp-ctx-md-preview mark.sp-mark-current,
+.sp-ctx-inner mark.sp-mark-current {
   background: var(--warn, #e0b24a);
   color: #1a1a1a;
   outline: 1px solid var(--warn, #e0b24a);
