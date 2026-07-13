@@ -5537,41 +5537,6 @@ a.org-file-link {
   color-scheme: dark;
 }
 
-/* Row that holds the date/time input + its picker button */
-.appt-input-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.appt-input-row .appt-input {
-  flex: 1;
-  min-width: 0;
-  width: auto;
-}
-
-.appt-picker-btn {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--text);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.1s;
-  padding: 0;
-}
-
-.appt-picker-btn:hover {
-  background: var(--focused-bg);
-  border-color: var(--bullet-active);
-  color: var(--bullet-active);
-}
-
 .appt-dialog-buttons {
   display: flex;
   justify-content: flex-end;
@@ -5612,6 +5577,82 @@ a.org-file-link {
   font-size: 12px;
   color: var(--text-dim);
   line-height: 1.5;
+}
+
+/* Popup reminder — a higher z-index than other overlays so it surfaces
+   above whatever else is open, and no backdrop-click dismiss since it's
+   meant to require an explicit Dismiss/Open click. */
+.reminder-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+}
+
+.reminder-dialog {
+  background: var(--bg);
+  border: 1px solid var(--warn, #e0b24a);
+  border-radius: 10px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.25);
+  padding: 20px 24px;
+  width: min(380px, 92vw);
+}
+
+.reminder-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.reminder-dialog-icon { font-size: 18px; line-height: 1; }
+
+.reminder-dialog-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+}
+
+.reminder-dialog-count {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.reminder-dialog-body {
+  margin-bottom: 18px;
+}
+
+.reminder-item-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.reminder-item-when {
+  font-size: 13px;
+  color: var(--text-dim-strong);
+}
+
+.reminder-item-file {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.reminder-dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .journal-day-card {

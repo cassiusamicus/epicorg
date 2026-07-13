@@ -22,6 +22,7 @@ type AgendaItem struct {
 	Ancestors    []string `json:"ancestors,omitempty"`
 	ScheduledRaw string   `json:"scheduledRaw,omitempty"`
 	DeadlineRaw  string   `json:"deadlineRaw,omitempty"`
+	Reminder     string   `json:"reminder,omitempty"` // minutes before SCHEDULED to trigger a popup reminder
 }
 
 var agendaDateRe = regexp.MustCompile(`<(\d{4}-\d{2}-\d{2})`)
@@ -172,6 +173,7 @@ func scanItemsForDates(items model.Items, file string, out *[]AgendaItem) {
 				Ancestors:    ancestors,
 				ScheduledRaw: schedRaw,
 				DeadlineRaw:  dlRaw,
+				Reminder:     item.Properties["REMINDER"],
 			})
 		}
 		// Only add a separate deadline entry when it falls on a different date.

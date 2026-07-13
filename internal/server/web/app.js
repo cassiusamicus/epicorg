@@ -2037,6 +2037,21 @@ const DetailPane = forwardRef(function DetailPane({ node, isPreamble, dispatch, 
           `)}
           </div>
         </div>
+        <div className="detail-scheduling-row">
+          <span className="detail-sublabel">Remind</span>
+          <div className="detail-repeater-row">
+          ${REMINDER_OPTIONS.map(({label, value}) => html`
+            <button key=${value || "none"}
+                    className=${"detail-repeater-btn" + ((node?.properties?.REMINDER || "") === value ? " active" : "")}
+                    disabled=${!node || !schedDate}
+                    onClick=${() => {
+                      const updated = { ...(node.properties || {}) };
+                      if (value) updated.REMINDER = value; else delete updated.REMINDER;
+                      dispatch(node.id, "update-properties", updated);
+                    }}>${label}</button>
+          `)}
+          </div>
+        </div>
       </div>
       <div className="detail-section">
         <label className="detail-label">Tags</label>
@@ -2748,32 +2763,29 @@ function todayDateStr() {
   return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 }
 
+const REMINDER_OPTIONS = [
+  { label: "None",     value: "" },
+  { label: "At time",  value: "0" },
+  { label: "5 min",    value: "5" },
+  { label: "15 min",   value: "15" },
+  { label: "30 min",   value: "30" },
+  { label: "1 hour",   value: "60" },
+  { label: "1 day",    value: "1440" },
+];
+
 function AppointmentDialog({ defaultDate, onConfirm, onCancel }) {
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(defaultDate || todayDateStr());
   const [time, setTime] = useState("09:00");
+  const [reminder, setReminder] = useState("");
   const titleRef = useRef(null);
-  const dateInputRef = useRef(null);
-  const timeInputRef = useRef(null);
 
   useEffect(() => { titleRef.current?.focus(); }, []);
 
   const submit = useCallback(() => {
     if (!title.trim()) return;
-    onConfirm({ title: title.trim(), date, time });
-  }, [title, date, time, onConfirm]);
-
-  const openDatePicker = useCallback(() => {
-    const el = dateInputRef.current;
-    if (!el) return;
-    try { el.showPicker(); } catch { el.click(); }
-  }, []);
-
-  const openTimePicker = useCallback(() => {
-    const el = timeInputRef.current;
-    if (!el) return;
-    try { el.showPicker(); } catch { el.click(); }
-  }, []);
+    onConfirm({ title: title.trim(), date, time, reminder });
+  }, [title, date, time, reminder, onConfirm]);
 
   return html`
     <div className="folder-picker-overlay"
@@ -2790,23 +2802,19 @@ function AppointmentDialog({ defaultDate, onConfirm, onCancel }) {
         </div>
         <div className="appt-field">
           <label className="appt-label">Date</label>
-          <div className="appt-input-row">
-            <input ref=${dateInputRef} type="date" className="appt-input appt-datetime"
-                   value=${date} onChange=${(e) => setDate(e.target.value)} />
-            <button className="appt-picker-btn" onClick=${openDatePicker} title="Open calendar">
-              <${IconAgenda} />
-            </button>
-          </div>
+          <input type="date" className="appt-input appt-datetime"
+                 value=${date} onChange=${(e) => setDate(e.target.value)} />
         </div>
         <div className="appt-field">
           <label className="appt-label">Time</label>
-          <div className="appt-input-row">
-            <input ref=${timeInputRef} type="time" className="appt-input appt-datetime" step="900"
-                   value=${time} onChange=${(e) => setTime(e.target.value)} />
-            <button className="appt-picker-btn" onClick=${openTimePicker} title="Open time picker">
-              <${IconClock} />
-            </button>
-          </div>
+          <input type="time" className="appt-input appt-datetime" step="900"
+                 value=${time} onChange=${(e) => setTime(e.target.value)} />
+        </div>
+        <div className="appt-field">
+          <label className="appt-label">Reminder</label>
+          <select className="appt-input" value=${reminder} onChange=${(e) => setReminder(e.target.value)}>
+            ${REMINDER_OPTIONS.map(({ label, value }) => html`<option key=${value} value=${value}>${label}</option>`)}
+          </select>
         </div>
         <div className="appt-dialog-buttons">
           <button className="appt-btn-cancel" onClick=${onCancel}>Cancel</button>
@@ -2817,6 +2825,35 @@ function AppointmentDialog({ defaultDate, onConfirm, onCancel }) {
           Adds a <strong>TODO</strong> heading with a <strong>SCHEDULED</strong> timestamp
           to the journal file for that date.
         </p>
+      </div>
+    </div>
+  `;
+}
+
+// Shows one due reminder at a time (oldest-queued first). Deliberately has
+// no backdrop-click or Escape dismissal — it's meant to stay onscreen until
+// explicitly acknowledged, not to be accidentally swiped away.
+function ReminderPopup({ reminder, queueLength, onOpen, onDismiss }) {
+  return html`
+    <div className="reminder-overlay">
+      <div className="reminder-dialog">
+        <div className="reminder-dialog-header">
+          <span className="reminder-dialog-icon">⏰</span>
+          <h3 className="reminder-dialog-title">Reminder</h3>
+          ${queueLength > 1 && html`<span className="reminder-dialog-count">1 of ${queueLength}</span>`}
+        </div>
+        <div className="reminder-dialog-body">
+          <div className="reminder-item-title"
+               dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(reminder.nodeTitle || "Untitled") }} />
+          <div className="reminder-item-when">
+            ${formatDateDisplay(reminder.date)}${reminder.time ? ` at ${reminder.time}` : ""}
+          </div>
+          ${reminder.file && html`<div className="reminder-item-file">${reminder.file}</div>`}
+        </div>
+        <div className="reminder-dialog-buttons">
+          <button className="appt-btn-cancel" onClick=${() => onDismiss(reminder)}>Dismiss</button>
+          <button className="appt-btn-confirm" onClick=${() => onOpen(reminder)}>Open</button>
+        </div>
       </div>
     </div>
   `;
@@ -6400,7 +6437,7 @@ function App() {
     setApptDialog({ defaultDate: m ? m[1] : todayDateStr() });
   }, [currentFile]);
 
-  const confirmAddAppointment = useCallback(async ({ title, date, time }) => {
+  const confirmAddAppointment = useCallback(async ({ title, date, time, reminder }) => {
     setApptDialog(null);
     try {
       const d = await api.post("/api/journal", { date });
@@ -6408,8 +6445,12 @@ function App() {
       setView("outline");
       const nn = tree.newNode(title);
       nn.status = "TODO";
-      const dayAbbr = new Date(date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short" });
-      nn.body = `SCHEDULED: <${date} ${dayAbbr}${time ? " " + time : ""}>`;
+      // SCHEDULED must live in the :PROPERTIES: drawer (nn.properties), not
+      // the body — this app's parser only recognizes it there (see
+      // scanItemsForDates in internal/orgfile/agenda.go), unlike vanilla
+      // org-mode's bare planning-line convention.
+      nn.properties = { SCHEDULED: tree.formatOrgScheduled(date, time) };
+      if (reminder) nn.properties.REMINDER = reminder;
       setNodes((prev) => [...(prev || []), nn]);
       markDirty();
       requestAnimationFrame(() => focusNode(nn.id));
@@ -6827,6 +6868,70 @@ function App() {
     }, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  // Popup reminders — polls the same workspace-wide agenda scan the Agenda
+  // view uses, looking for SCHEDULED items whose REMINDER offset has come
+  // due. Runs at the App level (not inside AgendaView) so it fires no
+  // matter which view/file is open. Dismissed reminders are remembered in
+  // localStorage, keyed by file+title+raw timestamp (node ids are ephemeral
+  // and can't be used — see CLAUDE.md), so they don't reappear on reload
+  // and a rescheduled item (new timestamp) is treated as a fresh reminder.
+  const [dueReminders, setDueReminders] = useState([]);
+  const dismissedRemindersRef = useRef(null);
+  if (!dismissedRemindersRef.current) {
+    let dismissed = [];
+    try { dismissed = JSON.parse(localStorage.getItem("epicorg.dismissedReminders") || "[]"); } catch {}
+    dismissedRemindersRef.current = new Set(dismissed);
+  }
+
+  const reminderKey = (it) => `${it.file}|${it.nodeTitle}|${it.scheduledRaw}`;
+
+  const persistDismissedReminders = () => {
+    try {
+      const all = Array.from(dismissedRemindersRef.current);
+      // Cap growth — keep only the most recently dismissed 500 keys.
+      const trimmed = all.length > 500 ? all.slice(all.length - 500) : all;
+      localStorage.setItem("epicorg.dismissedReminders", JSON.stringify(trimmed));
+    } catch {}
+  };
+
+  const dismissReminder = useCallback((key) => {
+    dismissedRemindersRef.current.add(key);
+    persistDismissedReminders();
+    setDueReminders((prev) => prev.filter((r) => r._key !== key));
+  }, []);
+
+  const checkReminders = useCallback(async () => {
+    try {
+      const data = await api.get("/api/agenda");
+      const items = data.items || [];
+      const now = Date.now();
+      const due = [];
+      for (const it of items) {
+        if (it.kind !== "scheduled" || !it.reminder) continue;
+        if (it.status === "DONE" || it.status === "CANCELLED") continue;
+        const minutesBefore = parseInt(it.reminder, 10);
+        if (Number.isNaN(minutesBefore)) continue;
+        const when = new Date(`${it.date}T${it.time || "00:00"}:00`);
+        if (Number.isNaN(when.getTime())) continue;
+        if (now < when.getTime() - minutesBefore * 60000) continue;
+        const key = reminderKey(it);
+        if (dismissedRemindersRef.current.has(key)) continue;
+        due.push({ ...it, _key: key });
+      }
+      setDueReminders((prev) => {
+        const known = new Set(prev.map((p) => p._key));
+        const fresh = due.filter((d) => !known.has(d._key));
+        return fresh.length ? [...prev, ...fresh] : prev;
+      });
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    checkReminders();
+    const interval = setInterval(checkReminders, 60000);
+    return () => clearInterval(interval);
+  }, [checkReminders]);
 
   // Save on unload
   useEffect(() => {
@@ -7640,6 +7745,13 @@ function App() {
           onConfirm=${confirmAddAppointment}
           onCancel=${() => setApptDialog(null)} />
       `}
+      ${dueReminders.length > 0 && html`
+        <${ReminderPopup}
+          reminder=${dueReminders[0]}
+          queueLength=${dueReminders.length}
+          onOpen=${(it) => { dismissReminder(it._key); handleAgendaSelect({ file: it.file, title: it.nodeTitle, id: null }); }}
+          onDismiss=${(it) => dismissReminder(it._key)} />
+      `}
       ${showFolderPicker && html`
         <${FolderPicker}
           initialPath=${homeDir || "/"}
@@ -8128,15 +8240,6 @@ function IconTodo() {
     <svg ...${ICON_PROPS}>
       <rect x="3" y="3" width="18" height="18" rx="2" />
       <polyline points="7 12 10.5 15.5 17 9" />
-    </svg>
-  `;
-}
-
-function IconClock() {
-  return html`
-    <svg ...${ICON_PROPS}>
-      <circle cx="12" cy="12" r="9" />
-      <polyline points="12 7 12 12 15.5 14.5" />
     </svg>
   `;
 }
