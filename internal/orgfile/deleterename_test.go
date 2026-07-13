@@ -13,7 +13,7 @@ func TestDeleteFileRemovesFileSidecarAndFavorite(t *testing.T) {
 		t.Fatalf("NewStore: %v", err)
 	}
 
-	if err := store.CreateFile("a.org"); err != nil {
+	if err := store.CreateFile("a.org", ""); err != nil {
 		t.Fatalf("CreateFile: %v", err)
 	}
 	store.SaveMeta("a.org", map[string]bool{"0": true})
@@ -58,7 +58,7 @@ func TestRenameFileMovesFileSidecarAndFavorite(t *testing.T) {
 		t.Fatalf("NewStore: %v", err)
 	}
 
-	if err := store.CreateFile("a.org"); err != nil {
+	if err := store.CreateFile("a.org", ""); err != nil {
 		t.Fatalf("CreateFile: %v", err)
 	}
 	store.SaveMeta("a.org", map[string]bool{"0": true})
@@ -94,10 +94,10 @@ func TestRenameFileRefusesExistingTarget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStore: %v", err)
 	}
-	if err := store.CreateFile("a.org"); err != nil {
+	if err := store.CreateFile("a.org", ""); err != nil {
 		t.Fatalf("CreateFile a: %v", err)
 	}
-	if err := store.CreateFile("b.org"); err != nil {
+	if err := store.CreateFile("b.org", ""); err != nil {
 		t.Fatalf("CreateFile b: %v", err)
 	}
 	if err := store.RenameFile("a.org", "b.org"); err == nil {
@@ -115,7 +115,7 @@ func TestRenameFileUpdatesCurrentFileTracking(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewStore: %v", err)
 	}
-	if err := store.CreateFile("a.org"); err != nil {
+	if err := store.CreateFile("a.org", ""); err != nil {
 		t.Fatalf("CreateFile: %v", err)
 	}
 	if _, err := store.LoadFile("a.org"); err != nil {

@@ -711,6 +711,30 @@ export function replaceTableBlockInBody(body, blockIndex, newOrgLines) {
 const ATTR_ORG_LINE_RE = /^#\+ATTR_ORG:\s*(.+)$/i;
 const ATTR_HTML_LINE_RE = /^#\+ATTR_HTML:\s*(.+)$/i;
 const IMAGE_LINK_LINE_RE = /^\[\[file:([^\]]+)\]\]$/i;
+const QUOTE_BEGIN_RE = /^\s*#\+begin_quote\s*$/i;
+const QUOTE_END_RE = /^\s*#\+end_quote\s*$/i;
+const VERSE_BEGIN_RE = /^\s*#\+begin_verse\s*$/i;
+const VERSE_END_RE = /^\s*#\+end_verse\s*$/i;
+const SRC_BEGIN_RE = /^\s*#\+begin_src(?:\s+(\S+))?\s*$/i;
+const SRC_END_RE = /^\s*#\+end_src\s*$/i;
+const EXAMPLE_BEGIN_RE = /^\s*#\+begin_example\s*$/i;
+const EXAMPLE_END_RE = /^\s*#\+end_example\s*$/i;
+const CENTER_BEGIN_RE = /^\s*#\+begin_center\s*$/i;
+const CENTER_END_RE = /^\s*#\+end_center\s*$/i;
+
+// Generic greater-block scanner shared by quote/verse/src handling below.
+// If lines[i] opens a block matching beginRe, collects lines until endRe (or
+// end of body, for an unterminated block) and returns { lang, contentLines,
+// nextIndex }; otherwise returns null. lang is beginRe's capture group 1
+// (used for #+begin_src's language tag), empty string if the block has none.
+function scanBlock(lines, i, beginRe, endRe) {
+  const m = beginRe.exec(lines[i]);
+  if (!m) return null;
+  const contentLines = [];
+  let k = i + 1;
+  while (k < lines.length && !endRe.test(lines[k])) contentLines.push(lines[k++]);
+  return { lang: m[1] || "", contentLines, nextIndex: k < lines.length ? k + 1 : k };
+}
 
 // Render body text that may contain inline images (#+ATTR_* + [[file:...]] blocks).
 // Image blocks are extracted as <div> elements; everything else goes through
@@ -772,6 +796,59 @@ export function renderOrgBody(text) {
       }
       flushPending();
       outputParts.push(renderOrgTable(tableLines, tableIndex++));
+      continue;
+    }
+
+    // Quote block: #+begin_quote ... #+end_quote. The marker lines are
+    // hidden; the content in between is rendered like a normal paragraph
+    // inside a <blockquote>. An unterminated block runs to the end of body.
+    const quoteBlock = scanBlock(lines, i, QUOTE_BEGIN_RE, QUOTE_END_RE);
+    if (quoteBlock) {
+      flushPending();
+      outputParts.push(`<blockquote class="org-quote">${renderOrgInline(quoteBlock.contentLines.join("\n"))}</blockquote>`);
+      i = quoteBlock.nextIndex;
+      continue;
+    }
+
+    // Verse block: #+begin_verse ... #+end_verse. Like quote, but for poetry
+    // — line breaks are always significant, no italics/border styling.
+    const verseBlock = scanBlock(lines, i, VERSE_BEGIN_RE, VERSE_END_RE);
+    if (verseBlock) {
+      flushPending();
+      outputParts.push(`<p class="org-verse">${renderOrgInline(verseBlock.contentLines.join("\n"))}</p>`);
+      i = verseBlock.nextIndex;
+      continue;
+    }
+
+    // Src block: #+begin_src [lang] ... #+end_src. Content is literal code:
+    // escaped but never run through renderOrgInline, so markup characters
+    // (*, /, =, etc.) show up as-is instead of being interpreted as emphasis.
+    const srcBlock = scanBlock(lines, i, SRC_BEGIN_RE, SRC_END_RE);
+    if (srcBlock) {
+      flushPending();
+      const langAttr = srcBlock.lang ? ` data-lang="${escapeHtml(srcBlock.lang)}"` : "";
+      outputParts.push(`<pre class="org-src"${langAttr}><code>${escapeHtml(srcBlock.contentLines.join("\n"))}</code></pre>`);
+      i = srcBlock.nextIndex;
+      continue;
+    }
+
+    // Example block: #+begin_example ... #+end_example. Same literal,
+    // unprocessed-markup treatment as src, but with no language tag.
+    const exampleBlock = scanBlock(lines, i, EXAMPLE_BEGIN_RE, EXAMPLE_END_RE);
+    if (exampleBlock) {
+      flushPending();
+      outputParts.push(`<pre class="org-example"><code>${escapeHtml(exampleBlock.contentLines.join("\n"))}</code></pre>`);
+      i = exampleBlock.nextIndex;
+      continue;
+    }
+
+    // Center block: #+begin_center ... #+end_center. Inline markup still
+    // applies; only the text alignment changes.
+    const centerBlock = scanBlock(lines, i, CENTER_BEGIN_RE, CENTER_END_RE);
+    if (centerBlock) {
+      flushPending();
+      outputParts.push(`<div class="org-center">${renderOrgInline(centerBlock.contentLines.join("\n"))}</div>`);
+      i = centerBlock.nextIndex;
       continue;
     }
 

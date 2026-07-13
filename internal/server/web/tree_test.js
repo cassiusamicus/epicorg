@@ -52,23 +52,23 @@ function node(id, title, children = []) {
 
 // flattenVisible
 test("flattenVisible: flat list", () => {
-  const tree = [node("a", "A"), node("b", "B")];
-  const flat = tree.flattenVisible(tree);
+  const t = [node("a", "A"), node("b", "B")];
+  const flat = tree.flattenVisible(t);
   assertEqual(flat.length, 2);
   assertEqual(flat[0].id, "a");
   assertEqual(flat[1].id, "b");
 });
 
 test("flattenVisible: nested children visible", () => {
-  const tree = [node("a", "A", [node("a1", "A1"), node("a2", "A2")]), node("b", "B")];
-  const flat = tree.flattenVisible(tree);
+  const t = [node("a", "A", [node("a1", "A1"), node("a2", "A2")]), node("b", "B")];
+  const flat = tree.flattenVisible(t);
   assertEqual(flat.length, 4);
   assertEqual(flat.map(n => n.id), ["a", "a1", "a2", "b"]);
 });
 
 test("flattenVisible: collapsed hides children", () => {
-  const tree = [{ ...node("a", "A", [node("a1", "A1")]), collapsed: true }, node("b", "B")];
-  const flat = tree.flattenVisible(tree);
+  const t = [{ ...node("a", "A", [node("a1", "A1")]), collapsed: true }, node("b", "B")];
+  const flat = tree.flattenVisible(t);
   assertEqual(flat.length, 2);
   assertEqual(flat.map(n => n.id), ["a", "b"]);
 });
@@ -80,13 +80,13 @@ test("flattenVisible: empty input", () => {
 
 // findNode
 test("findNode: root level", () => {
-  const tree = [node("a", "A"), node("b", "B")];
-  assertEqual(tree.findNode(tree, "b").title, "B");
+  const t = [node("a", "A"), node("b", "B")];
+  assertEqual(tree.findNode(t, "b").title, "B");
 });
 
 test("findNode: nested", () => {
-  const tree = [node("a", "A", [node("a1", "A1", [node("deep", "Deep")])])];
-  assertEqual(tree.findNode(tree, "deep").title, "Deep");
+  const t = [node("a", "A", [node("a1", "A1", [node("deep", "Deep")])])];
+  assertEqual(tree.findNode(t, "deep").title, "Deep");
 });
 
 test("findNode: not found returns null", () => {
@@ -95,44 +95,44 @@ test("findNode: not found returns null", () => {
 
 // findParentInfo
 test("findParentInfo: root node", () => {
-  const tree = [node("a", "A"), node("b", "B")];
-  const info = tree.findParentInfo(tree, "b");
+  const t = [node("a", "A"), node("b", "B")];
+  const info = tree.findParentInfo(t, "b");
   assertEqual(info.parent, null);
   assertEqual(info.index, 1);
 });
 
 test("findParentInfo: nested node", () => {
-  const tree = [node("a", "A", [node("a1", "A1"), node("a2", "A2")])];
-  const info = tree.findParentInfo(tree, "a2");
+  const t = [node("a", "A", [node("a1", "A1"), node("a2", "A2")])];
+  const info = tree.findParentInfo(t, "a2");
   assertEqual(info.parent.id, "a");
   assertEqual(info.index, 1);
 });
 
 // updateNodeField
 test("updateNodeField: updates title at root", () => {
-  const tree = [node("a", "A"), node("b", "B")];
-  const result = tree.updateNodeField(tree, "b", "title", "B2");
+  const t = [node("a", "A"), node("b", "B")];
+  const result = tree.updateNodeField(t, "b", "title", "B2");
   assertEqual(result[1].title, "B2");
   assertEqual(result[0].title, "A"); // unchanged
 });
 
 test("updateNodeField: updates nested node", () => {
-  const tree = [node("a", "A", [node("a1", "old")])];
-  const result = tree.updateNodeField(tree, "a1", "title", "new");
+  const t = [node("a", "A", [node("a1", "old")])];
+  const result = tree.updateNodeField(t, "a1", "title", "new");
   assertEqual(result[0].children[0].title, "new");
 });
 
 test("updateNodeField: immutable — original unchanged", () => {
-  const tree = [node("a", "A")];
-  const result = tree.updateNodeField(tree, "a", "title", "X");
-  assertEqual(tree[0].title, "A");
+  const t = [node("a", "A")];
+  const result = tree.updateNodeField(t, "a", "title", "X");
+  assertEqual(t[0].title, "A");
   assertEqual(result[0].title, "X");
 });
 
 // insertSiblingAfter
 test("insertSiblingAfter: at root level", () => {
-  const tree = [node("a", "A"), node("b", "B")];
-  const { nodes: result, newId } = tree.insertSiblingAfter(tree, "a");
+  const t = [node("a", "A"), node("b", "B")];
+  const { nodes: result, newId } = tree.insertSiblingAfter(t, "a");
   assertEqual(result.length, 3);
   assertEqual(result[0].id, "a");
   assertEqual(result[1].id, newId);
@@ -140,8 +140,8 @@ test("insertSiblingAfter: at root level", () => {
 });
 
 test("insertSiblingAfter: nested", () => {
-  const tree = [node("a", "A", [node("a1", "A1"), node("a2", "A2")])];
-  const { nodes: result } = tree.insertSiblingAfter(tree, "a1");
+  const t = [node("a", "A", [node("a1", "A1"), node("a2", "A2")])];
+  const { nodes: result } = tree.insertSiblingAfter(t, "a1");
   assertEqual(result[0].children.length, 3);
   assertEqual(result[0].children[0].id, "a1");
   assertEqual(result[0].children[2].id, "a2");
@@ -149,30 +149,30 @@ test("insertSiblingAfter: nested", () => {
 
 // removeNode
 test("removeNode: removes from root", () => {
-  const tree = [node("a", "A"), node("b", "B"), node("c", "C")];
-  const result = tree.removeNode(tree, "b");
+  const t = [node("a", "A"), node("b", "B"), node("c", "C")];
+  const result = tree.removeNode(t, "b");
   assertEqual(result.length, 2);
   assertEqual(result.map(n => n.id), ["a", "c"]);
 });
 
 test("removeNode: removes nested", () => {
-  const tree = [node("a", "A", [node("a1", "A1"), node("a2", "A2")])];
-  const result = tree.removeNode(tree, "a1");
+  const t = [node("a", "A", [node("a1", "A1"), node("a2", "A2")])];
+  const result = tree.removeNode(t, "a1");
   assertEqual(result[0].children.length, 1);
   assertEqual(result[0].children[0].id, "a2");
 });
 
 test("removeNode: preserves unrelated branches", () => {
-  const tree = [node("a", "A", [node("a1", "A1")]), node("b", "B")];
-  const result = tree.removeNode(tree, "a1");
+  const t = [node("a", "A", [node("a1", "A1")]), node("b", "B")];
+  const result = tree.removeNode(t, "a1");
   assertEqual(result.length, 2);
   assertEqual(result[1].id, "b");
 });
 
 // indentNode
 test("indentNode: becomes child of previous sibling", () => {
-  const tree = [node("a", "A"), node("b", "B")];
-  const result = tree.indentNode(tree, "b");
+  const t = [node("a", "A"), node("b", "B")];
+  const result = tree.indentNode(t, "b");
   assertEqual(result.length, 1);
   assertEqual(result[0].id, "a");
   assertEqual(result[0].children.length, 1);
@@ -180,20 +180,20 @@ test("indentNode: becomes child of previous sibling", () => {
 });
 
 test("indentNode: first child cannot indent", () => {
-  const tree = [node("a", "A"), node("b", "B")];
-  const result = tree.indentNode(tree, "a");
-  assertEqual(result, tree); // unchanged
+  const t = [node("a", "A"), node("b", "B")];
+  const result = tree.indentNode(t, "a");
+  assertEqual(result, t); // unchanged
 });
 
 test("indentNode: uncollapses new parent", () => {
-  const tree = [{ ...node("a", "A"), collapsed: true }, node("b", "B")];
-  const result = tree.indentNode(tree, "b");
+  const t = [{ ...node("a", "A"), collapsed: true }, node("b", "B")];
+  const result = tree.indentNode(t, "b");
   assertEqual(result[0].collapsed, false);
 });
 
 test("indentNode: appends to existing children", () => {
-  const tree = [node("a", "A", [node("a1", "A1")]), node("b", "B")];
-  const result = tree.indentNode(tree, "b");
+  const t = [node("a", "A", [node("a1", "A1")]), node("b", "B")];
+  const result = tree.indentNode(t, "b");
   assertEqual(result[0].children.length, 2);
   assertEqual(result[0].children[0].id, "a1");
   assertEqual(result[0].children[1].id, "b");
@@ -201,8 +201,8 @@ test("indentNode: appends to existing children", () => {
 
 // outdentNode
 test("outdentNode: becomes sibling of parent", () => {
-  const tree = [node("a", "A", [node("a1", "A1")])];
-  const result = tree.outdentNode(tree, "a1");
+  const t = [node("a", "A", [node("a1", "A1")])];
+  const result = tree.outdentNode(t, "a1");
   assertEqual(result.length, 2);
   assertEqual(result[0].id, "a");
   assertEqual(result[1].id, "a1");
@@ -210,91 +210,91 @@ test("outdentNode: becomes sibling of parent", () => {
 });
 
 test("outdentNode: root node cannot outdent", () => {
-  const tree = [node("a", "A")];
-  const result = tree.outdentNode(tree, "a");
-  assertEqual(result, tree); // unchanged
+  const t = [node("a", "A")];
+  const result = tree.outdentNode(t, "a");
+  assertEqual(result, t); // unchanged
 });
 
 test("outdentNode: inserts after parent, not at end", () => {
-  const tree = [node("a", "A", [node("a1", "A1")]), node("b", "B")];
-  const result = tree.outdentNode(tree, "a1");
+  const t = [node("a", "A", [node("a1", "A1")]), node("b", "B")];
+  const result = tree.outdentNode(t, "a1");
   assertEqual(result.length, 3);
   assertEqual(result.map(n => n.id), ["a", "a1", "b"]);
 });
 
 // moveNodeUp
 test("moveNodeUp: swaps with previous sibling", () => {
-  const tree = [node("a", "A"), node("b", "B"), node("c", "C")];
-  const result = tree.moveNodeUp(tree, "b");
+  const t = [node("a", "A"), node("b", "B"), node("c", "C")];
+  const result = tree.moveNodeUp(t, "b");
   assertEqual(result.map(n => n.id), ["b", "a", "c"]);
 });
 
 test("moveNodeUp: first node cannot move up", () => {
-  const tree = [node("a", "A"), node("b", "B")];
-  const result = tree.moveNodeUp(tree, "a");
-  assertEqual(result, tree);
+  const t = [node("a", "A"), node("b", "B")];
+  const result = tree.moveNodeUp(t, "a");
+  assertEqual(result, t);
 });
 
 test("moveNodeUp: works within nested children", () => {
-  const tree = [node("a", "A", [node("a1", "A1"), node("a2", "A2")])];
-  const result = tree.moveNodeUp(tree, "a2");
+  const t = [node("a", "A", [node("a1", "A1"), node("a2", "A2")])];
+  const result = tree.moveNodeUp(t, "a2");
   assertEqual(result[0].children.map(n => n.id), ["a2", "a1"]);
 });
 
 // moveNodeDown
 test("moveNodeDown: swaps with next sibling", () => {
-  const tree = [node("a", "A"), node("b", "B"), node("c", "C")];
-  const result = tree.moveNodeDown(tree, "b");
+  const t = [node("a", "A"), node("b", "B"), node("c", "C")];
+  const result = tree.moveNodeDown(t, "b");
   assertEqual(result.map(n => n.id), ["a", "c", "b"]);
 });
 
 test("moveNodeDown: last node cannot move down", () => {
-  const tree = [node("a", "A"), node("b", "B")];
-  const result = tree.moveNodeDown(tree, "b");
-  assertEqual(result, tree);
+  const t = [node("a", "A"), node("b", "B")];
+  const result = tree.moveNodeDown(t, "b");
+  assertEqual(result, t);
 });
 
 test("moveNodeDown: works within nested children", () => {
-  const tree = [node("a", "A", [node("a1", "A1"), node("a2", "A2")])];
-  const result = tree.moveNodeDown(tree, "a1");
+  const t = [node("a", "A", [node("a1", "A1"), node("a2", "A2")])];
+  const result = tree.moveNodeDown(t, "a1");
   assertEqual(result[0].children.map(n => n.id), ["a2", "a1"]);
 });
 
 // foldToLevel
 test("foldToLevel 1: collapses all root nodes", () => {
-  const tree = [node("a", "A", [node("a1", "A1")]), node("b", "B")];
-  const result = tree.foldToLevel(tree, 1);
+  const t = [node("a", "A", [node("a1", "A1")]), node("b", "B")];
+  const result = tree.foldToLevel(t, 1);
   assertEqual(result[0].collapsed, true);
   assertEqual(result[1].collapsed, false); // no children
 });
 
 test("foldToLevel 2: root visible, level 2 collapsed", () => {
-  const tree = [node("a", "A", [node("a1", "A1", [node("deep", "Deep")])])];
-  const result = tree.foldToLevel(tree, 2);
+  const t = [node("a", "A", [node("a1", "A1", [node("deep", "Deep")])])];
+  const result = tree.foldToLevel(t, 2);
   assertEqual(result[0].collapsed, false); // depth 1 < level 2
   assertEqual(result[0].children[0].collapsed, true); // depth 2 >= level 2
 });
 
 test("foldToLevel: leaf nodes stay uncollapsed", () => {
-  const tree = [node("a", "A")];
-  const result = tree.foldToLevel(tree, 1);
+  const t = [node("a", "A")];
+  const result = tree.foldToLevel(t, 1);
   assertEqual(result[0].collapsed, false); // no children to collapse
 });
 
 // uncollapseToNode
 test("uncollapseToNode: uncollapses ancestors", () => {
-  const tree = [{ ...node("a", "A", [{ ...node("a1", "A1", [node("deep", "Deep")]), collapsed: true }]), collapsed: true }];
-  const result = tree.uncollapseToNode(tree, "deep");
+  const t = [{ ...node("a", "A", [{ ...node("a1", "A1", [node("deep", "Deep")]), collapsed: true }]), collapsed: true }];
+  const result = tree.uncollapseToNode(t, "deep");
   assertEqual(result[0].collapsed, false);
   assertEqual(result[0].children[0].collapsed, false);
 });
 
 test("uncollapseToNode: doesn't change unrelated nodes", () => {
-  const tree = [
+  const t = [
     { ...node("a", "A", [node("a1", "A1")]), collapsed: true },
     { ...node("b", "B", [node("b1", "B1")]), collapsed: true },
   ];
-  const result = tree.uncollapseToNode(tree, "a1");
+  const result = tree.uncollapseToNode(t, "a1");
   assertEqual(result[0].collapsed, false); // uncollapsed to reach a1
   assertEqual(result[1].collapsed, true);  // unrelated, stays collapsed
 });
@@ -332,8 +332,12 @@ test("parseOrgDate roundtrip", () => {
 // nextStatus
 test("nextStatus: cycles through statuses", () => {
   assertEqual(tree.nextStatus(""), "TODO");
-  assertEqual(tree.nextStatus("TODO"), "DONE");
-  assertEqual(tree.nextStatus("DONE"), "");
+  assertEqual(tree.nextStatus("TODO"), "NEXT");
+  assertEqual(tree.nextStatus("NEXT"), "URGENT");
+  assertEqual(tree.nextStatus("URGENT"), "WAITING");
+  assertEqual(tree.nextStatus("WAITING"), "DONE");
+  assertEqual(tree.nextStatus("DONE"), "CANCELLED");
+  assertEqual(tree.nextStatus("CANCELLED"), "");
 });
 
 test("nextStatus: handles undefined", () => {
@@ -343,8 +347,8 @@ test("nextStatus: handles undefined", () => {
 // --- Edge cases ---
 
 test("indent then outdent is identity", () => {
-  const tree = [node("a", "A"), node("b", "B")];
-  const indented = tree.indentNode(tree, "b");
+  const t = [node("a", "A"), node("b", "B")];
+  const indented = tree.indentNode(t, "b");
   const result = tree.outdentNode(indented, "b");
   assertEqual(result.length, 2);
   assertEqual(result[0].id, "a");
@@ -352,8 +356,8 @@ test("indent then outdent is identity", () => {
 });
 
 test("insert then remove is identity", () => {
-  const tree = [node("a", "A"), node("b", "B")];
-  const { nodes: inserted, newId } = tree.insertSiblingAfter(tree, "a");
+  const t = [node("a", "A"), node("b", "B")];
+  const { nodes: inserted, newId } = tree.insertSiblingAfter(t, "a");
   const result = tree.removeNode(inserted, newId);
   assertEqual(result.length, 2);
   assertEqual(result[0].id, "a");
@@ -361,8 +365,8 @@ test("insert then remove is identity", () => {
 });
 
 test("moveUp then moveDown is identity", () => {
-  const tree = [node("a", "A"), node("b", "B"), node("c", "C")];
-  const moved = tree.moveNodeUp(tree, "b");
+  const t = [node("a", "A"), node("b", "B"), node("c", "C")];
+  const moved = tree.moveNodeUp(t, "b");
   const result = tree.moveNodeDown(moved, "b");
   assertEqual(result.map(n => n.id), ["a", "b", "c"]);
 });
@@ -634,10 +638,12 @@ test("renderOrgInline: link without label uses url as label", () => {
   );
 });
 
-test("renderOrgInline: unsafe url scheme is left unlinkified", () => {
+test("renderOrgInline: unsafe url scheme is neutered, never used as href", () => {
+  // Non-http(s)/mailto/file schemes fall through to the wiki-link path:
+  // href="#" plus a data-wiki attribute, so the scheme is never executable.
   assertEqual(
     tree.renderOrgInline("[[javascript:alert(1)][click]]"),
-    "[[javascript:alert(1)][click]]"
+    '<a href="#" class="wiki-link" data-wiki="javascript:alert(1)">click</a>'
   );
 });
 
@@ -666,6 +672,183 @@ test("renderOrgInline: empty string returns empty string", () => {
 
 test("renderOrgInline: lone marker characters are left as-is", () => {
   assertEqual(tree.renderOrgInline("5 * 5 = 25"), "5 * 5 = 25");
+});
+
+// --- renderOrgBody: quote blocks ---
+test("renderOrgBody: quote block renders as blockquote, hides markers", () => {
+  assertEqual(
+    tree.renderOrgBody("#+begin_quote\nHello world\n#+end_quote"),
+    '<blockquote class="org-quote">Hello world</blockquote>'
+  );
+});
+
+test("renderOrgBody: quote block content still processes inline markup", () => {
+  assertEqual(
+    tree.renderOrgBody("#+begin_quote\n*bold* text\n#+end_quote"),
+    '<blockquote class="org-quote"><strong>bold</strong> text</blockquote>'
+  );
+});
+
+test("renderOrgBody: quote block marker matching is case-insensitive", () => {
+  assertEqual(
+    tree.renderOrgBody("#+BEGIN_QUOTE\nHello\n#+END_QUOTE"),
+    '<blockquote class="org-quote">Hello</blockquote>'
+  );
+});
+
+test("renderOrgBody: text before and after quote block is preserved", () => {
+  assertEqual(
+    tree.renderOrgBody("before\n#+begin_quote\nquoted\n#+end_quote\nafter"),
+    'before\n<blockquote class="org-quote">quoted</blockquote>\nafter'
+  );
+});
+
+test("renderOrgBody: unterminated quote block runs to end of body", () => {
+  assertEqual(
+    tree.renderOrgBody("#+begin_quote\nquoted forever"),
+    '<blockquote class="org-quote">quoted forever</blockquote>'
+  );
+});
+
+test("renderOrgBody: plain text without quote markers is unaffected", () => {
+  assertEqual(tree.renderOrgBody("just a normal line"), "just a normal line");
+});
+
+// --- renderOrgBody: verse blocks ---
+test("renderOrgBody: verse block renders as <p class=org-verse>, hides markers", () => {
+  assertEqual(
+    tree.renderOrgBody("#+begin_verse\nRoses are red\nViolets are blue\n#+end_verse"),
+    '<p class="org-verse">Roses are red\nViolets are blue</p>'
+  );
+});
+
+test("renderOrgBody: verse block content still processes inline markup", () => {
+  assertEqual(
+    tree.renderOrgBody("#+begin_verse\n*Roses* are red\n#+end_verse"),
+    '<p class="org-verse"><strong>Roses</strong> are red</p>'
+  );
+});
+
+test("renderOrgBody: verse block marker matching is case-insensitive", () => {
+  assertEqual(
+    tree.renderOrgBody("#+BEGIN_VERSE\nline\n#+END_VERSE"),
+    '<p class="org-verse">line</p>'
+  );
+});
+
+test("renderOrgBody: unterminated verse block runs to end of body", () => {
+  assertEqual(
+    tree.renderOrgBody("#+begin_verse\nforever"),
+    '<p class="org-verse">forever</p>'
+  );
+});
+
+// --- renderOrgBody: src blocks ---
+test("renderOrgBody: src block renders as <pre><code>, hides markers", () => {
+  assertEqual(
+    tree.renderOrgBody("#+begin_src\nconsole.log(1)\n#+end_src"),
+    '<pre class="org-src"><code>console.log(1)</code></pre>'
+  );
+});
+
+test("renderOrgBody: src block captures the language as data-lang", () => {
+  assertEqual(
+    tree.renderOrgBody("#+begin_src js\nconsole.log(1)\n#+end_src"),
+    '<pre class="org-src" data-lang="js"><code>console.log(1)</code></pre>'
+  );
+});
+
+test("renderOrgBody: src block content is never run through inline markup", () => {
+  assertEqual(
+    tree.renderOrgBody("#+begin_src\n*not bold* /not italic/\n#+end_src"),
+    '<pre class="org-src"><code>*not bold* /not italic/</code></pre>'
+  );
+});
+
+test("renderOrgBody: src block escapes HTML special characters", () => {
+  assertEqual(
+    tree.renderOrgBody("#+begin_src html\n<div>&x</div>\n#+end_src"),
+    '<pre class="org-src" data-lang="html"><code>&lt;div&gt;&amp;x&lt;/div&gt;</code></pre>'
+  );
+});
+
+test("renderOrgBody: src block marker matching is case-insensitive", () => {
+  assertEqual(
+    tree.renderOrgBody("#+BEGIN_SRC python\nx = 1\n#+END_SRC"),
+    '<pre class="org-src" data-lang="python"><code>x = 1</code></pre>'
+  );
+});
+
+test("renderOrgBody: unterminated src block runs to end of body", () => {
+  assertEqual(
+    tree.renderOrgBody("#+begin_src\nforever()"),
+    '<pre class="org-src"><code>forever()</code></pre>'
+  );
+});
+
+// --- renderOrgBody: example blocks ---
+test("renderOrgBody: example block renders as <pre><code>, hides markers", () => {
+  assertEqual(
+    tree.renderOrgBody("#+begin_example\nsome output\n#+end_example"),
+    '<pre class="org-example"><code>some output</code></pre>'
+  );
+});
+
+test("renderOrgBody: example block content is never run through inline markup", () => {
+  assertEqual(
+    tree.renderOrgBody("#+begin_example\n*not bold*\n#+end_example"),
+    '<pre class="org-example"><code>*not bold*</code></pre>'
+  );
+});
+
+test("renderOrgBody: example block escapes HTML special characters", () => {
+  assertEqual(
+    tree.renderOrgBody("#+begin_example\n<div>&x</div>\n#+end_example"),
+    '<pre class="org-example"><code>&lt;div&gt;&amp;x&lt;/div&gt;</code></pre>'
+  );
+});
+
+test("renderOrgBody: example block marker matching is case-insensitive", () => {
+  assertEqual(
+    tree.renderOrgBody("#+BEGIN_EXAMPLE\nline\n#+END_EXAMPLE"),
+    '<pre class="org-example"><code>line</code></pre>'
+  );
+});
+
+test("renderOrgBody: unterminated example block runs to end of body", () => {
+  assertEqual(
+    tree.renderOrgBody("#+begin_example\nforever"),
+    '<pre class="org-example"><code>forever</code></pre>'
+  );
+});
+
+// --- renderOrgBody: center blocks ---
+test("renderOrgBody: center block renders as <div class=org-center>, hides markers", () => {
+  assertEqual(
+    tree.renderOrgBody("#+begin_center\nCentered text\n#+end_center"),
+    '<div class="org-center">Centered text</div>'
+  );
+});
+
+test("renderOrgBody: center block content still processes inline markup", () => {
+  assertEqual(
+    tree.renderOrgBody("#+begin_center\n*bold* text\n#+end_center"),
+    '<div class="org-center"><strong>bold</strong> text</div>'
+  );
+});
+
+test("renderOrgBody: center block marker matching is case-insensitive", () => {
+  assertEqual(
+    tree.renderOrgBody("#+BEGIN_CENTER\nline\n#+END_CENTER"),
+    '<div class="org-center">line</div>'
+  );
+});
+
+test("renderOrgBody: unterminated center block runs to end of body", () => {
+  assertEqual(
+    tree.renderOrgBody("#+begin_center\nforever"),
+    '<div class="org-center">forever</div>'
+  );
 });
 
 // --- Done ---

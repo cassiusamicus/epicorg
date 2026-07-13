@@ -3677,6 +3677,41 @@ body.dnd-dragging, body.dnd-dragging * { cursor: grabbing !important; user-selec
 .org-img-block:hover::after {
   opacity: 1;
 }
+.org-quote {
+  margin: 8px 0;
+  padding: 2px 12px;
+  border-left: 3px solid var(--border);
+  font-style: italic;
+  color: var(--text-dim-strong);
+}
+
+.org-verse {
+  /* Indentation and line breaks matter for poetry; inherits white-space:
+     pre-wrap from .node-body-preview so both are preserved exactly. */
+  margin: 8px 0;
+  padding-left: 12px;
+}
+
+.org-src, .org-example {
+  margin: 8px 0;
+  padding: 8px 12px;
+  background: var(--code-bg);
+  border-radius: 4px;
+  overflow-x: auto;
+  white-space: pre;
+}
+.org-src code, .org-example code {
+  font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+  font-size: 0.9em;
+  background: none;
+  padding: 0;
+}
+
+.org-center {
+  margin: 8px 0;
+  text-align: center;
+}
+
 .org-table { border-collapse: collapse; margin: 6px 0 10px; font-size: 13px; max-width: 100%; cursor: pointer; }
 .org-table th, .org-table td { border: 1px solid var(--border); padding: 5px 10px; text-align: left; vertical-align: top; }
 .org-table thead th { background: color-mix(in srgb, var(--accent) 8%, var(--bg)); font-weight: 600; }
