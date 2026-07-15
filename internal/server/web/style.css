@@ -217,6 +217,13 @@ header h1 {
   background: var(--bg);
   color: var(--text);
   cursor: pointer;
+  /* Long note names shouldn't be able to eat into the toolbar's width
+     budget and force it to collapse — truncate here instead. The full
+     name is still one hover away via the button's title attribute. */
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .file-back-btn:hover {
