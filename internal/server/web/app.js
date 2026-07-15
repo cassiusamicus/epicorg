@@ -10302,10 +10302,12 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
     if (!header || !probe || typeof ResizeObserver === "undefined") return;
     // header.clientWidth is inflated by 64px from the tinted-header bleed
     // margins, so compare probe width against the parent's (true) content width.
-    // Buffer of 100px pre-emptively collapses before the toolbar can overflow.
+    // Small buffer pre-emptively collapses just before the toolbar would
+    // actually overflow, without giving up the extra ~1300px+ of screen
+    // width a 100px buffer used to sacrifice.
     const check = () => {
       const parentW = header.parentElement.clientWidth;
-      setCollapsed(probe.scrollWidth + 100 > parentW);
+      setCollapsed(probe.scrollWidth + 24 > parentW);
     };
     check();
     const ro = new ResizeObserver(check);
@@ -10435,8 +10437,8 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
             <${IconSearchPanel} />
           </button>
         </div>
-        <div className=${"search-box" + ((expanded || filterExpanded || searchQuery) ? " search-box-expanded" : "")} style=${{ opacity: textMode ? 0.4 : 1, pointerEvents: textMode ? "none" : "auto" }}>
-          ${(expanded || filterExpanded || searchQuery) ? html`
+        <div className=${"search-box" + ((filterExpanded || searchQuery) ? " search-box-expanded" : "")} style=${{ opacity: textMode ? 0.4 : 1, pointerEvents: textMode ? "none" : "auto" }}>
+          ${(filterExpanded || searchQuery) ? html`
             <input
               ref=${expanded ? null : searchInputRef}
               type="text"
