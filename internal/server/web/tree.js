@@ -615,10 +615,29 @@ export function orgifyPaths(text) {
   });
 }
 
-// Single combined pass: scanning left-to-right for whichever marker comes
-// first avoids re-scanning HTML tags already emitted for an earlier match
-// (e.g. italic's "/" matching inside a just-inserted "</strong>").
-const MARKUP_RE = /\*([^\s*][^*]*?)\*|\/([^\s/][^/]*?)\/|_([^\s_][^_]*?)_|=([^\s=][^=]*?)=|\+([^\s+][^+]*?)\+/g;
+// Emphasis boundary rules, taken directly from real org-mode's own
+// org-emphasis-regexp-components / org-emph-re (queried via
+// `emacs --batch --eval "(require 'org)" --eval "(princ org-emph-re)"`):
+// a marker only opens at the very start of a line or right after one of
+// PRE_CHARS, and only closes right before one of POST_CHARS or end of line.
+// Without this, "foo/bar/baz" was wrongly italicizing "bar" — org-mode
+// requires that boundary and leaves it as plain text.
+//
+// This text has already been through escapeHtml() by the time this regex
+// runs, so a literal `"` or `'` sitting at a boundary has become the
+// multi-character entity `&quot;`/`&#39;` — those are matched as
+// alternatives alongside the single-character classes so quoted emphasis
+// like `"*bold*"` keeps working post-escaping.
+const EMPH_PRE = "-\\s('{";
+const EMPH_POST = "-\\s.,:!?;)}\\[";
+const MARKUP_RE = new RegExp(
+  "(^|&quot;|&#39;|[" + EMPH_PRE + "])" +
+  "([*/_=+])" +
+  "(\\S(?:[\\s\\S]*?\\S)?)" +
+  "\\2" +
+  "(?=&quot;|&#39;|[" + EMPH_POST + "]|$)",
+  "gm"
+);
 
 // Sentinel char (not producible by escapeHtml or normal text) used to mark
 // link placeholders so the markup regex above doesn't reprocess link content.
@@ -909,6 +928,23 @@ export function updateImageBlock(text, blockIndex, { width, align }) {
   return [...lines.slice(0, block.startLine), ...newLines, ...lines.slice(block.endLine + 1)].join("\n");
 }
 
+// Real org-mode combines emphasis when markers sit directly adjacent with no
+// space, e.g. "*/text/*" -> bold+italic (verified against Emacs' own HTML
+// exporter). Applying MARKUP_RE recursively to each captured span's content
+// reproduces that: "*/text/*" captures "/text/" as bold's content, which
+// itself matches the italic pattern, and so on for triple combinations like
+// "*/_text_/*". Verbatim/code (=...=/~...~) are deliberately left alone —
+// org keeps their content fully literal, never re-parsing markup inside.
+const EMPHASIS_TAGS = { "*": "strong", "/": "em", "_": "u", "+": "del" };
+
+function applyEmphasisMatch(match, pre, marker, body) {
+  // Verbatim (=...=) is the one marker org-mode never re-parses for nested
+  // emphasis — its content is meant to display exactly as written.
+  if (marker === "=") return `${pre}<code>${body}</code>`;
+  const tag = EMPHASIS_TAGS[marker];
+  return `${pre}<${tag}>${body.replace(MARKUP_RE, applyEmphasisMatch)}</${tag}>`;
+}
+
 export function renderOrgInline(text) {
   if (!text) return "";
 
@@ -961,13 +997,7 @@ export function renderOrgInline(text) {
     return LINK_PLACEHOLDER + links.length + LINK_PLACEHOLDER;
   });
 
-  result = result.replace(MARKUP_RE, (match, bold, italic, underline, code, strike) => {
-    if (bold !== undefined)   return `<strong>${bold}</strong>`;
-    if (italic !== undefined) return `<em>${italic}</em>`;
-    if (underline !== undefined) return `<u>${underline}</u>`;
-    if (code !== undefined)   return `<code>${code}</code>`;
-    return `<del>${strike}</del>`;
-  });
+  result = result.replace(MARKUP_RE, applyEmphasisMatch);
 
   const placeholderRe = new RegExp(LINK_PLACEHOLDER + "(\\d+)" + LINK_PLACEHOLDER, "g");
   result = result.replace(placeholderRe, (_, i) => links[Number(i) - 1]);

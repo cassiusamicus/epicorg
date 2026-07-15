@@ -674,6 +674,72 @@ test("renderOrgInline: lone marker characters are left as-is", () => {
   assertEqual(tree.renderOrgInline("5 * 5 = 25"), "5 * 5 = 25");
 });
 
+// --- renderOrgInline: combined/nested emphasis (verified against Emacs org-mode) ---
+test("renderOrgInline: bold+italic nested (bold outer)", () => {
+  assertEqual(tree.renderOrgInline("*/bold and italic/*"), "<strong><em>bold and italic</em></strong>");
+});
+
+test("renderOrgInline: italic+bold nested (italic outer)", () => {
+  assertEqual(tree.renderOrgInline("/*italic and bold*/"), "<em><strong>italic and bold</strong></em>");
+});
+
+test("renderOrgInline: bold containing underline", () => {
+  assertEqual(tree.renderOrgInline("*bold _underline_ text*"), "<strong>bold <u>underline</u> text</strong>");
+});
+
+test("renderOrgInline: underline containing italic", () => {
+  assertEqual(tree.renderOrgInline("_underline /italic/ text_"), "<u>underline <em>italic</em> text</u>");
+});
+
+test("renderOrgInline: triple-nested bold+italic+underline", () => {
+  assertEqual(tree.renderOrgInline("*/_all three_/*"), "<strong><em><u>all three</u></em></strong>");
+});
+
+test("renderOrgInline: strikethrough containing bold", () => {
+  assertEqual(tree.renderOrgInline("+*bold* strike+"), "<del><strong>bold</strong> strike</del>");
+});
+
+test("renderOrgInline: verbatim content stays literal, no nested emphasis", () => {
+  assertEqual(tree.renderOrgInline("=*not bold*="), "<code>*not bold*</code>");
+});
+
+test("renderOrgInline: separate non-adjacent markers do not combine", () => {
+  assertEqual(
+    tree.renderOrgInline("*bold* /italic/ _underline_"),
+    "<strong>bold</strong> <em>italic</em> <u>underline</u>"
+  );
+});
+
+// --- renderOrgInline: emphasis boundary rules (verified against Emacs org-mode) ---
+test("renderOrgInline: marker touching a letter (no boundary) stays literal", () => {
+  assertEqual(tree.renderOrgInline("foo/bar/baz"), "foo/bar/baz");
+  assertEqual(tree.renderOrgInline("foo*bar*baz"), "foo*bar*baz");
+});
+
+test("renderOrgInline: parenthesis is a valid boundary", () => {
+  assertEqual(tree.renderOrgInline("(*bar*)"), "(<strong>bar</strong>)");
+});
+
+test("renderOrgInline: hyphen is a valid boundary", () => {
+  assertEqual(tree.renderOrgInline("foo-*bold*-bar"), "foo-<strong>bold</strong>-bar");
+});
+
+test("renderOrgInline: double-quote boundary works despite HTML-escaping", () => {
+  assertEqual(tree.renderOrgInline('"*bar*"'), "&quot;<strong>bar</strong>&quot;");
+});
+
+test("renderOrgInline: single-quote boundary works despite HTML-escaping", () => {
+  assertEqual(tree.renderOrgInline("'/italic/'"), "&#39;<em>italic</em>&#39;");
+});
+
+test("renderOrgInline: apostrophe immediately after closing marker is a valid boundary", () => {
+  assertEqual(tree.renderOrgInline("*bold*'s test"), "<strong>bold</strong>&#39;s test");
+});
+
+test("renderOrgInline: adjacent emphasis spans separated by one space both apply", () => {
+  assertEqual(tree.renderOrgInline("*bold1* *bold2*"), "<strong>bold1</strong> <strong>bold2</strong>");
+});
+
 // --- renderOrgBody: quote blocks ---
 test("renderOrgBody: quote block renders as blockquote, hides markers", () => {
   assertEqual(
