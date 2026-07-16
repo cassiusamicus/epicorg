@@ -347,7 +347,9 @@ export function moveNodeDownOnly(nodes, id) {
 }
 
 // Split a node's title at pos: left part stays in the node (with children),
-// right part becomes a new sibling immediately after.
+// right part becomes a new sibling immediately after. Pairs with
+// splitBodyAtCursor below — same "new sibling directly after" shape, just
+// title vs. body as the field being split.
 export function splitNode(nodes, id, pos) {
   const nn = newNode();
   function walk(list) {
@@ -388,6 +390,28 @@ export function joinNodes(nodes, id) {
   const newList = [...parentList.slice(0, index), merged, ...parentList.slice(index + 2)];
   if (!parent) return { nodes: newList, cursorPos };
   return { nodes: mapNode(nodes, parent.id, (n) => ({ ...n, children: newList })), cursorPos };
+}
+
+// Split a node's body/note at pos: left part stays as this node's body,
+// right part becomes a new sibling's body, inserted immediately after (empty
+// title, no children — mirrors splitNode's title-split shape).
+export function splitBodyAtCursor(nodes, id, pos) {
+  const nn = newNode();
+  function walk(list) {
+    const result = [];
+    for (const n of list) {
+      if (n.id === id) {
+        const body = n.body || "";
+        nn.body = body.slice(pos);
+        result.push({ ...n, body: body.slice(0, pos) });
+        result.push(nn);
+      } else {
+        result.push(n.children?.length > 0 ? { ...n, children: walk(n.children) } : n);
+      }
+    }
+    return result;
+  }
+  return { nodes: walk(nodes), newId: nn.id };
 }
 
 // --- Folding ---
@@ -607,12 +631,32 @@ const BARE_PATH_RE = /(?<![a-zA-Z0-9])(\/(?:[^\s/\n]+\/)+[^\n/]*\.[a-zA-Z0-9]{1,
 // (e.g. [[file:/path...]] where "/" is preceded by ":").
 const BARE_PATH_ORG_RE = /(?<![a-zA-Z0-9:])(\/(?:[^\s/\n]+\/)+[^\n/]*\.[a-zA-Z0-9]{1,10})(?=[\s,;!?"]|$)/g;
 
+function barePathToLink(_, path) {
+  const filename = path.split("/").pop();
+  return `[[file:${path}][${filename}]]`;
+}
+
+// Runs on every keystroke in a title/body field (see onChange in app.js),
+// re-scanning the whole field each time — so it must never touch text
+// already inside an existing [[...]] link. BARE_PATH_ORG_RE's lookbehind
+// only blocks re-wrapping a literal "file:/path" URL; it has no idea where
+// a [[...]] span starts or ends, so a path-shaped segment of an https://
+// URL (e.g. a domain ending in ".org"/".com") could match straight through
+// the link's own "][" delimiter and into its label, nesting a bogus
+// [[file:...]] link inside the real one and corrupting it on every edit.
 export function orgifyPaths(text) {
   if (!text) return text;
-  return text.replace(BARE_PATH_ORG_RE, (_, path) => {
-    const filename = path.split("/").pop();
-    return `[[file:${path}][${filename}]]`;
-  });
+  let result = "";
+  let lastIndex = 0;
+  LINK_RE.lastIndex = 0;
+  let m;
+  while ((m = LINK_RE.exec(text))) {
+    result += text.slice(lastIndex, m.index).replace(BARE_PATH_ORG_RE, barePathToLink);
+    result += m[0];
+    lastIndex = LINK_RE.lastIndex;
+  }
+  result += text.slice(lastIndex).replace(BARE_PATH_ORG_RE, barePathToLink);
+  return result;
 }
 
 // Emphasis boundary rules, taken directly from real org-mode's own

@@ -693,6 +693,7 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
             onKeyDown=${(e) => {
               const marker = formatMarkerForKey(e);
               if (marker) { e.preventDefault(); wrapSelectionWithMarker(e, marker, (v) => dispatch(node.id, "change-body", v)); return; }
+              if (matchShortcut("splitNode", e)) { e.preventDefault(); dispatch(node.id, "split-body-at-cursor", e.target.selectionStart); return; }
               if (e.key === "Escape") { e.preventDefault(); dispatch(node.id, "focus-outline"); }
             }}
           />
@@ -2957,7 +2958,7 @@ const SHORTCUT_DEFS = [
   { id: "strikethrough",   cat: "Formatting", label: "Strikethrough",         def: "Ctrl+S" },
   { id: "insertFootnote",  cat: "Formatting", label: "Insert Footnote",       def: "Ctrl+Shift+N" },
   { id: "insertDateStamp", cat: "Formatting", label: "Insert Date Stamp",     def: "Ctrl+Shift+Q" },
-  { id: "splitNode",       cat: "Outline",    label: "Split Node at Cursor",  def: "Ctrl+Shift+S" },
+  { id: "splitNode",       cat: "Outline",    label: "Split At Cursor Location", def: "Ctrl+Shift+S" },
   { id: "joinNode",        cat: "Outline",    label: "Join with Next Node",   def: "Ctrl+Shift+J" },
   { id: "moveUp",          cat: "Outline",    label: "Move Node Up",          def: "Alt+ArrowUp" },
   { id: "moveDown",        cat: "Outline",    label: "Move Node Down",        def: "Alt+ArrowDown" },
@@ -3861,7 +3862,7 @@ const UNDOABLE_ACTIONS = new Set([
   "change-preamble", "change", "change-body", "update-properties", "update-tags", "update-bookmarks",
   "set-status", "set-priority", "cycle-status", "new-sibling", "delete", "indent", "outdent", "move-up", "move-down",
   "indent-only", "outdent-only", "move-up-only", "move-down-only",
-  "split-at-cursor", "join-with-next",
+  "split-at-cursor", "split-body-at-cursor", "join-with-next",
 ]);
 // Of those, typing actions get debounced into one undo step per "burst"
 // rather than one per keystroke.
@@ -7174,6 +7175,22 @@ function App() {
       focusNode(nodeId);
       markDirty(); return;
     }
+
+    if (action === "split-body-at-cursor") {
+      const pos = typeof value === "number" ? value : 0;
+      setNodes((p) => {
+        const { nodes: updated, newId } = tree.splitBodyAtCursor(p, nodeId, pos);
+        setBodyPreviewId(null);
+        setBodyEditingId(newId);
+        setFocusedId(newId);
+        requestAnimationFrame(() => {
+          const el = bodyRefs.current[newId];
+          if (el) { el.focus(); el.selectionStart = el.selectionEnd = 0; }
+        });
+        return updated;
+      });
+      markDirty(); return;
+    }
   }, [focusNode, markDirty, maybeSnapshotForUndo]);
 
   // Cleans up the selected text via dispatch (not a raw DOM "input" event)
@@ -7196,6 +7213,24 @@ function App() {
     requestAnimationFrame(() => {
       if (document.body.contains(el)) el.setSelectionRange(start, start + cleaned.length);
     });
+  }, [dispatch]);
+
+  // Splits whichever field (title or note) was last focused at the cursor —
+  // the palette (and a rebindable shortcut, see handleKey/onKeyDown above)
+  // equivalent of Ctrl+Shift+S. Deliberately cursor-position-based rather
+  // than selection-based: a range selection collapses/gets lost the instant
+  // the palette steals focus, but a single cursor position can't. Uses
+  // _lastOutlineTextarea rather than inputRefs/bodyRefs directly for the
+  // same reason as cleanUpSelectedText above — a body note's textarea in
+  // particular unmounts into a preview the instant it blurs.
+  const splitAtCursorLocation = useCallback(() => {
+    const isLive = document.activeElement?.tagName === "TEXTAREA";
+    const el = isLive ? document.activeElement : _lastOutlineTextarea;
+    if (!el || el.tagName !== "TEXTAREA") return;
+    const meta = isLive ? fieldMetaForTextarea(el) : _lastOutlineTextareaMeta;
+    if (!meta || (meta.field !== "change" && meta.field !== "change-body")) return;
+    const action = meta.field === "change-body" ? "split-body-at-cursor" : "split-at-cursor";
+    dispatch(meta.nodeId, action, el.selectionStart);
   }, [dispatch]);
 
   const onBulletMouseDown = useCallback((nodeId, hasChildren, e) => {
@@ -7300,14 +7335,6 @@ function App() {
       window.removeEventListener("mouseup", onUp);
     };
   }, [dispatch, markDirty]);
-
-  const splitFocusedNode = useCallback(() => {
-    const id = focusedIdRef.current;
-    if (!id || id === "preamble") return;
-    const el = inputRefs.current[id];
-    const pos = el ? el.selectionStart : 0;
-    dispatch(id, "split-at-cursor", pos);
-  }, [dispatch]);
 
   const joinFocusedWithNext = useCallback(() => {
     const id = focusedIdRef.current;
@@ -7718,12 +7745,12 @@ function App() {
           setView, view,
           setShowPicker, setShowTextSearch, setShowFolderPicker,
           setShowHelp, insertFootnote, insertDateStamp,
-          splitFocusedNode, joinFocusedWithNext,
+          joinFocusedWithNext,
                 exportToHtml, exportToOrg, exportToMarkdown, currentFile,
           copyAsFormatted, copyAsPlain,
           clearRecentFiles,
           setFindOpen, findInputRef,
-          cleanUpSelectedText,
+          cleanUpSelectedText, splitAtCursorLocation,
         })} onClose=${() => setShowHelp(false)} />`}
       ${showShortcutEditor && html`
         <${ShortcutEditor}
@@ -10529,12 +10556,12 @@ function buildCommands(ctx) {
     setView, view,
     setShowPicker, setShowTextSearch, setShowFolderPicker, setShowHelp,
     insertFootnote, insertDateStamp,
-    splitFocusedNode, joinFocusedWithNext,
+    joinFocusedWithNext,
     exportToHtml, exportToOrg, exportToMarkdown, currentFile,
     copyAsFormatted, copyAsPlain,
     clearRecentFiles,
     setFindOpen, findInputRef,
-    cleanUpSelectedText,
+    cleanUpSelectedText, splitAtCursorLocation,
   } = ctx;
 
   return [
@@ -10585,7 +10612,7 @@ function buildCommands(ctx) {
     { category: "Edit", label: "Clean Up Pasted Text",    desc: "Remove extra spaces, leading indentation, and hard line breaks from the selected text (keeps paragraph breaks)", keys: "", action: cleanUpSelectedText },
     { category: "Edit", label: "Insert Footnote",         desc: "Add [fn:N] at cursor in notes",  keys: displayCombo(getShortcutCombo("insertFootnote")),  action: insertFootnote },
     { category: "Edit", label: "Insert Date Stamp",       desc: "Insert formatted date/time at cursor", keys: displayCombo(getShortcutCombo("insertDateStamp")), action: insertDateStamp },
-    { category: "Edit", label: "Split Node at Cursor",    desc: "Split title at cursor into two sibling nodes", keys: displayCombo(getShortcutCombo("splitNode")), action: splitFocusedNode },
+    { category: "Edit", label: "Split At Cursor Location", desc: "Split the focused title into two sibling nodes, or the focused note into a new node's note directly after", keys: displayCombo(getShortcutCombo("splitNode")), action: splitAtCursorLocation },
     { category: "Edit", label: "Join with Next Node",     desc: "Merge this node with the next sibling",        keys: displayCombo(getShortcutCombo("joinNode")),   action: joinFocusedWithNext },
     { category: "Edit", label: "Hoist / Unhoist",         desc: isHoisted ? "Unhoist — show full tree" : "Hoist focused item", keys: displayCombo(getShortcutCombo("hoist")), action: toggleHoist },
     // Search

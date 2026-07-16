@@ -917,5 +917,86 @@ test("renderOrgBody: unterminated center block runs to end of body", () => {
   );
 });
 
+// --- orgifyPaths ---
+test("orgifyPaths: wraps a genuinely bare path outside any link", () => {
+  assertEqual(
+    tree.orgifyPaths("Check out /home/user/notes.txt for details"),
+    "Check out [[file:/home/user/notes.txt][notes.txt]] for details"
+  );
+});
+
+test("orgifyPaths: leaves an existing [[https://...][label]] link untouched", () => {
+  // Regression: the URL's own path segment (ending in something that looks
+  // like a file extension, e.g. a domain ending in ".org") used to match
+  // straight through the link's "][" delimiter and into its label, nesting
+  // a bogus [[file:...]] link inside the real one on every keystroke.
+  const link = "[[https://lore.kernel.org/linux-media/CAHk-x@mail.gmail.com/][lore.kernel.org - Making sure you are not a bot!]]";
+  assertEqual(tree.orgifyPaths(link), link);
+});
+
+test("orgifyPaths: leaves an existing [[file:...][label]] link untouched", () => {
+  const link = "[[file:/home/user/doc.pdf][doc.pdf]]";
+  assertEqual(tree.orgifyPaths(link), link);
+});
+
+test("orgifyPaths: still converts a bare path that sits right next to an existing link", () => {
+  assertEqual(
+    tree.orgifyPaths("[[https://example.com][Example]] and also /home/user/readme.md"),
+    "[[https://example.com][Example]] and also [[file:/home/user/readme.md][readme.md]]"
+  );
+});
+
+test("orgifyPaths: no bare path present leaves text unchanged", () => {
+  assertEqual(tree.orgifyPaths("just plain text, nothing to convert"), "just plain text, nothing to convert");
+});
+
+test("orgifyPaths: empty string returns empty string", () => {
+  assertEqual(tree.orgifyPaths(""), "");
+});
+
+// --- splitBodyAtCursor ---
+test("splitBodyAtCursor: splits body into a new sibling directly after", () => {
+  const t = [{ ...node("a", "Task"), body: "First half. Second half." }];
+  const pos = "First half. ".length;
+  const { nodes: result, newId } = tree.splitBodyAtCursor(t, "a", pos);
+  assertEqual(result.length, 2);
+  assertEqual(result[0].body, "First half. ");
+  assertEqual(result[1].body, "Second half.");
+  assertEqual(result[1].title, "");
+  assertEqual(result[1].id, newId);
+});
+
+test("splitBodyAtCursor: new sibling has no children, original keeps its own", () => {
+  const t = [{ ...node("a", "Task", [node("a1", "Child")]), body: "First. Second." }];
+  const pos = "First. ".length;
+  const { nodes: result } = tree.splitBodyAtCursor(t, "a", pos);
+  assertEqual(result[0].children.length, 1);
+  assertEqual(result[0].children[0].id, "a1");
+  assertEqual(result[1].children.length, 0);
+});
+
+test("splitBodyAtCursor: split at position 0 leaves the whole body on the new sibling", () => {
+  const t = [{ ...node("a", "Task"), body: "All of it" }];
+  const { nodes: result } = tree.splitBodyAtCursor(t, "a", 0);
+  assertEqual(result[0].body, "");
+  assertEqual(result[1].body, "All of it");
+});
+
+test("splitBodyAtCursor: split at end leaves an empty body on the new sibling", () => {
+  const t = [{ ...node("a", "Task"), body: "All of it" }];
+  const { nodes: result } = tree.splitBodyAtCursor(t, "a", "All of it".length);
+  assertEqual(result[0].body, "All of it");
+  assertEqual(result[1].body, "");
+});
+
+test("splitBodyAtCursor: works on a nested (child) node", () => {
+  const t = [node("a", "Parent", [{ ...node("a1", "Sub"), body: "First. Second." }])];
+  const pos = "First. ".length;
+  const { nodes: result } = tree.splitBodyAtCursor(t, "a1", pos);
+  assertEqual(result[0].children.length, 2);
+  assertEqual(result[0].children[0].body, "First. ");
+  assertEqual(result[0].children[1].body, "Second.");
+});
+
 // --- Done ---
 report();
