@@ -174,6 +174,34 @@ function adjustTextareaHeight(ta) {
   ta.style.height = ta.scrollHeight + "px";
 }
 
+// Maps a click point to a best-effort character offset into the underlying
+// raw text, by counting characters of text nodes in the RENDERED preview
+// up to the click point. Exact whenever there's no org markup (bold,
+// links, etc.) between the start of the text and the click point, since
+// stripped markers only exist in the raw source — the common case for
+// plain prose. A click landing after some markup may be off by the width
+// of the stripped marker(s), but that's far better than always landing at
+// the end of the text (the previous behavior), and the caller clamps the
+// result to the text's actual length as a safety net regardless.
+function clickOffsetInPreview(container, clientX, clientY) {
+  let range = null;
+  if (document.caretRangeFromPoint) {
+    range = document.caretRangeFromPoint(clientX, clientY);
+  } else if (document.caretPositionFromPoint) {
+    const pos = document.caretPositionFromPoint(clientX, clientY);
+    if (pos) { range = document.createRange(); range.setStart(pos.offsetNode, pos.offset); }
+  }
+  if (!range || !container.contains(range.startContainer)) return null;
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  let offset = 0;
+  let node;
+  while ((node = walker.nextNode())) {
+    if (node === range.startContainer) return offset + range.startOffset;
+    offset += node.textContent.length;
+  }
+  return null;
+}
+
 // Lowest unused integer footnote label across the whole document.
 function nextFootnoteLabel(nodes) {
   const used = new Set();
@@ -696,7 +724,9 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
                    return;
                  }
                  if (imgPopup) { setImgPopup(null); return; }
-                 dispatch(node.id, "edit-body");
+                 const raw = clickOffsetInPreview(e.currentTarget, e.clientX, e.clientY);
+                 const pos = raw === null ? (node.body || "").length : Math.min(raw, (node.body || "").length);
+                 dispatch(node.id, "edit-body", pos);
                }}
                onMouseOver=${(e) => {
                  const wikiEl = e.target.closest(".wiki-link");
@@ -839,6 +869,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
   const titleRef = useRef(null);
   const [isEditing, setIsEditing] = useState(false);
   const pendingEditRef = useRef(false);
+  const pendingEditPosRef = useRef(0);
   const showFormatted = titleFormatMode && !isFocused;
   // When focused but not yet editing: overlay rendered view over a hidden (keyboard-capturing) textarea.
   // Skip overlay for empty titles — there's nothing to render and no way for the user to click into it.
@@ -855,7 +886,13 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
     } else if (pendingEditRef.current) {
       pendingEditRef.current = false;
       setIsEditing(true);
-      requestAnimationFrame(() => titleRef.current?.focus());
+      const pos = pendingEditPosRef.current;
+      requestAnimationFrame(() => {
+        const el = titleRef.current;
+        if (!el) return;
+        el.focus();
+        el.selectionStart = el.selectionEnd = pos;
+      });
     }
   }, [isFocused]);
 
@@ -922,8 +959,11 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                    const tagEl = e.target.closest("[data-tag]");
                    if (tagEl) { e.stopPropagation(); onSearchTag?.(tagEl.dataset.tag); return; }
                    if (e.target.closest(".node-has-notes-indicator")) { dispatch(node.id, "preview-body"); return; }
+                   const raw = clickOffsetInPreview(e.currentTarget, e.clientX, e.clientY);
+                   const pos = raw === null ? node.title.length : Math.min(raw, node.title.length);
                    pendingEditRef.current = true;
-                   dispatch(node.id, "edit-title");
+                   pendingEditPosRef.current = pos;
+                   dispatch(node.id, "edit-title", pos);
                  }}
                  dangerouslySetInnerHTML=${{
                    __html: tree.renderOrgInline(node.title) +
@@ -989,8 +1029,15 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                  const tagEl = e.target.closest("[data-tag]");
                  if (tagEl) { e.stopPropagation(); onSearchTag?.(tagEl.dataset.tag); return; }
                  if (e.target.closest(".node-has-notes-indicator")) { dispatch(node.id, "preview-body"); return; }
+                 const raw = clickOffsetInPreview(e.currentTarget, e.clientX, e.clientY);
+                 const pos = raw === null ? node.title.length : Math.min(raw, node.title.length);
                  setIsEditing(true);
-                 setTimeout(() => titleRef.current?.focus(), 0);
+                 setTimeout(() => {
+                   const el = titleRef.current;
+                   if (!el) return;
+                   el.focus();
+                   el.selectionStart = el.selectionEnd = pos;
+                 }, 0);
                }}
                dangerouslySetInnerHTML=${{
                  __html: tree.renderOrgInline(node.title) +
@@ -7132,7 +7179,14 @@ function App() {
 
     if (action === "release-focus") { setFocusedId(null); return; }
 
-    if (action === "edit-title") { focusNode(nodeId); return; }
+    if (action === "edit-title") {
+      // value, if given, is the character offset the user actually clicked
+      // at within the rendered title — honored by the focus effect below
+      // instead of its default (end of text).
+      if (typeof value === "number") pendingCursorPosRef.current = value;
+      focusNode(nodeId);
+      return;
+    }
 
     if (action === "preview-body") {
       setBodyPreviewId(nodeId);
@@ -7143,7 +7197,13 @@ function App() {
       setBodyPreviewId(null);
       setBodyEditingId(nodeId);
       pendingFocusRef.current = null; // Prevent focus effect from refocusing title textarea
-      requestAnimationFrame(() => { bodyRefs.current[nodeId]?.focus(); });
+      const pos = typeof value === "number" ? value : null;
+      requestAnimationFrame(() => {
+        const el = bodyRefs.current[nodeId];
+        if (!el) return;
+        el.focus();
+        if (pos !== null) el.selectionStart = el.selectionEnd = pos;
+      });
       return;
     }
 

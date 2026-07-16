@@ -5,4 +5,5 @@ epicorg
 !examples/*.org
 .claude/
 *.backup.*
+*.~[0-9]*~
 READMELOCAL.MD
