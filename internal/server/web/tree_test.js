@@ -147,6 +147,70 @@ test("insertSiblingAfter: nested", () => {
   assertEqual(result[0].children[2].id, "a2");
 });
 
+// insertSiblingBefore
+test("insertSiblingBefore: at root level", () => {
+  const t = [node("a", "A"), node("b", "B")];
+  const { nodes: result, newId } = tree.insertSiblingBefore(t, "b");
+  assertEqual(result.length, 3);
+  assertEqual(result[0].id, "a");
+  assertEqual(result[1].id, newId);
+  assertEqual(result[2].id, "b");
+});
+
+test("insertSiblingBefore: nested", () => {
+  const t = [node("a", "A", [node("a1", "A1"), node("a2", "A2")])];
+  const { nodes: result } = tree.insertSiblingBefore(t, "a2");
+  assertEqual(result[0].children.length, 3);
+  assertEqual(result[0].children[0].id, "a1");
+  assertEqual(result[0].children[2].id, "a2");
+});
+
+test("insertSiblingBefore: existing node's content and children are untouched", () => {
+  const t = [node("a", "A", [node("a1", "A1")])];
+  const { nodes: result } = tree.insertSiblingBefore(t, "a");
+  assertEqual(result[1].id, "a");
+  assertEqual(result[1].title, "A");
+  assertEqual(result[1].children.length, 1);
+  assertEqual(result[1].children[0].id, "a1");
+});
+
+// duplicateNode
+test("duplicateNode: copies title/body and inserts directly after", () => {
+  const t = [{ ...node("a", "A"), body: "note text" }, node("b", "B")];
+  const { nodes: result, newId } = tree.duplicateNode(t, "a");
+  assertEqual(result.length, 3);
+  assertEqual(result[0].id, "a");
+  assertEqual(result[1].id, newId);
+  assertEqual(result[1].title, "A");
+  assertEqual(result[1].body, "note text");
+  assertEqual(result[2].id, "b");
+});
+
+test("duplicateNode: the copy gets a fresh id distinct from the original", () => {
+  const t = [node("a", "A")];
+  const { newId } = tree.duplicateNode(t, "a");
+  assertEqual(newId !== "a", true);
+});
+
+test("duplicateNode: deep-copies children with their own fresh ids", () => {
+  const t = [node("a", "A", [node("a1", "A1")])];
+  const { nodes: result } = tree.duplicateNode(t, "a");
+  assertEqual(result[1].children.length, 1);
+  assertEqual(result[1].children[0].title, "A1");
+  assertEqual(result[1].children[0].id !== "a1", true);
+  // Editing the copy's child must never touch the original's child.
+  assertEqual(result[0].children[0].id, "a1");
+});
+
+test("duplicateNode: nested node duplicates within its own parent", () => {
+  const t = [node("a", "A", [node("a1", "A1"), node("a2", "A2")])];
+  const { nodes: result } = tree.duplicateNode(t, "a1");
+  assertEqual(result[0].children.length, 3);
+  assertEqual(result[0].children[0].id, "a1");
+  assertEqual(result[0].children[1].title, "A1");
+  assertEqual(result[0].children[2].id, "a2");
+});
+
 // removeNode
 test("removeNode: removes from root", () => {
   const t = [node("a", "A"), node("b", "B"), node("c", "C")];

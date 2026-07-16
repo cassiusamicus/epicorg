@@ -215,7 +215,7 @@ function triggerLinkPicker(textarea, e, isBody) {
 // being edited, so empty items don't clutter the outline. Mirrors the
 // title's formatted-preview/edit-textarea split, governed by the same
 // titleFormatMode toggle.
-function NoteContextMenu({ x, y, sel, textarea, onCommit, onClose }) {
+function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onClose }) {
   const menuRef = useRef(null);
   const hasSel = sel.start !== sel.end;
 
@@ -248,6 +248,14 @@ function NoteContextMenu({ x, y, sel, textarea, onCommit, onClose }) {
     textarea.select();
     onClose();
   };
+  const doSplit = () => {
+    dispatch(nodeId, "split-body-at-cursor", sel.start);
+    onClose();
+  };
+  const doJoin = () => {
+    dispatch(nodeId, "join-with-next");
+    onClose();
+  };
 
   const style = { position: "fixed", left: x, top: y, zIndex: 9999 };
   return html`
@@ -257,6 +265,45 @@ function NoteContextMenu({ x, y, sel, textarea, onCommit, onClose }) {
       <button className="note-ctx-item" onClick=${doPaste}>Paste</button>
       <div className="note-ctx-sep" />
       <button className="note-ctx-item" onClick=${doSelectAll}>Select All</button>
+      <div className="note-ctx-sep" />
+      <button className="note-ctx-item" onClick=${doSplit}>Split At Cursor Location</button>
+      <button className="note-ctx-item" onClick=${doJoin}>Join with Next Node</button>
+    </div>
+  `;
+}
+
+// Per-node action menu — opened by clicking or right-clicking the hover
+// handle to the left of a node's bullet (or right-clicking the bullet
+// itself). Reuses the note-ctx-* classes so it looks consistent with
+// NoteContextMenu above. Hoist bypasses the generic dispatch(nodeId, action)
+// path because toggleHoist normally infers its target from whichever node
+// happens to be keyboard-focused — irrelevant here, since the menu can be
+// opened on any node regardless of focus.
+function NodeActionMenu({ x, y, nodeId, isHoisted, dispatch, onToggleHoistNode, onClose }) {
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const down = (e) => { if (!menuRef.current?.contains(e.target)) onClose(); };
+    const key = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("mousedown", down);
+    document.addEventListener("keydown", key, true);
+    return () => { document.removeEventListener("mousedown", down); document.removeEventListener("keydown", key, true); };
+  }, [onClose]);
+
+  const run = (action) => { dispatch(nodeId, action); onClose(); };
+
+  const style = { position: "fixed", left: x, top: y, zIndex: 9999 };
+  return html`
+    <div ref=${menuRef} className="note-ctx-menu" style=${style}>
+      <button className="note-ctx-item" onClick=${() => run("duplicate")}>Duplicate</button>
+      <button className="note-ctx-item" onClick=${() => run("delete")}>Delete</button>
+      <div className="note-ctx-sep" />
+      <button className="note-ctx-item" onClick=${() => run("move-up")}>Move Up</button>
+      <button className="note-ctx-item" onClick=${() => run("move-down")}>Move Down</button>
+      <button className="note-ctx-item" onClick=${() => run("indent")}>Indent</button>
+      <button className="note-ctx-item" onClick=${() => run("outdent")}>Outdent</button>
+      <div className="note-ctx-sep" />
+      <button className="note-ctx-item" onClick=${() => { onToggleHoistNode(nodeId); onClose(); }}>${isHoisted ? "Unhoist" : "Hoist"}</button>
     </div>
   `;
 }
@@ -732,6 +779,7 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
     ${ctxMenu && html`<${NoteContextMenu}
       x=${ctxMenu.x} y=${ctxMenu.y}
       sel=${ctxMenu.sel} textarea=${ctxMenu.textarea}
+      nodeId=${node.id} dispatch=${dispatch}
       onCommit=${(newVal, cursor) => {
         dispatch(node.id, "change-body", tree.orgifyPaths(newVal));
         requestAnimationFrame(() => {
@@ -774,7 +822,7 @@ function toLetters(n, upper) {
   return result + ".";
 }
 
-function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, outlineFormat, levelFormats, siblingIndex, verticalLines, showTagChips, tagsOnRight, onSearchTag, bodyEditingId, bodyPreviewId, bodyRefs, onBulletMouseDown, globalFont, levelFonts, globalColor, levelColors }) {
+function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, outlineFormat, levelFormats, siblingIndex, verticalLines, showTagChips, tagsOnRight, onSearchTag, bodyEditingId, bodyPreviewId, bodyRefs, onNodeHandleMouseDown, onNodeHandleMenu, nodeMenuOpenId, globalFont, levelFonts, globalColor, levelColors }) {
   const isFocused = focusedId === node.id;
   const hasChildren = node.children?.length > 0;
   const bulletFmt = (levelFormats && levelFormats[depth]) || outlineFormat || "bullets";
@@ -838,11 +886,27 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
         ${verticalLines
           ? Array.from({ length: depth }, (_, i) => html`<span key=${i} className="indent-guide" />`)
           : html`<span style=${{ width: depth * 24, flexShrink: 0 }} />`}
-        <span className=${"bullet" + (hasChildren ? (node.collapsed ? " has-children collapsed" : " has-children expanded") : "") + (isIndexed ? " numbered" : "")}
+        <span className=${"node-handle" + (nodeMenuOpenId === node.id ? " menu-open" : "")}
+              title="Drag to move \u00B7 Click for actions"
               onMouseDown=${(e) => {
                 if (e.button !== 0) return;
                 e.preventDefault();
-                onBulletMouseDown?.(node.id, hasChildren, e);
+                onNodeHandleMouseDown?.(node.id, e);
+              }}
+              onContextMenu=${(e) => {
+                e.preventDefault();
+                onNodeHandleMenu?.(node.id, e.clientX, e.clientY);
+              }}>
+          <${IconNodeHandle} />
+        </span>
+        <span className=${"bullet" + (hasChildren ? (node.collapsed ? " has-children collapsed" : " has-children expanded") : "") + (isIndexed ? " numbered" : "")}
+              onClick=${() => {
+                if (hasChildren) dispatch(node.id, "toggle");
+                else { dispatch(node.id, "focus"); dispatch(node.id, "edit-title"); }
+              }}
+              onContextMenu=${(e) => {
+                e.preventDefault();
+                onNodeHandleMenu?.(node.id, e.clientX, e.clientY);
               }}>
           ${isIndexed && html`<span className="bullet-caret">${hasChildren ? (node.collapsed ? "\u25B6" : "\u25BC") : ""}</span>`}
           ${isIndexed && html`<span className="bullet-number">${bulletLabel}</span>`}
@@ -995,7 +1059,9 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
             bodyEditingId=${bodyEditingId}
             bodyPreviewId=${bodyPreviewId}
             bodyRefs=${bodyRefs}
-            onBulletMouseDown=${onBulletMouseDown}
+            onNodeHandleMouseDown=${onNodeHandleMouseDown}
+            onNodeHandleMenu=${onNodeHandleMenu}
+            nodeMenuOpenId=${nodeMenuOpenId}
             globalFont=${globalFont}
             levelFonts=${levelFonts}
             globalColor=${globalColor}
@@ -3240,7 +3306,12 @@ function handleKey(e, id, dispatch) {
   if (key === "ArrowUp")   { e.preventDefault(); dispatch(id, "nav-up"); return; }
   if (key === "ArrowDown") { e.preventDefault(); dispatch(id, "nav-down"); return; }
   if (key === "Enter" && e.shiftKey) { e.preventDefault(); dispatch(id, "focus-body"); return; }
-  if (key === "Enter")     { e.preventDefault(); dispatch(id, "new-sibling"); return; }
+  if (key === "Enter") {
+    e.preventDefault();
+    const atStart = e.target.selectionStart === 0 && e.target.selectionEnd === 0;
+    dispatch(id, atStart ? "new-sibling-before" : "new-sibling");
+    return;
+  }
   if (key === "Backspace" && e.target.value === "") { e.preventDefault(); dispatch(id, "delete"); return; }
 }
 
@@ -3860,7 +3931,7 @@ const UNDO_LIMIT = 100;
 // state, not content) are deliberately excluded.
 const UNDOABLE_ACTIONS = new Set([
   "change-preamble", "change", "change-body", "update-properties", "update-tags", "update-bookmarks",
-  "set-status", "set-priority", "cycle-status", "new-sibling", "delete", "indent", "outdent", "move-up", "move-down",
+  "set-status", "set-priority", "cycle-status", "new-sibling", "new-sibling-before", "delete", "duplicate", "indent", "outdent", "move-up", "move-down",
   "indent-only", "outdent-only", "move-up-only", "move-down-only",
   "split-at-cursor", "split-body-at-cursor", "join-with-next",
 ]);
@@ -4958,6 +5029,7 @@ function App() {
   const [journalDir, setJournalDir] = useState(null); // null = not yet loaded; "" = default
   const [tagListFile, setTagListFile] = useState(null); // null = not yet loaded; "" = default
   const [bookmarkListFile, setBookmarkListFile] = useState(null); // null = not yet loaded; "" = default
+  const [backupMaxVersions, setBackupMaxVersions] = useState(null); // null = not yet loaded; 0 = disabled
   const [showFolderPicker, setShowFolderPicker] = useState(false);
   const [showJournalFolderPicker, setShowJournalFolderPicker] = useState(false);
   const [showTagListFilePicker, setShowTagListFilePicker] = useState(false);
@@ -5558,10 +5630,13 @@ function App() {
   const pendingCursorPosRef = useRef(null);
   const inputRefs = useRef({});
   const bodyRefs = useRef({});
-  const dragStateRef = useRef(null);  // { nodeId, hasChildren, startX, startY, pending }
+  const dragStateRef = useRef(null);  // { nodeId, startX, startY, pending }
   const dragVisualRef = useRef(null);
   const [dragVisual, setDragVisual] = useState(null);
   useEffect(() => { dragVisualRef.current = dragVisual; }, [dragVisual]);
+  // The per-node action menu opened from the hover handle (or right-clicking
+  // the bullet/handle) — { nodeId, x, y } or null.
+  const [nodeMenu, setNodeMenu] = useState(null);
   // Which node's inline body/notes textarea is currently open for editing —
   // body text now lives under each bullet rather than in the detail pane.
   const [bodyEditingId, setBodyEditingId] = useState(null);
@@ -5615,6 +5690,12 @@ function App() {
       return focusedId && focusedId !== "preamble" ? focusedId : prev;
     });
   }, [focusedId]);
+  // Explicit-target version for the node action menu, which can be opened on
+  // any node regardless of keyboard focus — toggleHoist above infers its
+  // target from focusedId, which would silently hoist the wrong node here.
+  const toggleHoistNode = useCallback((id) => {
+    setHoistedId((prev) => (prev === id ? null : id));
+  }, []);
   const allTags = useMemo(() => nodes ? tree.collectAllTags(nodes) : [], [nodes]);
   const bookmarks = useMemo(() => nodes ? tree.collectBookmarks(nodes) : [], [nodes]);
 
@@ -6210,6 +6291,7 @@ function App() {
     api.get("/api/journaldir").then((d) => setJournalDir(d.dir)).catch(() => {});
     api.get("/api/taglistfile").then((d) => setTagListFile(d.file)).catch(() => {});
     api.get("/api/bookmarklistfile").then((d) => setBookmarkListFile(d.file)).catch(() => {});
+    api.get("/api/backupsettings").then((d) => setBackupMaxVersions(d.maxVersions)).catch(() => {});
     api.get("/api/workspace").then((d) => setWorkspaceConfig(d)).catch(() => {});
     api.get("/api/saved-workspaces").then((d) => setSavedWorkspaceProfiles(d.workspaces || [])).catch(() => {});
   }, []);
@@ -6263,6 +6345,11 @@ function App() {
   const clearJournalDir = useCallback(async () => {
     await api.post("/api/journaldir", { dir: "" });
     setJournalDir("");
+  }, []);
+
+  const changeBackupMaxVersions = useCallback(async (n) => {
+    const saved = await api.post("/api/backupsettings", { maxVersions: n });
+    setBackupMaxVersions(saved.maxVersions);
   }, []);
 
   const reloadGlobalTags = useCallback(() => {
@@ -7141,10 +7228,28 @@ function App() {
       markDirty(); return;
     }
 
+    if (action === "new-sibling-before") {
+      // The current node keeps its id and content, so it (and its cursor
+      // position) stays focused automatically via React's key-based
+      // reconciliation — no explicit refocus needed.
+      setSearchQuery("");
+      setNodes((p) => tree.insertSiblingBefore(p, nodeId).nodes);
+      markDirty(); return;
+    }
+
     if (action === "delete") {
       const prevId = idx > 1 ? flat[idx - 1].id : (flat.length > 2 ? flat[2]?.id : null);
       setNodes((p) => tree.removeNode(p, nodeId));
       if (prevId && prevId !== "preamble") focusNode(prevId);
+      markDirty(); return;
+    }
+
+    if (action === "duplicate") {
+      setNodes((p) => {
+        const { nodes: updated, newId } = tree.duplicateNode(p, nodeId);
+        requestAnimationFrame(() => focusNode(newId));
+        return updated;
+      });
       markDirty(); return;
     }
 
@@ -7233,8 +7338,12 @@ function App() {
     dispatch(meta.nodeId, action, el.selectionStart);
   }, [dispatch]);
 
-  const onBulletMouseDown = useCallback((nodeId, hasChildren, e) => {
-    dragStateRef.current = { nodeId, hasChildren, startX: e.clientX, startY: e.clientY, pending: true };
+  const onNodeHandleMouseDown = useCallback((nodeId, e) => {
+    dragStateRef.current = { nodeId, startX: e.clientX, startY: e.clientY, pending: true };
+  }, []);
+
+  const onNodeHandleMenu = useCallback((nodeId, x, y) => {
+    setNodeMenu({ nodeId, x, y });
   }, []);
 
   useEffect(() => {
@@ -7309,15 +7418,16 @@ function App() {
       });
     };
 
-    const onUp = () => {
+    const onUp = (e) => {
       if (!dragStateRef.current) return;
       const ds = dragStateRef.current;
       if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
       document.body.classList.remove("dnd-dragging");
 
       if (ds.pending) {
-        if (ds.hasChildren) dispatch(ds.nodeId, "toggle");
-        else { dispatch(ds.nodeId, "focus"); dispatch(ds.nodeId, "edit-title"); }
+        // A click on the handle with no real drag — open its action menu,
+        // rather than moving anything.
+        setNodeMenu({ nodeId: ds.nodeId, x: e.clientX, y: e.clientY });
       } else {
         const dv = dragVisualRef.current;
         if (dv) { setNodes(prev => tree.moveDragNode(prev, ds.nodeId, dv.afterId, dv.targetDepth)); markDirty(); }
@@ -7727,6 +7837,12 @@ function App() {
           focusedId=${focusedId}
           onAction=${outlineAction}
           onClose=${() => setShowOutlineActions(false)} />`}
+      ${nodeMenu && html`
+        <${NodeActionMenu}
+          x=${nodeMenu.x} y=${nodeMenu.y} nodeId=${nodeMenu.nodeId}
+          isHoisted=${hoistedId === nodeMenu.nodeId}
+          dispatch=${dispatch} onToggleHoistNode=${toggleHoistNode}
+          onClose=${() => setNodeMenu(null)} />`}
       ${showHelp && html`<${CommandPalette} commands=${buildCommands({
           undo, redo, canUndo, canRedo,
           goBack, goForward, canGoBack, canGoForward,
@@ -7967,7 +8083,9 @@ function App() {
                   verticalLines=${verticalLines} showTagChips=${showTagChips}
                   tagsOnRight=${tagsOnRight} onSearchTag=${searchTag}
                   bodyEditingId=${bodyEditingId} bodyPreviewId=${bodyPreviewId} bodyRefs=${bodyRefs}
-                  onBulletMouseDown=${onBulletMouseDown}
+                  onNodeHandleMouseDown=${onNodeHandleMouseDown}
+                  onNodeHandleMenu=${onNodeHandleMenu}
+                  nodeMenuOpenId=${nodeMenu?.nodeId}
                   globalFont=${globalFont} levelFonts=${levelFonts}
                   globalColor=${globalColor} levelColors=${levelColors} />
               `)}
@@ -8104,6 +8222,8 @@ function App() {
           bookmarkListFile=${bookmarkListFile}
           onChangeBookmarkListFile=${() => { setShowSettings(false); setShowBookmarkListFilePicker(true); }}
           onClearBookmarkListFile=${() => { setShowSettings(false); clearBookmarkListFile(); }}
+          backupMaxVersions=${backupMaxVersions}
+          onChangeBackupMaxVersions=${changeBackupMaxVersions}
           shortcutVer=${shortcutVer} onUpdateShortcut=${updateShortcut}
           onResetShortcut=${resetShortcut} onResetAllShortcuts=${resetAllShortcuts}
           toolbarConfig=${toolbarConfig} onUpdateToolbarConfig=${updateToolbarConfig}
@@ -8241,6 +8361,18 @@ function IconNavPanel() {
       <line x1="3" y1="6" x2="21" y2="6" />
       <line x1="3" y1="12" x2="15" y2="12" />
       <line x1="3" y1="18" x2="18" y2="18" />
+    </svg>
+  `;
+}
+
+// Dynalist-style per-node handle: even-length centered lines read as a
+// dedicated grip/menu control, distinct from IconNavPanel's uneven lines.
+function IconNodeHandle() {
+  return html`
+    <svg ...${ICON_PROPS}>
+      <line x1="5" y1="7" x2="19" y2="7" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+      <line x1="5" y1="17" x2="19" y2="17" />
     </svg>
   `;
 }
@@ -9648,6 +9780,7 @@ function SettingsModal({
   dateStampFmt, onSetDateStampFmt,
   tagListFile, onChangeTagListFile, onClearTagListFile,
   bookmarkListFile, onChangeBookmarkListFile, onClearBookmarkListFile,
+  backupMaxVersions, onChangeBackupMaxVersions,
   shortcutVer, onUpdateShortcut, onResetShortcut, onResetAllShortcuts,
   toolbarConfig, onUpdateToolbarConfig,
   view, onSetView,
@@ -9676,6 +9809,7 @@ function SettingsModal({
     { id: "appearance", label: "Appearance" },
     { id: "editor",     label: "Editor" },
     { id: "workspace",  label: "Workspace" },
+    { id: "backups",    label: "Versioning/Backups" },
     { id: "keyboard",   label: "Keyboard" },
     { id: "about",      label: "About" },
   ];
@@ -9998,6 +10132,32 @@ function SettingsModal({
             <input type="file" accept=".md,text/markdown" style=${{ display: "none" }}
                    onChange=${(e) => { const f = e.target.files?.[0]; if (f) { onImportFromMarkdown?.(f); onClose(); } e.target.value = ""; }} />
           </label>
+        </${StgRow}>
+      </div>
+    `;
+    if (section === "backups") return html`
+      <div className="stg-section">
+        <p className="stg-section-title">Versioning / Backups</p>
+        <p className="stg-desc" style=${{ marginBottom: "10px" }}>
+          Independent of the git history epicorg keeps automatically, this saves
+          numbered copies of each file right alongside it — Emacs-style
+          (e.g. "Welcome.org.~3~") — as a simple fallback you can browse without
+          using git. New backups are made when opening a file, after 20 minutes
+          idle, and on shutdown; backup files never show up in the file list or
+          search.
+        </p>
+        <${StgRow} label="Keep backups" desc="Saves numbered copies (name.~N~) next to each file">
+          <input type="checkbox" checked=${(backupMaxVersions ?? 0) > 0}
+                 onChange=${(e) => onChangeBackupMaxVersions(e.target.checked ? ((backupMaxVersions ?? 0) > 0 ? backupMaxVersions : 5) : 0)} />
+        </${StgRow}>
+        <${StgRow} label="Versions to keep" desc="Oldest backups beyond this count are deleted automatically">
+          <input type="number" className="stg-number-input" min="1" max="50"
+                 disabled=${(backupMaxVersions ?? 0) <= 0}
+                 value=${(backupMaxVersions ?? 0) > 0 ? backupMaxVersions : 5}
+                 onChange=${(e) => {
+                   const n = parseInt(e.target.value, 10);
+                   if (n > 0) onChangeBackupMaxVersions(n);
+                 }} />
         </${StgRow}>
       </div>
     `;

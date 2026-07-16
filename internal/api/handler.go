@@ -685,6 +685,25 @@ func (h *handlers) setJournalDir(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"dir": req.Dir})
 }
 
+func (h *handlers) getBackupSettings(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]int{"maxVersions": h.store.GetBackupMaxVersions()})
+}
+
+func (h *handlers) setBackupSettings(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		MaxVersions int `json:"maxVersions"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	if err := h.store.SetBackupMaxVersions(req.MaxVersions); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, map[string]int{"maxVersions": req.MaxVersions})
+}
+
 func (h *handlers) browseDir(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
 	if path == "" || path == "." {
@@ -700,7 +719,7 @@ func (h *handlers) browseDir(w http.ResponseWriter, r *http.Request) {
 	ext := r.URL.Query().Get("ext") // e.g. ".org" to also list matching files
 	var dirs, files []string
 	for _, e := range entries {
-		if strings.HasPrefix(e.Name(), ".") {
+		if strings.HasPrefix(e.Name(), ".") || orgfile.IsBackupFile(e.Name()) {
 			continue
 		}
 		if e.IsDir() {

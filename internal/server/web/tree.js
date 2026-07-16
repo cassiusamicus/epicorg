@@ -207,6 +207,54 @@ export function insertSiblingAfter(nodes, afterId) {
   return { nodes: insertAfter(nodes, afterId, nn), newId: nn.id };
 }
 
+// Duplicates a node and its full subtree as a new sibling directly after,
+// generating fresh ids throughout so the copy is fully independent (editing
+// one never touches the other).
+export function duplicateNode(nodes, id) {
+  function cloneDeep(n) {
+    return { ...n, id: newId(), children: (n.children || []).map(cloneDeep) };
+  }
+  let dupId = null;
+  function walk(list) {
+    const result = [];
+    for (const n of list) {
+      if (n.id === id) {
+        const clone = cloneDeep(n);
+        dupId = clone.id;
+        result.push(n, clone);
+      } else {
+        result.push(n.children?.length > 0 ? { ...n, children: walk(n.children) } : n);
+      }
+    }
+    return result;
+  }
+  return { nodes: walk(nodes), newId: dupId };
+}
+
+export function insertBefore(nodes, beforeId, nn) {
+  const result = [];
+  for (const n of nodes) {
+    if (n.id === beforeId) {
+      result.push(nn);
+      result.push(n);
+    } else {
+      const updated = n.children?.length > 0 ? insertBefore(n.children, beforeId, nn) : n.children;
+      result.push(updated !== n.children ? { ...n, children: updated } : n);
+    }
+  }
+  return result;
+}
+
+// Enter pressed at the very start of a title (cursor before the first
+// character) inserts the new blank node here and pushes the existing
+// heading (and its children) down, rather than appending an empty sibling
+// after it — mirrors how a plain textarea splits text at the cursor rather
+// than always appending at the end.
+export function insertSiblingBefore(nodes, beforeId) {
+  const nn = newNode();
+  return { nodes: insertBefore(nodes, beforeId, nn), newId: nn.id };
+}
+
 export function removeNode(nodes, id) {
   const result = [];
   for (const n of nodes) {

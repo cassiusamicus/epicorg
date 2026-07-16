@@ -18,13 +18,14 @@ import (
 
 // Store manages a directory of org files with hash-based change detection.
 type Store struct {
-	dir              string
-	journalDir       string // optional override; empty = dir/journal
-	tagListFile      string // optional override full path; empty = {dir}/TagList.org
-	bookmarkListFile string // optional override full path; empty = {dir}/Bookmarks.org
-	mu               sync.RWMutex
-	active           map[string]*FileState
-	currentFile      string // the file currently being edited
+	dir               string
+	journalDir        string // optional override; empty = dir/journal
+	tagListFile       string // optional override full path; empty = {dir}/TagList.org
+	bookmarkListFile  string // optional override full path; empty = {dir}/Bookmarks.org
+	backupMaxVersions int    // numbered backups kept per file; 0 = disabled
+	mu                sync.RWMutex
+	active            map[string]*FileState
+	currentFile       string // the file currently being edited
 }
 
 // epicorgConfig holds global settings persisted to ~/.config/epicorg/config.json.
@@ -32,6 +33,9 @@ type epicorgConfig struct {
 	JournalDir       string `json:"journalDir,omitempty"`
 	TagListFile      string `json:"tagListFile,omitempty"`      // full path to the active tag list .org file
 	BookmarkListFile string `json:"bookmarkListFile,omitempty"` // full path to the active bookmark list .org file
+	// Number of numbered backups (name.~N~) kept per file. nil = not yet
+	// configured (defaults to defaultBackupMaxVersions); 0 = disabled.
+	BackupMaxVersions *int `json:"backupMaxVersions,omitempty"`
 }
 
 func globalConfigPath() string {
@@ -98,12 +102,17 @@ func NewStore(dir string) (*Store, error) {
 	}
 
 	cfg := loadGlobalConfig()
+	backupMax := defaultBackupMaxVersions
+	if cfg.BackupMaxVersions != nil {
+		backupMax = *cfg.BackupMaxVersions
+	}
 	return &Store{
-		dir:              dir,
-		journalDir:       cfg.JournalDir,
-		tagListFile:      cfg.TagListFile,
-		bookmarkListFile: cfg.BookmarkListFile,
-		active:           make(map[string]*FileState),
+		dir:               dir,
+		journalDir:        cfg.JournalDir,
+		tagListFile:       cfg.TagListFile,
+		bookmarkListFile:  cfg.BookmarkListFile,
+		backupMaxVersions: backupMax,
+		active:            make(map[string]*FileState),
 	}, nil
 }
 
@@ -191,6 +200,30 @@ func (s *Store) SetBookmarkListFile(path string) error {
 
 	cfg := loadGlobalConfig()
 	cfg.BookmarkListFile = path
+	return saveGlobalConfig(cfg)
+}
+
+// GetBackupMaxVersions returns how many numbered backups (name.~N~) are
+// kept per file. 0 means backups are disabled.
+func (s *Store) GetBackupMaxVersions() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.backupMaxVersions
+}
+
+// SetBackupMaxVersions changes the retention count and persists it
+// globally. 0 disables backups entirely; existing backup files are left
+// alone (not deleted) when disabling.
+func (s *Store) SetBackupMaxVersions(n int) error {
+	if n < 0 {
+		n = 0
+	}
+	s.mu.Lock()
+	s.backupMaxVersions = n
+	s.mu.Unlock()
+
+	cfg := loadGlobalConfig()
+	cfg.BackupMaxVersions = &n
 	return saveGlobalConfig(cfg)
 }
 
@@ -305,8 +338,10 @@ func (s *Store) LoadFile(name string) (*FileState, error) {
 
 	meta := loadMeta(path + ".meta.json")
 
-	// Commit current disk state as merge base before editing
+	// Commit current disk state as merge base before editing, and keep a
+	// numbered backup of it too (see backup.go).
 	git.CommitFile(s.dir, name, "epicorg: snapshot base for "+name)
+	s.backupFile(name, s.backupMaxVersions)
 
 	fs := &FileState{
 		Doc:         doc,
@@ -572,14 +607,17 @@ func (s *Store) readFavoritesLocked() ([]string, error) {
 	return parsed.Favorites, nil
 }
 
-// CommitCurrent commits the currently active file to git.
+// CommitCurrent commits the currently active file to git, and keeps a
+// numbered backup of it too (see backup.go).
 func (s *Store) CommitCurrent(message string) error {
 	s.mu.RLock()
 	name := s.currentFile
+	max := s.backupMaxVersions
 	s.mu.RUnlock()
 	if name == "" {
 		return nil
 	}
+	s.backupFile(name, max)
 	return git.CommitFile(s.dir, name, message)
 }
 

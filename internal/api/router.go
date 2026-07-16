@@ -173,6 +173,17 @@ func Register(mux *http.ServeMux, store *orgfile.Store, onSave func(), defaultFi
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
+	// Versioning/backups — how many numbered backups (name.~N~) are kept per file.
+	mux.HandleFunc("/api/backupsettings", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			h.getBackupSettings(w, r)
+		case http.MethodPost:
+			h.setBackupSettings(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
 	// Tag list file — the specific .org file used as the tag list, persists globally.
 	mux.HandleFunc("/api/taglistfile", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
