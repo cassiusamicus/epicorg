@@ -254,8 +254,8 @@
       </div>
       <div class="feature-card">
         <div class="feature-icon">&#8597;</div>
-        <h3>Drag-and-drop reorder</h3>
-        <p>Drag any bullet to move it — the entire subtree travels with it. A drop-line shows exactly where it will land before you release.</p>
+        <h3>Hover handle &amp; per-node menu</h3>
+        <p>Hover any bullet to reveal a drag handle — drag it to reorder (the entire subtree travels with it, with a drop-line showing exactly where it will land), or click it for a quick menu: Duplicate, Delete, Move, Indent/Outdent, Hoist.</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon">&#8226;</div>
@@ -306,6 +306,21 @@
         <div class="feature-icon">&#128336;</div>
         <h3>TODO &amp; due dates</h3>
         <p>Clickable TODO/DONE badges stored as standard org keywords. Date picker writes <code>DEADLINE</code> properties — fully Emacs-compatible.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#9200;</div>
+        <h3>Scheduled reminders</h3>
+        <p>Appointments trigger an on-screen popup ahead of time that stays on screen until you dismiss it — no missed reminders buried in a tab.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#9986;</div>
+        <h3>Split at cursor</h3>
+        <p>Split a heading or note into two at the cursor position — from the keyboard, the command palette, or a note's right-click menu. The cursor always lands exactly where you clicked, never at the end of the text.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#128452;</div>
+        <h3>Numbered backups</h3>
+        <p>Independent of git, epicorg keeps the last 5–10 (configurable) Emacs-style <code>name.org.~N~</code> copies of each file alongside it — a simple, browsable fallback you don't need to know git to use.</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon">&#8644;</div>
@@ -399,6 +414,8 @@ go build -o epicorg .
         <div class="kbd-row"><span>Indent (demote)</span><kbd>Alt+→</kbd></div>
         <div class="kbd-row"><span>Move item up</span><kbd>Alt+↑</kbd></div>
         <div class="kbd-row"><span>Move item down</span><kbd>Alt+↓</kbd></div>
+        <div class="kbd-row"><span>Split at cursor</span><kbd>Ctrl+Shift+S</kbd></div>
+        <div class="kbd-row"><span>Join with next node</span><kbd>Ctrl+Shift+J</kbd></div>
       </div>
       <div class="kbd-group">
         <h3>Folding</h3>

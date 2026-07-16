@@ -18,26 +18,29 @@ This program was developed by Cassius Amicus for his own use in the study of Epi
 
 - **Infinite nesting** — headings, sub-headings, and body text to any depth
 - **Keyboard-first** — navigate, create, indent, move, and fold without touching the mouse
-- **Drag-and-drop reorder** — drag any bullet to reorder it; the entire subtree moves with it; a drop-line shows exactly where it will land
+- **Hover handle + per-node menu** — hover any bullet to reveal a drag handle to its left; drag it to reorder (the entire subtree moves with it, with a drop-line showing exactly where it will land), or click/right-click it for a quick menu — Duplicate, Delete, Move Up/Down, Indent/Outdent, Hoist. The bullet itself stays click-only (toggle/edit)
+- **Split at cursor** — split a heading or note into two at the cursor position, from the keyboard (`Ctrl+Shift+S`), the command palette, or a note's right-click menu; the cursor always lands exactly where you clicked, never at the end of the text
 - **Bullet styles** — choose Bullets, Numbers, or Letters (a–z / A–Z) globally or per level; preference saved to the org file so it survives across machines and browsers
-- **Wiki-links** — type `[[` in any body note to get a title-picker that inserts a `[[Note Title]]` link; clicking it in preview navigates to that note; a **Linked References** panel at the bottom of each note lists every other note that links to it (matches both `[[Title]]` wiki-links and `[[file:...]]` file links)
+- **Wiki-links** — type `[[` in any body note to get a title-picker that inserts a `[[Note Title]]` link; clicking it in preview navigates to that note; a **Linked References** panel at the bottom of each note lists every other note that links to it (matches both `[[Title]]` wiki-links and `[[file:...]]` file links); pasting a bare URL fetches the page title automatically to use as the link's label
 - **Inline notes** — body text under each bullet; toggle all off for a quick scan, with a `…` marker on items with hidden notes
+- **Rich inline formatting** — bold, italic, underline, and strikethrough (including combinations) follow real org-mode's boundary rules; quote, verse, src, example, and center blocks render too
 - **Text mode** — view and edit the raw org source (asterisks, tags, `:PROPERTIES:` drawers) then toggle back to reparse
 - **Detail pane** — status, due dates, tags, and custom properties for the focused item
 - **Tag panel** — sidebar showing all tags; click to filter the outline; tag list can live in a dedicated `.org` file
 - **Bookmark panel** — global bookmarks visible across all files; list can live in a dedicated `.org` file
 - **TODO/DONE status** — clickable badges stored as standard org-mode keywords
-- **Due dates** — date picker stored as `DEADLINE` in org properties
+- **Due dates & reminders** — date picker stored as `DEADLINE` in org properties; scheduled appointments trigger an on-screen popup ahead of time that stays until dismissed
 - **Agenda view** — all dated items sorted chronologically with overdue/today indicators
 - **Fold to level** — Alt+1 through Alt+9 collapses the outline to a given depth
 - **Hoist** — isolate the focused item and its children, hiding the rest
-- **Full-text search** — search across all org files in the workspace
+- **Full-text search** — search across all org files in the workspace, with match navigation to step through results
 - **Multi-file** — point epicorg at a directory; switch files from the picker; rename or delete from there too
 - **Export to HTML** — self-contained HTML file with navigation panel, tag filter, dark/light toggle, and reading-width toggle; respects your bullet style and accent color
 - **Export to org** — save a local copy of any file for backup or use outside epicorg
 - **Undo/redo** — Ctrl+Z / Ctrl+Shift+Z, document-wide; typing coalesces per pause
 - **Git-backed merge** — external edits are three-way merged via `git merge-file`; conflicts surface in the UI
 - **Auto-commit** — snapshots on file load, after 20 minutes idle, and on shutdown
+- **Numbered backups** — independent of git, keeps the last 5–10 (configurable in Settings → Versioning/Backups) Emacs-style `name.org.~N~` copies of each file alongside it, as a simple browsable fallback
 - **Single binary** — one Go binary embeds the entire frontend; no npm, no bundler, no runtime dependencies
 
 ## Quick start
@@ -107,6 +110,8 @@ Pre-built binaries for Linux, macOS, and Windows are published automatically as 
 | `Ctrl+Z` | Undo |
 | `Ctrl+Shift+Z` | Redo |
 | `Ctrl+H` | Command palette |
+| `Ctrl+Shift+S` | Split heading/note at cursor |
+| `Ctrl+Shift+J` | Join with next node |
 
 ## Org file format
 
