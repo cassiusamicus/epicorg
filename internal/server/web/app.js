@@ -242,6 +242,27 @@ function triggerLinkPicker(textarea, e, isBody) {
   }));
 }
 
+// Clamps a fixed-position popup menu so it always renders fully on
+// screen. (x, y) is the requested spawn point (click/cursor location);
+// after the menu mounts, its actual rendered size is measured via menuRef
+// and left/top are nudged inward just enough to keep it inside the
+// viewport, with a small margin. Runs in a layout effect (before paint),
+// so there's no visible flash at the wrong position first.
+function useFixedMenuPosition(menuRef, x, y) {
+  const [pos, setPos] = useState({ left: x, top: y });
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const margin = 4;
+    let left = x, top = y;
+    if (left + rect.width > window.innerWidth - margin) left = Math.max(margin, window.innerWidth - rect.width - margin);
+    if (top + rect.height > window.innerHeight - margin) top = Math.max(margin, window.innerHeight - rect.height - margin);
+    setPos({ left, top });
+  }, [x, y]);
+  return pos;
+}
+
 // Notes/body text under a bullet — shown only when non-empty or actively
 // being edited, so empty items don't clutter the outline. Mirrors the
 // title's formatted-preview/edit-textarea split, governed by the same
@@ -291,7 +312,8 @@ function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onIn
   const doInsertImage = () => { onInsertImage(); onClose(); };
   const doInsertTable = () => { onInsertTable(); onClose(); };
 
-  const style = { position: "fixed", left: x, top: y, zIndex: 9999 };
+  const pos = useFixedMenuPosition(menuRef, x, y);
+  const style = { position: "fixed", left: pos.left, top: pos.top, zIndex: 9999 };
   return html`
     <div ref=${menuRef} className="note-ctx-menu" style=${style}>
       <button className="note-ctx-item" disabled=${!hasSel} onClick=${doCut}>Cut</button>
@@ -317,7 +339,7 @@ function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onIn
 // path because toggleHoist normally infers its target from whichever node
 // happens to be keyboard-focused — irrelevant here, since the menu can be
 // opened on any node regardless of focus.
-function NodeActionMenu({ x, y, nodeId, isHoisted, dispatch, onToggleHoistNode, onClose }) {
+function NodeActionMenu({ x, y, nodeId, isHoisted, dispatch, onToggleHoistNode, onCopyFormatted, onCopyPlain, onClose }) {
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -330,7 +352,8 @@ function NodeActionMenu({ x, y, nodeId, isHoisted, dispatch, onToggleHoistNode, 
 
   const run = (action) => { dispatch(nodeId, action); onClose(); };
 
-  const style = { position: "fixed", left: x, top: y, zIndex: 9999 };
+  const pos = useFixedMenuPosition(menuRef, x, y);
+  const style = { position: "fixed", left: pos.left, top: pos.top, zIndex: 9999 };
   return html`
     <div ref=${menuRef} className="note-ctx-menu" style=${style}>
       <button className="note-ctx-item" onClick=${() => run("duplicate")}>Duplicate</button>
@@ -342,6 +365,9 @@ function NodeActionMenu({ x, y, nodeId, isHoisted, dispatch, onToggleHoistNode, 
       <button className="note-ctx-item" onClick=${() => run("outdent")}>Outdent</button>
       <div className="note-ctx-sep" />
       <button className="note-ctx-item" onClick=${() => { onToggleHoistNode(nodeId); onClose(); }}>${isHoisted ? "Unhoist" : "Hoist"}</button>
+      <div className="note-ctx-sep" />
+      <button className="note-ctx-item" onClick=${() => { onCopyFormatted(nodeId); onClose(); }}>Copy As Formatted Text</button>
+      <button className="note-ctx-item" onClick=${() => { onCopyPlain(nodeId); onClose(); }}>Copy As Plain Text</button>
     </div>
   `;
 }
@@ -6766,6 +6792,25 @@ function App() {
     if (ok) { showToast("Copied to clipboard"); setSyncStatus(SYNC_COPIED); setTimeout(() => setSyncStatus(SYNC_SAVED), 2000); }
   }, [getCopySource, writeToClipboard, showToast]);
 
+  // Node-scoped variants for the per-node action menu — copy exactly the
+  // clicked node and its subtree, by explicit id rather than whatever
+  // happens to be focused (the menu can be opened on any node regardless
+  // of focus, same reasoning as onToggleHoistNode above).
+  const copyNodeAsFormatted = useCallback(async (nodeId) => {
+    const node = tree.findNode(nodesRef.current || [], nodeId);
+    if (!node) return;
+    const htmlFull = `<!DOCTYPE html><html><body>${tree.treeToHtml([node])}</body></html>`;
+    const ok = await writeToClipboard(htmlFull, tree.treeToPlainText([node]));
+    if (ok) { showToast("Copied to clipboard"); setSyncStatus(SYNC_COPIED); setTimeout(() => setSyncStatus(SYNC_SAVED), 2000); }
+  }, [writeToClipboard, showToast]);
+
+  const copyNodeAsPlain = useCallback(async (nodeId) => {
+    const node = tree.findNode(nodesRef.current || [], nodeId);
+    if (!node) return;
+    const ok = await writeToClipboard(null, tree.treeToPlainText([node]));
+    if (ok) { showToast("Copied to clipboard"); setSyncStatus(SYNC_COPIED); setTimeout(() => setSyncStatus(SYNC_SAVED), 2000); }
+  }, [writeToClipboard, showToast]);
+
   const canGoBack = navState.index > 0;
   const canGoForward = navState.index < navState.history.length - 1;
 
@@ -7925,6 +7970,7 @@ function App() {
           x=${nodeMenu.x} y=${nodeMenu.y} nodeId=${nodeMenu.nodeId}
           isHoisted=${hoistedId === nodeMenu.nodeId}
           dispatch=${dispatch} onToggleHoistNode=${toggleHoistNode}
+          onCopyFormatted=${copyNodeAsFormatted} onCopyPlain=${copyNodeAsPlain}
           onClose=${() => setNodeMenu(null)} />`}
       ${showHelp && html`<${CommandPalette} commands=${buildCommands({
           undo, redo, canUndo, canRedo,
