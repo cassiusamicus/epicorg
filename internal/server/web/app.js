@@ -339,7 +339,7 @@ function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onIn
 // path because toggleHoist normally infers its target from whichever node
 // happens to be keyboard-focused — irrelevant here, since the menu can be
 // opened on any node regardless of focus.
-function NodeActionMenu({ x, y, nodeId, isHoisted, dispatch, onToggleHoistNode, onCopyFormatted, onCopyPlain, onCut, onCopyNode, onPasteNode, hasClipboard, onCleanText, onClose }) {
+function NodeActionMenu({ x, y, nodeId, isHoisted, dispatch, onToggleHoistNode, onCopyFormatted, onCut, onCopyNode, onPasteNode, hasClipboard, onCleanText, onClose }) {
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -359,6 +359,7 @@ function NodeActionMenu({ x, y, nodeId, isHoisted, dispatch, onToggleHoistNode, 
       <button className="note-ctx-item" onClick=${() => { onCut(nodeId); onClose(); }}>Cut</button>
       <button className="note-ctx-item" onClick=${() => { onCopyNode(nodeId); onClose(); }}>Copy</button>
       <button className="note-ctx-item" disabled=${!hasClipboard} onClick=${() => { onPasteNode(nodeId); onClose(); }}>Paste</button>
+      <button className="note-ctx-item" onClick=${() => { onCopyFormatted(nodeId); onClose(); }}>Copy As Formatted Text</button>
       <div className="note-ctx-sep" />
       <button className="note-ctx-item" onClick=${() => run("move-up")}>Move Up</button>
       <button className="note-ctx-item" onClick=${() => run("move-down")}>Move Down</button>
@@ -369,9 +370,6 @@ function NodeActionMenu({ x, y, nodeId, isHoisted, dispatch, onToggleHoistNode, 
       <button className="note-ctx-item" onClick=${() => run("delete")}>Delete</button>
       <div className="note-ctx-sep" />
       <button className="note-ctx-item" onClick=${() => { onToggleHoistNode(nodeId); onClose(); }}>${isHoisted ? "Unhoist" : "Hoist"}</button>
-      <div className="note-ctx-sep" />
-      <button className="note-ctx-item" onClick=${() => { onCopyFormatted(nodeId); onClose(); }}>Copy As Formatted Text</button>
-      <button className="note-ctx-item" onClick=${() => { onCopyPlain(nodeId); onClose(); }}>Copy As Plain Text</button>
       <div className="note-ctx-sep" />
       <button className="note-ctx-item" onClick=${() => { onCleanText(nodeId); onClose(); }}>Clean Text</button>
     </div>
@@ -6832,12 +6830,6 @@ function App() {
     if (ok) { showToast("Copied to clipboard"); setSyncStatus(SYNC_COPIED); setTimeout(() => setSyncStatus(SYNC_SAVED), 2000); }
   }, [writeToClipboard, showToast]);
 
-  const copyNodeAsPlain = useCallback(async (nodeId) => {
-    const node = tree.findNode(nodesRef.current || [], nodeId);
-    if (!node) return;
-    const ok = await writeToClipboard(null, tree.treeToPlainText([node]));
-    if (ok) { showToast("Copied to clipboard"); setSyncStatus(SYNC_COPIED); setTimeout(() => setSyncStatus(SYNC_SAVED), 2000); }
-  }, [writeToClipboard, showToast]);
 
   const canGoBack = navState.index > 0;
   const canGoForward = navState.index < navState.history.length - 1;
@@ -7467,19 +7459,25 @@ function App() {
 
   // Node clipboard for the per-node menu's Cut/Copy/Paste — explicit-id
   // versions (like toggleHoistNode/copyNodeAsFormatted above) since the menu
-  // can be opened on any node regardless of what's currently focused.
-  const cutNode = useCallback((nodeId) => {
+  // can be opened on any node regardless of what's currently focused. Both
+  // also write plain text to the system clipboard, so a Cut/Copy from here
+  // can be pasted outside epicorg too, not just back into the outline.
+  const cutNode = useCallback(async (nodeId) => {
     const node = tree.findNode(nodesRef.current || [], nodeId);
     if (!node) return;
     setNodeClipboard(node);
+    const ok = await writeToClipboard(null, tree.treeToPlainText([node]));
+    if (ok) { showToast("Cut to clipboard"); setSyncStatus(SYNC_COPIED); setTimeout(() => setSyncStatus(SYNC_SAVED), 2000); }
     dispatch(nodeId, "delete");
-  }, [dispatch]);
+  }, [dispatch, writeToClipboard, showToast]);
 
-  const copyNode = useCallback((nodeId) => {
+  const copyNode = useCallback(async (nodeId) => {
     const node = tree.findNode(nodesRef.current || [], nodeId);
     if (!node) return;
     setNodeClipboard(node);
-  }, []);
+    const ok = await writeToClipboard(null, tree.treeToPlainText([node]));
+    if (ok) { showToast("Copied to clipboard"); setSyncStatus(SYNC_COPIED); setTimeout(() => setSyncStatus(SYNC_SAVED), 2000); }
+  }, [writeToClipboard, showToast]);
 
   const pasteNode = useCallback((nodeId) => {
     if (!nodeClipboard) return;
@@ -8041,7 +8039,7 @@ function App() {
           x=${nodeMenu.x} y=${nodeMenu.y} nodeId=${nodeMenu.nodeId}
           isHoisted=${hoistedId === nodeMenu.nodeId}
           dispatch=${dispatch} onToggleHoistNode=${toggleHoistNode}
-          onCopyFormatted=${copyNodeAsFormatted} onCopyPlain=${copyNodeAsPlain}
+          onCopyFormatted=${copyNodeAsFormatted}
           onCut=${cutNode} onCopyNode=${copyNode} onPasteNode=${pasteNode} hasClipboard=${!!nodeClipboard}
           onCleanText=${cleanNodeText}
           onClose=${() => setNodeMenu(null)} />`}
