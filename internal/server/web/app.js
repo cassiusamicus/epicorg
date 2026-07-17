@@ -339,7 +339,7 @@ function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onIn
 // path because toggleHoist normally infers its target from whichever node
 // happens to be keyboard-focused — irrelevant here, since the menu can be
 // opened on any node regardless of focus.
-function NodeActionMenu({ x, y, nodeId, isHoisted, dispatch, onToggleHoistNode, onCopyFormatted, onCopyPlain, onClose }) {
+function NodeActionMenu({ x, y, nodeId, isHoisted, dispatch, onToggleHoistNode, onCopyFormatted, onCopyPlain, onCut, onCopyNode, onPasteNode, hasClipboard, onCleanText, onClose }) {
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -356,18 +356,24 @@ function NodeActionMenu({ x, y, nodeId, isHoisted, dispatch, onToggleHoistNode, 
   const style = { position: "fixed", left: pos.left, top: pos.top, zIndex: 9999 };
   return html`
     <div ref=${menuRef} className="note-ctx-menu" style=${style}>
-      <button className="note-ctx-item" onClick=${() => run("duplicate")}>Duplicate</button>
-      <button className="note-ctx-item" onClick=${() => run("delete")}>Delete</button>
+      <button className="note-ctx-item" onClick=${() => { onCut(nodeId); onClose(); }}>Cut</button>
+      <button className="note-ctx-item" onClick=${() => { onCopyNode(nodeId); onClose(); }}>Copy</button>
+      <button className="note-ctx-item" disabled=${!hasClipboard} onClick=${() => { onPasteNode(nodeId); onClose(); }}>Paste</button>
       <div className="note-ctx-sep" />
       <button className="note-ctx-item" onClick=${() => run("move-up")}>Move Up</button>
       <button className="note-ctx-item" onClick=${() => run("move-down")}>Move Down</button>
       <button className="note-ctx-item" onClick=${() => run("indent")}>Indent</button>
       <button className="note-ctx-item" onClick=${() => run("outdent")}>Outdent</button>
       <div className="note-ctx-sep" />
+      <button className="note-ctx-item" onClick=${() => run("duplicate")}>Duplicate</button>
+      <button className="note-ctx-item" onClick=${() => run("delete")}>Delete</button>
+      <div className="note-ctx-sep" />
       <button className="note-ctx-item" onClick=${() => { onToggleHoistNode(nodeId); onClose(); }}>${isHoisted ? "Unhoist" : "Hoist"}</button>
       <div className="note-ctx-sep" />
       <button className="note-ctx-item" onClick=${() => { onCopyFormatted(nodeId); onClose(); }}>Copy As Formatted Text</button>
       <button className="note-ctx-item" onClick=${() => { onCopyPlain(nodeId); onClose(); }}>Copy As Plain Text</button>
+      <div className="note-ctx-sep" />
+      <button className="note-ctx-item" onClick=${() => { onCleanText(nodeId); onClose(); }}>Clean Text</button>
     </div>
   `;
 }
@@ -4011,7 +4017,7 @@ const UNDO_LIMIT = 100;
 // state, not content) are deliberately excluded.
 const UNDOABLE_ACTIONS = new Set([
   "change-preamble", "change", "change-body", "update-properties", "update-tags", "update-bookmarks",
-  "set-status", "set-priority", "cycle-status", "new-sibling", "new-sibling-before", "delete", "duplicate", "indent", "outdent", "move-up", "move-down",
+  "set-status", "set-priority", "cycle-status", "new-sibling", "new-sibling-before", "delete", "duplicate", "paste-node", "indent", "outdent", "move-up", "move-down",
   "indent-only", "outdent-only", "move-up-only", "move-down-only",
   "split-at-cursor", "split-body-at-cursor", "join-with-next",
 ]);
@@ -5733,6 +5739,11 @@ function App() {
   // The per-node action menu opened from the hover handle (or right-clicking
   // the bullet/handle) — { nodeId, x, y } or null.
   const [nodeMenu, setNodeMenu] = useState(null);
+  // Node-level clipboard for the menu's Cut/Copy/Paste — a single node (with
+  // its subtree), or null. Cut/Copy both just store here; Paste clones it
+  // with fresh ids each time (see tree.pasteNodeAfter) so pasting the same
+  // clipboard repeatedly never collides with an earlier paste.
+  const [nodeClipboard, setNodeClipboard] = useState(null);
   // Which node's inline body/notes textarea is currently open for editing —
   // body text now lives under each bullet rather than in the detail pane.
   const [bodyEditingId, setBodyEditingId] = useState(null);
@@ -7398,6 +7409,17 @@ function App() {
       markDirty(); return;
     }
 
+    if (action === "paste-node") {
+      const clip = value;
+      if (!clip) return;
+      setNodes((p) => {
+        const { nodes: updated, newId } = tree.pasteNodeAfter(p, nodeId, clip);
+        requestAnimationFrame(() => focusNode(newId));
+        return updated;
+      });
+      markDirty(); return;
+    }
+
     if (action === "indent") { setNodes((p) => tree.indentNode(p, nodeId)); focusNode(nodeId); markDirty(); return; }
     if (action === "outdent") { setNodes((p) => tree.outdentNode(p, nodeId)); focusNode(nodeId); markDirty(); return; }
     if (action === "move-up") { setNodes((p) => tree.moveNodeUp(p, nodeId)); focusNode(nodeId); markDirty(); return; }
@@ -7442,6 +7464,38 @@ function App() {
       markDirty(); return;
     }
   }, [focusNode, markDirty, maybeSnapshotForUndo]);
+
+  // Node clipboard for the per-node menu's Cut/Copy/Paste — explicit-id
+  // versions (like toggleHoistNode/copyNodeAsFormatted above) since the menu
+  // can be opened on any node regardless of what's currently focused.
+  const cutNode = useCallback((nodeId) => {
+    const node = tree.findNode(nodesRef.current || [], nodeId);
+    if (!node) return;
+    setNodeClipboard(node);
+    dispatch(nodeId, "delete");
+  }, [dispatch]);
+
+  const copyNode = useCallback((nodeId) => {
+    const node = tree.findNode(nodesRef.current || [], nodeId);
+    if (!node) return;
+    setNodeClipboard(node);
+  }, []);
+
+  const pasteNode = useCallback((nodeId) => {
+    if (!nodeClipboard) return;
+    dispatch(nodeId, "paste-node", nodeClipboard);
+  }, [dispatch, nodeClipboard]);
+
+  // "Clean Text" in the per-node menu — the same cleanUpText used by Clean
+  // Up Pasted Text (extra spaces, leading indentation, hard line breaks;
+  // keeps paragraph breaks), applied to this node's whole title and body
+  // rather than just a text selection.
+  const cleanNodeText = useCallback((nodeId) => {
+    const node = tree.findNode(nodesRef.current || [], nodeId);
+    if (!node) return;
+    dispatch(nodeId, "change", cleanUpText(node.title || ""));
+    if (node.body) dispatch(nodeId, "change-body", cleanUpText(node.body));
+  }, [dispatch]);
 
   // Cleans up the selected text via dispatch (not a raw DOM "input" event)
   // because a body note's textarea unmounts into a formatted preview the
@@ -7988,6 +8042,8 @@ function App() {
           isHoisted=${hoistedId === nodeMenu.nodeId}
           dispatch=${dispatch} onToggleHoistNode=${toggleHoistNode}
           onCopyFormatted=${copyNodeAsFormatted} onCopyPlain=${copyNodeAsPlain}
+          onCut=${cutNode} onCopyNode=${copyNode} onPasteNode=${pasteNode} hasClipboard=${!!nodeClipboard}
+          onCleanText=${cleanNodeText}
           onClose=${() => setNodeMenu(null)} />`}
       ${showHelp && html`<${CommandPalette} commands=${buildCommands({
           undo, redo, canUndo, canRedo,

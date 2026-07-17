@@ -231,6 +231,19 @@ export function duplicateNode(nodes, id) {
   return { nodes: walk(nodes), newId: dupId };
 }
 
+// Inserts a deep clone of extNode (regenerating every id throughout, so it
+// can never collide with an id already in nodes) as a new sibling directly
+// after afterId. Used by the node clipboard's Paste — unlike duplicateNode,
+// extNode comes from outside the tree (whatever was last Cut or Copied),
+// not looked up by id within it.
+export function pasteNodeAfter(nodes, afterId, extNode) {
+  function cloneDeep(n) {
+    return { ...n, id: newId(), children: (n.children || []).map(cloneDeep) };
+  }
+  const clone = cloneDeep(extNode);
+  return { nodes: insertAfter(nodes, afterId, clone), newId: clone.id };
+}
+
 export function insertBefore(nodes, beforeId, nn) {
   const result = [];
   for (const n of nodes) {

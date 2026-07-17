@@ -211,6 +211,45 @@ test("duplicateNode: nested node duplicates within its own parent", () => {
   assertEqual(result[0].children[2].id, "a2");
 });
 
+// pasteNodeAfter
+test("pasteNodeAfter: inserts a clone of an external node directly after afterId", () => {
+  const t = [node("a", "A"), node("b", "B")];
+  const clip = { ...node("x", "Clipboard Node"), body: "clip body" };
+  const { nodes: result, newId } = tree.pasteNodeAfter(t, "a", clip);
+  assertEqual(result.length, 3);
+  assertEqual(result[0].id, "a");
+  assertEqual(result[1].id, newId);
+  assertEqual(result[1].title, "Clipboard Node");
+  assertEqual(result[1].body, "clip body");
+  assertEqual(result[2].id, "b");
+});
+
+test("pasteNodeAfter: pasted node gets a fresh id, never reusing the clipboard's original id", () => {
+  const t = [node("a", "A")];
+  const clip = node("a", "Stale Id"); // deliberately collides with an id already in the tree
+  const { nodes: result, newId } = tree.pasteNodeAfter(t, "a", clip);
+  assertEqual(newId !== "a", true);
+  assertEqual(result[1].id, newId);
+});
+
+test("pasteNodeAfter: deep-copies children with their own fresh ids", () => {
+  const t = [node("a", "A")];
+  const clip = node("x", "Clipboard Node", [node("x1", "Child")]);
+  const { nodes: result } = tree.pasteNodeAfter(t, "a", clip);
+  assertEqual(result[1].children.length, 1);
+  assertEqual(result[1].children[0].title, "Child");
+  assertEqual(result[1].children[0].id !== "x1", true);
+});
+
+test("pasteNodeAfter: pasting the same clipboard node twice produces two independent copies", () => {
+  const t = [node("a", "A")];
+  const clip = node("x", "Clipboard Node");
+  const first = tree.pasteNodeAfter(t, "a", clip);
+  const second = tree.pasteNodeAfter(first.nodes, "a", clip);
+  assertEqual(second.nodes.length, 3);
+  assertEqual(first.newId !== second.newId, true);
+});
+
 // removeNode
 test("removeNode: removes from root", () => {
   const t = [node("a", "A"), node("b", "B"), node("c", "C")];
