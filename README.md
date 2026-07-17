@@ -163,6 +163,18 @@ make run          # build + run in current directory
 
 Go 1.21 or later required. No other build-time dependencies.
 
+## Changelog
+
+**2026-07-17**
+- Fixed `Alt+Left`/`Alt+Right` sometimes navigating back/forward in epicorg's own file history instead of outdenting/indenting — note (body) fields had no indent/outdent handling at all, and even title fields could trigger both at once.
+- Per-node menu: Cut/Copy now also write to the system clipboard (not just epicorg's internal one), added a node clipboard (Cut/Copy/Paste an outline item into another part of the tree), and added a Clean Text command.
+- Popup menus (note right-click, per-node hamburger) now keep themselves fully on screen instead of getting cut off near the window edge.
+
+**2026-07-16**
+- Added Export to PDF, via the browser's native print dialog ("Save as PDF") rather than a bundled PDF renderer.
+- Moved the note field's Insert Footnote/Image/Table buttons into its right-click menu, alongside Cut/Copy/Paste/Split/Join.
+- Added Copy As Formatted/Plain Text to the per-node menu.
+
 ## Contributing
 
 Cassius Amicus is the developer but the heavy lifting here has been done by Claude.  It is not the intent of Epicorg to compete with Emacs, Workflowy, Dynalist, Obsidian, or Logseq, and there are no plans to do so in the future.  Epicorg is designed to assist one user working closely with one of a few outlines for focused - close-in use.  To-do and agenda functionality have been included experimentally, but Epicorg is not intended to serve as a primary calendaring system, nor will it likely ever sync to Google or anything else.  All non-outlining functions are strictly secondary to the purpose of the program.  
