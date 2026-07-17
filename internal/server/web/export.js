@@ -553,7 +553,33 @@ sup.fn-def-marker{cursor:default;font-weight:700}
 .fn-back{color:var(--link);font-size:.8em;text-decoration:none;margin-left:3px;opacity:.7}
 .fn-back:hover{opacity:1}
 @keyframes fn-flash{0%,15%{outline:2px solid var(--link);border-radius:3px;outline-offset:2px}100%{outline:2px solid transparent}}
-.fn-flash{animation:fn-flash 1.2s ease-out}`;
+.fn-flash{animation:fn-flash 1.2s ease-out}
+
+/* PRINT / PDF EXPORT — the screen layout above is a fixed-viewport SPA
+   (html/body/#layout all overflow:hidden, with #content as the only
+   scrollable region), which would clip a print job down to a single
+   page. Printing needs ordinary document flow instead, so this block
+   hides all interactive chrome, un-clips every scroll container, and
+   forces light/ink-friendly colors regardless of the exported theme. */
+@media print{
+  #tb,#nav-panel,#tag-panel,#flt-nav{display:none!important}
+  html,body{height:auto!important;overflow:visible!important}
+  #layout{height:auto!important;overflow:visible!important;display:block!important}
+  #content,#nav-body{overflow:visible!important}
+  #content{padding:0!important}
+  #content.rw #outline{max-width:100%!important}
+  :root,[data-theme=dark]{
+    --bg:#fff;--surface:#fff;--text:#000;--dim:#444;--border:#ccc;
+    --link:#000;--code-bg:#f0f0f0;
+    --todo-bg:#fff;--todo-text:#000;--done-bg:#fff;--done-text:#000;
+    --cancelled-bg:#fff;--cancelled-text:#666;--next-bg:#fff;--next-text:#000;
+    --bullet:#000;
+  }
+  a{text-decoration:underline}
+  .sbadge{border:1px solid #000}
+  .ns{page-break-inside:avoid}
+  .tc{border:1px solid #999}
+}`;
 }
 
 function exportJs() {

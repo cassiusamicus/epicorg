@@ -6653,6 +6653,23 @@ function App() {
     URL.revokeObjectURL(url);
   }, [nodes, preamble, currentFile, theme, topBarColor]);
 
+  // PDF export reuses the same HTML export (which carries its own
+  // @media print rules — see export.js), opened in a new tab and printed
+  // via the browser's native print dialog ("Save as PDF") rather than
+  // generating a file server-side — see the epicorg architecture notes on
+  // why (no bundled Chrome/PDF-rendering dependency).
+  const exportToPdf = useCallback(() => {
+    if (!currentFile) return;
+    const html = generateExportHtml(nodes, preamble, currentFile, theme, resolveTopBarColor(topBarColor), outlineFormat, levelFormats);
+    const win = window.open("", "_blank");
+    if (!win) { showToast("Pop-up blocked — allow pop-ups for epicorg to export to PDF"); return; }
+    win.onload = () => { win.focus(); win.print(); };
+    win.onafterprint = () => win.close();
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+  }, [nodes, preamble, currentFile, theme, topBarColor, outlineFormat, levelFormats, showToast]);
+
   const exportToMarkdown = useCallback(() => {
     if (!currentFile) return;
     const md = generateMarkdown(nodes, preamble, currentFile);
@@ -7991,7 +8008,7 @@ function App() {
           setShowPicker, setShowTextSearch, setShowFolderPicker,
           setShowHelp, insertFootnote, insertDateStamp,
           joinFocusedWithNext,
-                exportToHtml, exportToOrg, exportToMarkdown, currentFile,
+                exportToHtml, exportToPdf, exportToOrg, exportToMarkdown, currentFile,
           copyAsFormatted, copyAsPlain,
           clearRecentFiles,
           setFindOpen, findInputRef,
@@ -8361,7 +8378,7 @@ function App() {
           isHoisted=${isHoisted} canToggleHoist=${isHoisted || (focusedId && focusedId !== "preamble")}
           onToggleHoist=${toggleHoist}
           onFoldToLevel=${foldToLevel}
-          onExportToOrg=${exportToOrg} onExportToHtml=${exportToHtml} onExportToMarkdown=${exportToMarkdown} onImportFromMarkdown=${importFromMarkdown}
+          onExportToOrg=${exportToOrg} onExportToHtml=${exportToHtml} onExportToPdf=${exportToPdf} onExportToMarkdown=${exportToMarkdown} onImportFromMarkdown=${importFromMarkdown}
           tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${toggleTagPanel}
           bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${toggleBookmarkPanel}
           workspaceConfig=${workspaceConfig}
@@ -9916,7 +9933,7 @@ function SettingsModal({
   textMode, onSetViewMode,
   isHoisted, canToggleHoist, onToggleHoist,
   onFoldToLevel,
-  onExportToOrg, onExportToHtml, onExportToMarkdown, onImportFromMarkdown,
+  onExportToOrg, onExportToHtml, onExportToPdf, onExportToMarkdown, onImportFromMarkdown,
   tagPanelVisible, onToggleTagPanel,
   bookmarkPanelVisible, onToggleBookmarkPanel,
   workspaceConfig, onConfigureWorkspace,
@@ -10238,6 +10255,13 @@ function SettingsModal({
           <button className="stg-btn" disabled=${!currentFile}
                   onClick=${() => { onExportToHtml?.(); onClose(); }}
                   title=${!currentFile ? "Open a file first" : "Export current file to HTML"}>
+            Export…
+          </button>
+        </${StgRow}>
+        <${StgRow} label="Export to PDF" desc="Opens a print-formatted tab and your browser's print dialog — choose 'Save as PDF'">
+          <button className="stg-btn" disabled=${!currentFile}
+                  onClick=${() => { onExportToPdf?.(); onClose(); }}
+                  title=${!currentFile ? "Open a file first" : "Open print dialog for this file"}>
             Export…
           </button>
         </${StgRow}>
@@ -10846,7 +10870,7 @@ function buildCommands(ctx) {
     setShowPicker, setShowTextSearch, setShowFolderPicker, setShowHelp,
     insertFootnote, insertDateStamp,
     joinFocusedWithNext,
-    exportToHtml, exportToOrg, exportToMarkdown, currentFile,
+    exportToHtml, exportToPdf, exportToOrg, exportToMarkdown, currentFile,
     copyAsFormatted, copyAsPlain,
     clearRecentFiles,
     setFindOpen, findInputRef,
@@ -10915,6 +10939,7 @@ function buildCommands(ctx) {
     // Export / Copy
     { category: "Export", label: "Export to Local Org File", desc: "Use this option to save a local copy of the current org file for backup or other use.", keys: "", action: exportToOrg,        disabled: !currentFile },
     { category: "Export", label: "Export to HTML",           desc: "Save standalone HTML file of this document",                                           keys: "", action: exportToHtml,       disabled: !currentFile },
+    { category: "Export", label: "Export to PDF",            desc: "Opens a print-formatted tab and triggers your browser's print dialog — choose \"Save as PDF\"", keys: "", action: exportToPdf, disabled: !currentFile },
     { category: "Export", label: "Export to Markdown",       desc: "Save as GitHub-flavoured Markdown (.md) file",                                         keys: "", action: exportToMarkdown,   disabled: !currentFile },
     { category: "Export", label: "Copy as Formatted Text",   desc: "Copy visible outline to clipboard with bold/italic/links preserved (paste into Word, email, etc.)", keys: displayCombo(getShortcutCombo("copyFormatted")), action: copyAsFormatted, disabled: !currentFile },
     { category: "Export", label: "Copy as Plain Text",       desc: "Copy visible outline to clipboard as clean text — no *markup* characters",                        keys: displayCombo(getShortcutCombo("copyPlain")),     action: copyAsPlain,      disabled: !currentFile },
