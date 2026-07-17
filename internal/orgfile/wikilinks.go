@@ -1,7 +1,6 @@
 package orgfile
 
 import (
-	"io/fs"
 	"path/filepath"
 	"strings"
 
@@ -16,35 +15,26 @@ type WikiLinkEntry struct {
 
 // WikiLinkEntries returns all .org files in the workspace with their titles.
 // Title comes from #+TITLE: in the preamble; falls back to a humanized filename.
-func (s *Store) WikiLinkEntries() ([]WikiLinkEntry, error) {
-	dir := s.Dir()
+// cfg's excluded paths (e.g. a synced-but-foreign app's own backup folder) are
+// honored via WalkWorkspace, same as text/tag search — these used to walk the
+// directory tree themselves and ignore exclusions entirely, so a malformed
+// file sitting in an excluded folder could still get parsed and log warnings
+// on every note load.
+func (s *Store) WikiLinkEntries(cfg *WorkspaceConfig) ([]WikiLinkEntry, error) {
 	var entries []WikiLinkEntry
 
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, werr error) error {
-		if werr != nil {
-			return nil
+	err := WalkWorkspace(cfg, func(absPath, displayName, rootLabel string) error {
+		fileID := displayName
+		if rootLabel != "" {
+			fileID = absPath
 		}
-		if d.IsDir() {
-			if d.Name() != "." && strings.HasPrefix(d.Name(), ".") {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !strings.HasSuffix(d.Name(), ".org") {
-			return nil
-		}
-		rel, err := filepath.Rel(dir, path)
-		if err != nil {
-			return nil
-		}
-		rel = filepath.ToSlash(rel)
-		data, err := readFileSafe(path)
+		data, err := readFileSafe(absPath)
 		if err != nil {
 			return nil
 		}
 		entries = append(entries, WikiLinkEntry{
-			File:  rel,
-			Title: wikiTitle(string(data), d.Name()),
+			File:  fileID,
+			Title: wikiTitle(string(data), filepath.Base(absPath)),
 		})
 		return nil
 	})
@@ -53,7 +43,7 @@ func (s *Store) WikiLinkEntries() ([]WikiLinkEntry, error) {
 
 // BacklinkSearch finds all nodes across the workspace that reference selfFile,
 // matching both [[Title]] wiki-links and [[file:selfFile...]] file-link syntax.
-func (s *Store) BacklinkSearch(title, selfFile string) ([]TextSearchResult, error) {
+func (s *Store) BacklinkSearch(title, selfFile string, cfg *WorkspaceConfig) ([]TextSearchResult, error) {
 	if title == "" && selfFile == "" {
 		return nil, nil
 	}
@@ -84,31 +74,17 @@ func (s *Store) BacklinkSearch(title, selfFile string) ([]TextSearchResult, erro
 		contextTerm = "[[file:" + selfFile
 	}
 
-	dir := s.Dir()
 	var results []TextSearchResult
 
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, werr error) error {
-		if werr != nil {
-			return nil
+	err := WalkWorkspace(cfg, func(absPath, displayName, rootLabel string) error {
+		fileID := displayName
+		if rootLabel != "" {
+			fileID = absPath
 		}
-		if d.IsDir() {
-			if d.Name() != "." && strings.HasPrefix(d.Name(), ".") {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !strings.HasSuffix(d.Name(), ".org") {
-			return nil
-		}
-		rel, err := filepath.Rel(dir, path)
-		if err != nil {
-			return nil
-		}
-		rel = filepath.ToSlash(rel)
-		if rel == selfFile {
+		if fileID == selfFile {
 			return nil // skip self
 		}
-		data, err := readFileSafe(path)
+		data, err := readFileSafe(absPath)
 		if err != nil {
 			return nil
 		}
@@ -116,7 +92,7 @@ func (s *Store) BacklinkSearch(title, selfFile string) ([]TextSearchResult, erro
 		if !anyMatch(content) {
 			return nil // fast path: skip file entirely
 		}
-		doc := parseOrg(content, d.Name())
+		doc := parseOrg(content, filepath.Base(absPath))
 		items := model.FromDocument(doc)
 		for i, item := range items {
 			if item.IsBody {
@@ -132,10 +108,10 @@ func (s *Store) BacklinkSearch(title, selfFile string) ([]TextSearchResult, erro
 			}
 			ctx := buildContext([]searchTerm{{text: contextTerm, include: true}}, item.Title, body)
 			results = append(results, TextSearchResult{
-				File:     rel,
+				File:     fileID,
 				Title:    item.Title,
 				Context:  ctx,
-				InSubdir: strings.Contains(rel, "/"),
+				InSubdir: strings.Contains(displayName, "/"),
 			})
 		}
 		return nil
@@ -146,7 +122,7 @@ func (s *Store) BacklinkSearch(title, selfFile string) ([]TextSearchResult, erro
 // UnlinkedMentions finds nodes where title appears as plain text but no formal
 // [[Title]] or [[file:selfFile]] link exists in that node. Used to surface
 // potential connections the user hasn't linked yet.
-func (s *Store) UnlinkedMentions(title, selfFile string) ([]TextSearchResult, error) {
+func (s *Store) UnlinkedMentions(title, selfFile string, cfg *WorkspaceConfig) ([]TextSearchResult, error) {
 	if title == "" {
 		return nil, nil
 	}
@@ -155,31 +131,17 @@ func (s *Store) UnlinkedMentions(title, selfFile string) ([]TextSearchResult, er
 	if selfFile != "" {
 		formalPats = append(formalPats, strings.ToLower("[[file:"+selfFile))
 	}
-	dir := s.Dir()
 	var results []TextSearchResult
 
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, werr error) error {
-		if werr != nil {
+	err := WalkWorkspace(cfg, func(absPath, displayName, rootLabel string) error {
+		fileID := displayName
+		if rootLabel != "" {
+			fileID = absPath
+		}
+		if fileID == selfFile {
 			return nil
 		}
-		if d.IsDir() {
-			if d.Name() != "." && strings.HasPrefix(d.Name(), ".") {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !strings.HasSuffix(d.Name(), ".org") {
-			return nil
-		}
-		rel, err := filepath.Rel(dir, path)
-		if err != nil {
-			return nil
-		}
-		rel = filepath.ToSlash(rel)
-		if rel == selfFile {
-			return nil
-		}
-		data, err := readFileSafe(path)
+		data, err := readFileSafe(absPath)
 		if err != nil {
 			return nil
 		}
@@ -187,7 +149,7 @@ func (s *Store) UnlinkedMentions(title, selfFile string) ([]TextSearchResult, er
 		if !strings.Contains(strings.ToLower(content), titleLower) {
 			return nil
 		}
-		doc := parseOrg(content, d.Name())
+		doc := parseOrg(content, filepath.Base(absPath))
 		items := model.FromDocument(doc)
 		for i, item := range items {
 			if item.IsBody {
@@ -214,10 +176,10 @@ func (s *Store) UnlinkedMentions(title, selfFile string) ([]TextSearchResult, er
 			}
 			ctx := buildContext([]searchTerm{{text: title, include: true}}, item.Title, body)
 			results = append(results, TextSearchResult{
-				File:     rel,
+				File:     fileID,
 				Title:    item.Title,
 				Context:  ctx,
-				InSubdir: strings.Contains(rel, "/"),
+				InSubdir: strings.Contains(displayName, "/"),
 			})
 		}
 		return nil

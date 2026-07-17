@@ -784,7 +784,11 @@ func (h *handlers) searchTag(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) wikiLinks(w http.ResponseWriter, r *http.Request) {
-	entries, err := h.store.WikiLinkEntries()
+	cfg, err := orgfile.LoadWorkspace(h.store.Dir())
+	if err != nil {
+		cfg = orgfile.DefaultWorkspace(h.store.Dir())
+	}
+	entries, err := h.store.WikiLinkEntries(cfg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -802,7 +806,11 @@ func (h *handlers) backlinks(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing title parameter", http.StatusBadRequest)
 		return
 	}
-	results, err := h.store.BacklinkSearch(title, file)
+	cfg, err := orgfile.LoadWorkspace(h.store.Dir())
+	if err != nil {
+		cfg = orgfile.DefaultWorkspace(h.store.Dir())
+	}
+	results, err := h.store.BacklinkSearch(title, file, cfg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -820,7 +828,11 @@ func (h *handlers) unlinkedMentions(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing title parameter", http.StatusBadRequest)
 		return
 	}
-	results, err := h.store.UnlinkedMentions(title, file)
+	cfg, err := orgfile.LoadWorkspace(h.store.Dir())
+	if err != nil {
+		cfg = orgfile.DefaultWorkspace(h.store.Dir())
+	}
+	results, err := h.store.UnlinkedMentions(title, file, cfg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
