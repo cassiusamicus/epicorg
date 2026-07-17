@@ -831,6 +831,18 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
               const marker = formatMarkerForKey(e);
               if (marker) { e.preventDefault(); wrapSelectionWithMarker(e, marker, (v) => dispatch(node.id, "change-body", v)); return; }
               if (matchShortcut("splitNode", e)) { e.preventDefault(); dispatch(node.id, "split-body-at-cursor", e.target.selectionStart); return; }
+              // Same node-structural shortcuts as the title field (handleKey)
+              // — a note is still editing this node, so Indent/Outdent/Move
+              // should reposition it too, not fall through to the browser's
+              // Alt+Left/Right back/forward navigation.
+              if (matchShortcut("moveUp", e))       { e.preventDefault(); dispatch(node.id, "move-up"); return; }
+              if (matchShortcut("moveDown", e))     { e.preventDefault(); dispatch(node.id, "move-down"); return; }
+              if (matchShortcut("indent", e))       { e.preventDefault(); dispatch(node.id, "indent"); return; }
+              if (matchShortcut("outdent", e))      { e.preventDefault(); dispatch(node.id, "outdent"); return; }
+              if (matchShortcut("moveUpOnly", e))   { e.preventDefault(); dispatch(node.id, "move-up-only"); return; }
+              if (matchShortcut("moveDownOnly", e)) { e.preventDefault(); dispatch(node.id, "move-down-only"); return; }
+              if (matchShortcut("indentOnly", e))   { e.preventDefault(); dispatch(node.id, "indent-only"); return; }
+              if (matchShortcut("outdentOnly", e))  { e.preventDefault(); dispatch(node.id, "outdent-only"); return; }
               if (e.key === "Escape") { e.preventDefault(); dispatch(node.id, "focus-outline"); }
             }}
           />
@@ -6001,8 +6013,17 @@ function App() {
       if (matchShortcut("hoist", e)) {
         e.preventDefault(); toggleHoistRef.current?.(); return;
       }
-      if (e.altKey && e.key === "ArrowLeft") { e.preventDefault(); goBackRef.current?.(); return; }
-      if (e.altKey && e.key === "ArrowRight") { e.preventDefault(); goForwardRef.current?.(); return; }
+      // Alt+Left/Right double as Outdent/Indent while actively editing a
+      // node's title or note — those fields' own key handlers (handleKey,
+      // and the body textarea's onKeyDown) already act on them and call
+      // preventDefault, but that doesn't stop the native event from still
+      // bubbling up to this document-level listener afterward, so without
+      // this check Go Back/Forward would *also* fire on the same keypress.
+      const activeEl = document.activeElement;
+      const inOutlineField = activeEl?.tagName === "TEXTAREA" &&
+        (activeEl.classList.contains("node-title") || activeEl.classList.contains("node-body-textarea"));
+      if (e.altKey && e.key === "ArrowLeft" && !inOutlineField) { e.preventDefault(); goBackRef.current?.(); return; }
+      if (e.altKey && e.key === "ArrowRight" && !inOutlineField) { e.preventDefault(); goForwardRef.current?.(); return; }
       if (e.altKey && e.key >= "1" && e.key <= "9" && !textModeRef.current) {
         e.preventDefault(); foldToLevel(parseInt(e.key));
       }
