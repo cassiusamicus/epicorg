@@ -219,9 +219,12 @@ function nextFootnoteLabel(nodes) {
   return String(n);
 }
 
-// Fire from anywhere in the tree without prop-drilling.
-function triggerInsertFootnote() {
-  document.body.dispatchEvent(new CustomEvent("epicInsertFootnote"));
+// Fire from anywhere in the tree without prop-drilling. detail, if given,
+// is { nodeId, bodyText, cursorPos } as plain values — explicit target for
+// callers (like the note's right-click menu) where document.activeElement
+// can't be trusted, e.g. because clicking a menu item just blurred the field.
+function triggerInsertFootnote(detail) {
+  document.body.dispatchEvent(new CustomEvent("epicInsertFootnote", { detail }));
 }
 
 // Fire a custom event so the App can show the link picker without
@@ -243,7 +246,7 @@ function triggerLinkPicker(textarea, e, isBody) {
 // being edited, so empty items don't clutter the outline. Mirrors the
 // title's formatted-preview/edit-textarea split, governed by the same
 // titleFormatMode toggle.
-function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onClose }) {
+function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onInsertFootnote, onInsertImage, onInsertTable, onClose }) {
   const menuRef = useRef(null);
   const hasSel = sel.start !== sel.end;
 
@@ -284,6 +287,9 @@ function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onCl
     dispatch(nodeId, "join-with-next");
     onClose();
   };
+  const doInsertFootnote = () => { onInsertFootnote(); onClose(); };
+  const doInsertImage = () => { onInsertImage(); onClose(); };
+  const doInsertTable = () => { onInsertTable(); onClose(); };
 
   const style = { position: "fixed", left: x, top: y, zIndex: 9999 };
   return html`
@@ -296,6 +302,10 @@ function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onCl
       <div className="note-ctx-sep" />
       <button className="note-ctx-item" onClick=${doSplit}>Split At Cursor Location</button>
       <button className="note-ctx-item" onClick=${doJoin}>Join with Next Node</button>
+      <div className="note-ctx-sep" />
+      <button className="note-ctx-item" onClick=${doInsertFootnote}>Insert Footnote</button>
+      <button className="note-ctx-item" onClick=${doInsertImage}>Insert Image</button>
+      <button className="note-ctx-item" onClick=${doInsertTable}>Insert Table</button>
     </div>
   `;
 }
@@ -673,6 +683,26 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
   const [imgPopup, setImgPopup] = useState(null); // { index, rect }
   const [tableEdit, setTableEdit] = useState(null); // { tableIndex, rows, headerCount }
 
+  // Inserts a blank 2x2 table at pos and opens it in the table editor —
+  // the right-click menu's Insert Table, parameterized by cursor position
+  // rather than reading localRef directly, so it works regardless of
+  // whether the field is still focused when the menu item is clicked.
+  const insertTableAtCursor = (pos) => {
+    const body = node.body || "";
+    const before = body.slice(0, pos);
+    const after = body.slice(pos);
+    const pre = before.length > 0 && !before.endsWith("\n") ? "\n" : "";
+    const post = after.length > 0 && !after.startsWith("\n") ? "\n" : "";
+    const blankRows = [["", ""], ["", ""]];
+    const tableText = tree.serializeOrgTable({ rows: blankRows, headerCount: 1 }).join("\n");
+    const newBody = before + pre + tableText + post + after;
+    // New table index = number of table blocks in the text before the insertion point.
+    const newTableIndex = tree.findTableBlocksInBody(before + pre).length;
+    dispatch(node.id, "change-body", newBody);
+    dispatch(node.id, "preview-body");
+    setTableEdit({ tableIndex: newTableIndex, rows: blankRows, headerCount: 1 });
+  };
+
   useEffect(() => {
     adjustTextareaHeight(localRef.current);
   }, [node.body, isEditing]);
@@ -774,36 +804,6 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
               if (e.key === "Escape") { e.preventDefault(); dispatch(node.id, "focus-outline"); }
             }}
           />
-          <button className="body-fn-btn" title="Insert footnote reference [fn:N]"
-                  onMouseDown=${(e) => { e.preventDefault(); localRef.current?.focus(); triggerInsertFootnote(); }}>fn</button>
-          <button className="body-fn-btn" title="Insert inline image"
-                  onMouseDown=${(e) => {
-                    e.preventDefault();
-                    const ta = localRef.current;
-                    document.body.dispatchEvent(new CustomEvent("epicInsertImage", {
-                      detail: { nodeId: node.id, cursorPos: ta ? ta.selectionStart : (node.body || "").length, body: node.body || "" }
-                    }));
-                  }}>img</button>
-          <button className="body-fn-btn" title="Insert table"
-                  onMouseDown=${(e) => {
-                    e.preventDefault();
-                    const ta = localRef.current;
-                    const body = node.body || "";
-                    const pos = ta ? ta.selectionStart : body.length;
-                    const before = body.slice(0, pos);
-                    const after = body.slice(pos);
-                    const pre = before.length > 0 && !before.endsWith("\n") ? "\n" : "";
-                    const post = after.length > 0 && !after.startsWith("\n") ? "\n" : "";
-                    const blankRows = [["", ""], ["", ""]];
-                    const newLines = tree.serializeOrgTable({ rows: blankRows, headerCount: 1 });
-                    const tableText = newLines.join("\n");
-                    const newBody = before + pre + tableText + post + after;
-                    // New table index = number of table blocks in the text before insertion point
-                    const newTableIndex = tree.findTableBlocksInBody(before + pre).length;
-                    dispatch(node.id, "change-body", newBody);
-                    dispatch(node.id, "preview-body");
-                    setTableEdit({ tableIndex: newTableIndex, rows: blankRows, headerCount: 1 });
-                  }}>tbl</button>
         `}
     </div>
     ${ctxMenu && html`<${NoteContextMenu}
@@ -817,6 +817,13 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
           ctxMenu.textarea.setSelectionRange(cursor, cursor);
         });
       }}
+      onInsertFootnote=${() => triggerInsertFootnote({ nodeId: node.id, bodyText: ctxMenu.sel.value, cursorPos: ctxMenu.sel.start })}
+      onInsertImage=${() => {
+        document.body.dispatchEvent(new CustomEvent("epicInsertImage", {
+          detail: { nodeId: node.id, cursorPos: ctxMenu.sel.start, body: node.body || "" }
+        }));
+      }}
+      onInsertTable=${() => insertTableAtCursor(ctxMenu.sel.start)}
       onClose=${() => setCtxMenu(null)} />`}
     ${imgPopup && (() => {
       const blocks = tree.parseImageBlocks(node.body);
@@ -5331,38 +5338,54 @@ function App() {
     try { localStorage.setItem("epicorg.theme", theme); } catch {}
   }, [theme]);
 
-  // Insert footnote: capture cursor position, then show popup for definition stub.
+  // Insert footnote: capture the note's text + cursor position as plain
+  // values, then show a popup for the definition stub.
   const [fnInsertPopup, setFnInsertPopup] = useState(null);
 
-  const insertFootnote = useCallback(() => {
-    const el = document.activeElement;
-    if (!el || el.tagName !== "TEXTAREA") return;
+  // explicitDetail ({ nodeId, bodyText, cursorPos }) lets a caller (the
+  // note's right-click menu) name its exact target as plain values instead
+  // of a live DOM element — clicking the menu item blurs the note field,
+  // which unmounts its textarea (see "stop-edit-body"), so a captured `el`
+  // reference would already be detached from the document by the time
+  // confirmInsertFootnote ran, and dispatching an "input" event on a
+  // detached node never reaches React. Restricted to note fields (not
+  // titles) since footnotes only make sense in body prose.
+  const insertFootnote = useCallback((explicitDetail) => {
+    let nodeId, bodyText, cursorPos;
+    if (explicitDetail) {
+      ({ nodeId, bodyText, cursorPos } = explicitDetail);
+    } else {
+      const el = document.activeElement;
+      if (!el || el.tagName !== "TEXTAREA" || !el.classList.contains("node-body-textarea")) return;
+      const meta = fieldMetaForTextarea(el);
+      if (!meta) return;
+      nodeId = meta.nodeId;
+      bodyText = el.value;
+      cursorPos = el.selectionStart;
+    }
     const label = nextFootnoteLabel(nodesRef.current);
-    setFnInsertPopup({ label, el, cursorPos: el.selectionStart });
+    setFnInsertPopup({ label, nodeId, bodyText, cursorPos });
   }, []);
 
   const confirmInsertFootnote = useCallback((defText) => {
     if (!fnInsertPopup) return;
-    const { label, el, cursorPos } = fnInsertPopup;
+    const { label, nodeId, bodyText, cursorPos } = fnInsertPopup;
     const ref = `[fn:${label}]`;
-    let val = el.value;
     // Insert ref at saved cursor position
-    val = val.slice(0, cursorPos) + ref + val.slice(cursorPos);
+    let val = bodyText.slice(0, cursorPos) + ref + bodyText.slice(cursorPos);
     // Append definition at end (stub or empty placeholder)
     const stub = defText.trim() || "…";
     const sep = val.endsWith("\n\n") ? "" : val.endsWith("\n") ? "\n" : "\n\n";
     val = val + sep + `[fn:${label}] ${stub}`;
-    const nativeSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set;
-    nativeSetter.call(el, val);
-    el.dispatchEvent(new Event("input", { bubbles: true }));
-    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(cursorPos + ref.length, cursorPos + ref.length); });
+    dispatch(nodeId, "change-body", val);
+    dispatch(nodeId, "edit-body", cursorPos + ref.length);
     setFnInsertPopup(null);
-  }, [fnInsertPopup]);
+  }, [fnInsertPopup]); // dispatch is stable (declared later in component, safe to omit)
 
   const insertFootnoteRef = useRef(insertFootnote);
   useEffect(() => { insertFootnoteRef.current = insertFootnote; }, [insertFootnote]);
   useEffect(() => {
-    const handler = () => insertFootnoteRef.current();
+    const handler = (e) => insertFootnoteRef.current(e.detail);
     document.body.addEventListener("epicInsertFootnote", handler);
     return () => document.body.removeEventListener("epicInsertFootnote", handler);
   }, []);

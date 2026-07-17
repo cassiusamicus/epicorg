@@ -3600,24 +3600,6 @@ body.dnd-dragging, body.dnd-dragging * { cursor: move !important; user-select: n
   color: var(--text-dim);
 }
 
-.body-fn-btn {
-  flex-shrink: 0;
-  align-self: flex-start;
-  margin-top: 1px;
-  padding: 1px 5px;
-  font-size: 10px;
-  font-weight: 700;
-  font-family: monospace;
-  color: var(--link, #1a6e9e);
-  background: none;
-  border: 1px solid currentColor;
-  border-radius: 3px;
-  cursor: pointer;
-  opacity: 0.5;
-  line-height: 1.4;
-}
-.body-fn-btn:hover { opacity: 1; background: var(--focused-bg); }
-
 .note-ctx-menu {
   background: var(--panel-bg);
   border: 1px solid var(--border);
