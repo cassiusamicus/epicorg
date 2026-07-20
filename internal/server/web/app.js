@@ -5901,6 +5901,8 @@ function App() {
   const [textModeError, setTextModeError] = useState(false);
   const textModeRef = useRef(false);
   const rawTextRef = useRef("");
+  const rawTextareaRef = useRef(null);
+  const rawHighlightRef = useRef(null);
   const textDirtyRef = useRef(false);
   useEffect(() => { textModeRef.current = textMode; }, [textMode]);
   useEffect(() => { rawTextRef.current = rawText; }, [rawText]);
@@ -6453,11 +6455,20 @@ function App() {
     return () => document.removeEventListener("keydown", handler, true);
   }, []);
 
-  // Ctrl+F find in note.
+  // Ctrl+F find in note. In Reveal Codes mode the normal FindBar never
+  // renders (it's anchored to the structured outline view, which isn't
+  // shown there) and the browser's own Ctrl+F can't search inside a
+  // <textarea>'s value either way — so redirect to the header filter box,
+  // which doubles as find-in-raw-text for that mode (see rawFindMatches).
   useEffect(() => {
     const handler = (e) => {
       if (e.key === "f" && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
         e.preventDefault();
+        if (textModeRef.current) {
+          setFilterExpanded(true);
+          requestAnimationFrame(() => searchInputRef.current?.focus());
+          return;
+        }
         setFindOpen(true);
         requestAnimationFrame(() => findInputRef.current?.focus());
       }
@@ -6530,6 +6541,50 @@ function App() {
     markDirty();
     setReplaceMessage(`Replaced ${count} occurrence${count === 1 ? "" : "s"}`);
   }, [nodes, findQuery, replaceQuery, markDirty]);
+
+  // Find-in-text for Reveal Codes mode. Neither the browser's own Ctrl+F
+  // (which can't search inside a <textarea>'s value — it's not part of the
+  // page's searchable text nodes) nor the header filter box (which drives
+  // the structured-node tree filter, meaningless against one raw string)
+  // work against the raw-text editor, so both need this dedicated path:
+  // matches are computed from rawText, shown via a highlight overlay
+  // (tree.highlightMatchesHtml — a textarea can't do inline color itself),
+  // and navigated by scrolling the textarea — never by focusing it, or
+  // every keystroke in the search box would rip focus away mid-type.
+  const rawFindMatches = useMemo(
+    () => (textMode ? tree.findAllOccurrences(rawText, searchQuery.trim()) : []),
+    [textMode, rawText, searchQuery]
+  );
+  const [rawFindIdx, setRawFindIdx] = useState(0);
+  const rawFindMatchesRef = useRef([]);
+  useEffect(() => { rawFindMatchesRef.current = rawFindMatches; }, [rawFindMatches]);
+
+  const scrollToRawMatch = useCallback((idx) => {
+    const ta = rawTextareaRef.current;
+    const matches = rawFindMatchesRef.current;
+    const m = matches[idx];
+    if (!ta || !m) return;
+    const lineNum = ta.value.slice(0, m.start).split("\n").length;
+    const lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 20;
+    ta.scrollTop = Math.max(0, (lineNum - 5) * lineHeight);
+    if (rawHighlightRef.current) rawHighlightRef.current.scrollTop = ta.scrollTop;
+  }, []);
+
+  // Jump to the first match whenever the query, the text, or mode changes.
+  useEffect(() => {
+    setRawFindIdx(0);
+    if (rawFindMatches.length > 0) scrollToRawMatch(0);
+  }, [rawFindMatches, scrollToRawMatch]);
+
+  const rawFindNavigate = useCallback((dir) => {
+    setRawFindIdx((i) => {
+      const matches = rawFindMatchesRef.current;
+      if (matches.length === 0) return 0;
+      const next = ((i + dir) % matches.length + matches.length) % matches.length;
+      scrollToRawMatch(next);
+      return next;
+    });
+  }, [scrollToRawMatch]);
 
   const runTextSearch = useCallback(async (query, includeMarkdown) => {
     setShowTextSearch(false);
@@ -8258,6 +8313,7 @@ function App() {
                   searchQuery=${searchQuery} setSearchQuery=${setSearchQuery}
                   searchInputRef=${searchInputRef}
                   filterExpanded=${filterExpanded} setFilterExpanded=${setFilterExpanded}
+                  rawFindMatches=${rawFindMatches} rawFindIdx=${rawFindIdx} onRawFindNavigate=${rawFindNavigate}
                   allTags=${allTags} selectedTags=${selectedTags}
                   onToggleTag=${toggleTag} onClearTags=${clearTags}
                   detailVisible=${detailVisible}
@@ -8484,19 +8540,25 @@ function App() {
         `}
         ${view === "outline" && textMode && html`
           <div className="outline-pane">
-            <textarea
-              className="raw-text-editor"
-              value=${rawText}
-              spellCheck="false"
-              onChange=${(e) => { setRawText(e.target.value); textDirtyRef.current = true; }}
-              onKeyDown=${(e) => {
-                const marker = formatMarkerForKey(e);
-                if (marker) {
-                  e.preventDefault();
-                  wrapSelectionWithMarker(e, marker, (v) => { setRawText(v); textDirtyRef.current = true; });
-                }
-              }}
-            />
+            <div className="raw-text-wrap">
+              <pre ref=${rawHighlightRef} className="raw-text-highlight-layer" aria-hidden="true"
+                   dangerouslySetInnerHTML=${{ __html: tree.highlightMatchesHtml(rawText, rawFindMatches, rawFindIdx) }} />
+              <textarea
+                ref=${rawTextareaRef}
+                className="raw-text-editor"
+                value=${rawText}
+                spellCheck="false"
+                onScroll=${(e) => { if (rawHighlightRef.current) { rawHighlightRef.current.scrollTop = e.target.scrollTop; rawHighlightRef.current.scrollLeft = e.target.scrollLeft; } }}
+                onChange=${(e) => { setRawText(e.target.value); textDirtyRef.current = true; }}
+                onKeyDown=${(e) => {
+                  const marker = formatMarkerForKey(e);
+                  if (marker) {
+                    e.preventDefault();
+                    wrapSelectionWithMarker(e, marker, (v) => { setRawText(v); textDirtyRef.current = true; });
+                  }
+                }}
+              />
+            </div>
           </div>
         `}
         ${view === "outline" && !textMode && html`
@@ -10960,7 +11022,7 @@ function OutlineActionsPanel({ onAction, focusedId, onClose }) {
   `;
 }
 
-function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, filterExpanded, setFilterExpanded, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat, globalFont, onSetGlobalFont, levelFonts, onSetLevelFont, globalColor, onSetGlobalColor, levelColors, onSetLevelColor, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, onOpenSearchPanel, searchPanelOpen, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer, onExportToOrg, onExportToHtml, onOpenSettings }) {
+function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, filterExpanded, setFilterExpanded, rawFindMatches, rawFindIdx, onRawFindNavigate, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat, globalFont, onSetGlobalFont, levelFonts, onSetLevelFont, globalColor, onSetGlobalColor, levelColors, onSetLevelColor, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, onOpenSearchPanel, searchPanelOpen, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer, onExportToOrg, onExportToHtml, onOpenSettings }) {
   // Whether the toolbar/search/etc. actually fit is measured, not
   // guessed from viewport width — a long filename or a pile of tags
   // eats into the same space a phone-width media query would assume is
@@ -11117,13 +11179,13 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
             <${IconSearchPanel} />
           </button>
         </div>
-        <div className=${"search-box" + ((filterExpanded || searchQuery) ? " search-box-expanded" : "")} style=${{ opacity: textMode ? 0.4 : 1, pointerEvents: textMode ? "none" : "auto" }}>
+        <div className=${"search-box" + ((filterExpanded || searchQuery) ? " search-box-expanded" : "") + (textMode ? " search-box-textmode" : "")}>
           ${(filterExpanded || searchQuery) ? html`
             <input
               ref=${expanded ? null : searchInputRef}
               type="text"
               className="search-input"
-              placeholder="Filter… (Ctrl+K)"
+              placeholder=${textMode ? "Find in text…" : "Filter… (Ctrl+K)"}
               autoFocus=${!expanded}
               value=${searchQuery || ""}
               onChange=${(e) => setSearchQuery(e.target.value)}
@@ -11135,8 +11197,25 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
                   setFilterExpanded(false);
                   e.target.blur();
                 }
+                if (textMode && e.key === "Enter") {
+                  e.preventDefault();
+                  onRawFindNavigate?.(e.shiftKey ? -1 : 1);
+                }
               }}
             />
+            ${textMode && searchQuery && html`
+              <div className="search-raw-controls">
+                <span className="search-match-count">
+                  ${rawFindMatches.length > 0 ? `${rawFindIdx + 1}/${rawFindMatches.length}` : "0"}
+                </span>
+                <button className="search-nav-btn" disabled=${rawFindMatches.length === 0}
+                        onMouseDown=${(e) => e.preventDefault()}
+                        onClick=${() => onRawFindNavigate?.(-1)} title="Previous match (Shift+Enter)">‹</button>
+                <button className="search-nav-btn" disabled=${rawFindMatches.length === 0}
+                        onMouseDown=${(e) => e.preventDefault()}
+                        onClick=${() => onRawFindNavigate?.(1)} title="Next match (Enter)">›</button>
+              </div>
+            `}
             ${searchQuery && html`
               <button className="search-clear"
                       onClick=${() => { setSearchQuery(""); setFilterExpanded(false); }}
@@ -11144,7 +11223,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
             `}
           ` : html`
             <div className="view-toggle">
-              <button className="view-tab" title="Filter this note (Ctrl+K)"
+              <button className="view-tab" title=${textMode ? "Find in text (Ctrl+F)" : "Filter this note (Ctrl+K)"}
                       onClick=${() => setFilterExpanded(true)}>
                 <${IconFilter} />
               </button>

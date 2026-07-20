@@ -1245,5 +1245,57 @@ test("applyTransclusions: a node without a TRANSCLUDE property passes through un
   assertEqual(result[0].children[0].id, "a1");
 });
 
+// --- findAllOccurrences ---
+
+test("findAllOccurrences: finds every case-insensitive occurrence", () => {
+  const text = "The Cat sat on the cat mat, catapult.";
+  const matches = tree.findAllOccurrences(text, "cat");
+  assertEqual(matches.length, 3);
+  assertEqual(matches[0], { start: 4, end: 7 });
+  assertEqual(matches[1], { start: 19, end: 22 });
+  assertEqual(matches[2], { start: 28, end: 31 });
+});
+
+test("findAllOccurrences: no matches returns an empty array", () => {
+  assertEqual(tree.findAllOccurrences("hello world", "xyz"), []);
+});
+
+test("findAllOccurrences: empty query or text returns an empty array", () => {
+  assertEqual(tree.findAllOccurrences("", "cat"), []);
+  assertEqual(tree.findAllOccurrences("hello", ""), []);
+  assertEqual(tree.findAllOccurrences(null, "cat"), []);
+});
+
+test("findAllOccurrences: adjacent/overlapping-looking matches don't double count", () => {
+  // "aa" in "aaaa" should find non-overlapping matches: [0,2) and [2,4).
+  const matches = tree.findAllOccurrences("aaaa", "aa");
+  assertEqual(matches.length, 2);
+  assertEqual(matches[0], { start: 0, end: 2 });
+  assertEqual(matches[1], { start: 2, end: 4 });
+});
+
+// --- highlightMatchesHtml ---
+
+test("highlightMatchesHtml: no matches just escapes the text", () => {
+  const html = tree.highlightMatchesHtml("a < b & c", [], 0);
+  assertEqual(html, "a &lt; b &amp; c");
+});
+
+test("highlightMatchesHtml: wraps each match in <mark>, current gets an extra class", () => {
+  const matches = tree.findAllOccurrences("cat sat cat", "cat");
+  const html = tree.highlightMatchesHtml("cat sat cat", matches, 1);
+  assertEqual(
+    html,
+    '<mark class="raw-find-match">cat</mark> sat <mark class="raw-find-match raw-find-match-current">cat</mark>'
+  );
+});
+
+test("highlightMatchesHtml: escapes text both inside and outside marks", () => {
+  const text = "<tag> cat </tag>";
+  const matches = tree.findAllOccurrences(text, "cat");
+  const html = tree.highlightMatchesHtml(text, matches, 0);
+  assertEqual(html, '&lt;tag&gt; <mark class="raw-find-match raw-find-match-current">cat</mark> &lt;/tag&gt;');
+});
+
 // --- Done ---
 report();

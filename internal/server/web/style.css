@@ -1138,6 +1138,53 @@ header h1 {
   flex: 0 0 160px;
 }
 
+/* Find-in-raw-text (Reveal Codes mode) needs room for the match count and
+   prev/next buttons between the typed query and the clear button. */
+.search-box-textmode.search-box-expanded {
+  flex-basis: 260px;
+}
+
+.search-raw-controls {
+  position: absolute;
+  right: 26px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.search-match-count {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  margin-right: 2px;
+}
+
+.search-nav-btn {
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  padding: 0;
+}
+
+.search-nav-btn:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--focused-bg);
+}
+
+.search-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .search-input {
   flex: 1;
   font-family: inherit;
@@ -1156,6 +1203,10 @@ header h1 {
 
 .search-input::placeholder {
   color: var(--text-dim);
+}
+
+.search-box-textmode .search-input {
+  padding-right: 108px;
 }
 
 .search-clear {
@@ -2579,24 +2630,63 @@ header.header-tinted {
   margin: 0 auto;
 }
 
-/* Text mode — the raw org source, asterisks and all */
-.raw-text-editor {
-  display: block;
+/* Text mode — the raw org source, asterisks and all. The highlight layer
+   is a <pre> sitting exactly behind the textarea, same font/padding/wrap
+   settings (shared in one ruleset below so they can't drift apart) —
+   a plain <textarea> can't render inline color itself, so find-match
+   highlighting comes from <mark> backgrounds on this layer showing through
+   the textarea's own transparent background, with its real (opaque) text
+   rendered on top as always. */
+.raw-text-wrap {
+  position: relative;
   width: 100%;
   height: 100%;
+  background: var(--bg);
+}
+
+.raw-text-highlight-layer,
+.raw-text-editor {
+  position: absolute;
+  inset: 0;
+  margin: 0;
   box-sizing: border-box;
   border: none;
-  outline: none;
-  resize: none;
-  background: var(--bg);
-  color: var(--text);
   font-family: "SF Mono", "Fira Code", "Consolas", monospace;
   font-size: 13px;
   line-height: 1.6;
   padding: 16px 20px;
-  caret-color: var(--caret);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.raw-text-highlight-layer {
+  color: transparent;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.raw-text-highlight-layer mark.raw-find-match {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+  color: transparent;
+  border-radius: 2px;
+}
+
+.raw-text-highlight-layer mark.raw-find-match-current {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  outline: 1px solid var(--accent);
+}
+
+.raw-text-editor {
+  display: block;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--text);
+  caret-color: var(--caret);
 }
 
 .text-mode-error {

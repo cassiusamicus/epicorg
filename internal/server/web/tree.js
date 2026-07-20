@@ -610,6 +610,46 @@ export function matchesQuery(query, text) {
   return (text || "").toLowerCase().includes(query.toLowerCase());
 }
 
+// Case-insensitive substring match positions within a single string, in
+// order: [{start, end}, ...]. Used for "find in raw text" (Reveal Codes
+// mode), where the whole document is one string rather than a tree of
+// nodes with their own title/body to search separately.
+export function findAllOccurrences(text, query) {
+  if (!text || !query) return [];
+  const hay = text.toLowerCase();
+  const needle = query.toLowerCase();
+  const out = [];
+  let i = 0;
+  while (true) {
+    const idx = hay.indexOf(needle, i);
+    if (idx < 0) break;
+    out.push({ start: idx, end: idx + needle.length });
+    i = idx + needle.length;
+  }
+  return out;
+}
+
+// Builds HTML for the Reveal Codes find-highlight overlay: `text`,
+// HTML-escaped, with each match position wrapped in <mark> (the match at
+// currentIdx gets an extra class so it can be styled distinctly). Pure —
+// the overlay element just needs its innerHTML set to this. Relies on
+// matches being in ascending, non-overlapping order, which
+// findAllOccurrences already guarantees.
+export function highlightMatchesHtml(text, matches, currentIdx) {
+  if (!text) return "";
+  if (!matches || matches.length === 0) return escapeHtml(text);
+  let out = "";
+  let last = 0;
+  matches.forEach((m, i) => {
+    out += escapeHtml(text.slice(last, m.start));
+    const cls = "raw-find-match" + (i === currentIdx ? " raw-find-match-current" : "");
+    out += `<mark class="${cls}">${escapeHtml(text.slice(m.start, m.end))}</mark>`;
+    last = m.end;
+  });
+  out += escapeHtml(text.slice(last));
+  return out;
+}
+
 // --- Search query parser ---
 
 // Parse a search query into structured form so callers can apply
