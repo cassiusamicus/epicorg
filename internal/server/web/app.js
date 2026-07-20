@@ -6770,18 +6770,6 @@ function App() {
     setGlobalColorRaw(gColor); globalColorRef.current = gColor;
     setLevelColorsRaw(lColors); levelColorsRef.current = lColors;
     dirtyRef.current = false;
-    // Merge any new tags from this file into the global tag list.
-    const fileTags = tree.collectAllTags(data.nodes || []);
-    if (fileTags.length > 0) {
-      const cur = globalTagsRef.current;
-      const newTags = fileTags.filter(t => !tagExistsInTree(cur, t)).map(t => ({ name: t, children: [], collapsed: false }));
-      if (newTags.length > 0) {
-        const updated = [...cur, ...newTags];
-        globalTagsRef.current = updated;
-        setGlobalTags(updated);
-        api.put("/api/global-tags", { tags: updated }).catch(() => {});
-      }
-    }
     clearUndoHistory();
     setSyncStatus(SYNC_SAVED);
     try { localStorage.setItem("epicorg.lastFile", name); } catch {}
