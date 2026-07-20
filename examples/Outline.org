@@ -43,10 +43,19 @@ There is no way to dispel the fear about matters of supreme importance, for some
 *** /Epicurus, Principal Doctrine 13/ :ScienceNecessaryForHappiness:
 There is no benefit in creating security with respect to men while retaining worries about things up above, things beneath the earth, and generally things in the infinite. (L&S-THP)
 *** /Epicurus, Vatican Saying 29/ :ScienceNecessaryForHappiness:
+:PROPERTIES:
+:TRANSCLUDE_ID: epicurus-vatican-saying-29
+:END:
 I would rather speak with the frankness of a natural philosopher, and reveal the things which are expedient to all mankind, even if no one is going to understand me, than assent to the received opinions and reap the adulation lavishly bestowed by the multitude.  (L&S-THP)
 *** /Epicurus, Vatican Saying 45/ :ScienceNecessaryForHappiness:
+:PROPERTIES:
+:TRANSCLUDE_ID: epicurus-vatican-saying-45
+:END:
 Natural philosophy does not make people boastful and loud-mouthed, nor flaunters of culture, the thing so hotly competed for among the multitude, but modest and self-sufficient, and proud at their own goods, not at those of their circumstances. (L&S-THP)
 *** /Lucretius 1.62-79/ :ScienceNecessaryForHappiness:UniverseInfiniteAndEternal:
+:PROPERTIES:
+:TRANSCLUDE_ID: lucretius-1-62-79
+:END:
 (1) When human life lay foul to see and groveling upon the ground, crushed by the weight of Religion, who displayed her head from the regions of heaven, lowering over mortals with horrible aspect, (2) a man of Greece dared first to raise his mortal eyes against her, first to make a stand against her; for neither fables of the gods could quell him, nor thunderbolts, nor heaven with menacing roar, but all the more they goaded the eager courage of his soul to long to be the first to burst through the close-set bolts of nature's gates. (3) Therefore his vigorous mind won through, and he passed on far beyond the fiery walls of the world, and in mind and spirit traversed the boundless universe; (4) whence returning victorious he reports to us what can arise, what cannot, and by what principle each thing has its powers limited and its deep-set boundary stone. (5) Therefore Religion is now in turn cast down and trampled underfoot, while we by the victory are exalted high as heaven. (L&S-THP)
 *** /Diogenes of Oinoanda Fragments 4 and 5/ :ScienceNecessaryForHappiness:
 Fr. 4 ... [as is supposed by] some of the philosophers and especially the Socratics. They say that pursuing natural science and busying oneself with investigation of [celestial phenomena] is superfluous and unprofitable, and they do [not even] deign [to concern themselves with such matters.] Fr. 5  [Others do not] explicitly [stigmatise] natural science as unnecessary, being ashamed to acknowledge [this], but use another means of discarding it. For, when they assert that things are inapprehensible, what else are they saying than that there is no need for us to pursue natural science? After all, who will choose to seek what he can never find?  Now Aristotle and those who hold the same Peripatetic views as Aristotle say that nothing is scientifically knowable, because things are continually in flux and, on account of the rapidity of the flux, evade our apprehension. We on the other hand acknowledge their flux, but not its being so rapid that the nature of each thing [is] at no time apprehensible by sense-perception. And indeed [in no way would the upholders of] the view under discussion have been able to say (and this is just what they do [maintain] that [at one time] this is [white] and this black, while [at another time] neither this is [white nor] that black, [if] they had not had [previous] knowledge of the nature of both white and black.
@@ -97,12 +106,18 @@ Lastly, inasmuch as we see that tilled grounds are better than the untilled, and
 Epicurean atomism stands in contrast to the "ideal forms" of Platonic philosophy or the "essentialism" of Aristotle.  Epicurus holds that the reality of things to us arises from the movement of specific atoms through specific areas of void, while Plato and Aristotle contend that there is a "form" or an "essential" nature that lies behind or apart that makes a thing what it is.  Classic examples include such things as color.  Plato would hold that there is an "ideal form" of yellow, and Aristotle would hold that there is an "essence" of yellow, that makes a yellow thing yellow.  In contrast, Epicurus would hold that the reality of yellow arises from the way our senses perceive particular combinations of atoms moving through space.  The issue is whether yellow is something real.  To Aristotle and Plato what we see as yellow is only an illusion, and that yellow exists only in ideal forms and essences which are perceptible only to reason, which makes reason the judge of reality.  Epicurus holds that yellow is real because it is perceived by our senses, and this makes the faculties given to us by Nature the judge of reality.
 The logical necessity of indivisible atoms follows from the principle established in A-2: if compounds dissolve, something must remain behind that does not dissolve, since otherwise all things would eventually perish into nothing and there would be no seeds for renewal. These remaining indivisible units are the atoms. They are not the smallest things we can see  --  they are forever below the threshold of perception  --  but their existence is deduced from the observable fact that things dissolve into something rather than into nothing.
 *** /Epicurus, Letter to Herodotus 39-40/ :Atoms:Void:EpicurusNotCompleteEmpiricist:
+:PROPERTIES:
+:TRANSCLUDE_ID: epicurus-letter-to-herodotus-39-40
+:END:
 Moreover, the totality of things is bodies and void. That bodies exist is universally witnessed by sensation itself, by reference to which it is necessary to judge by reason what is non-evident, as I have already said above. And if there were not that which we name void and room and intangible substance, bodies would not have anywhere to be or to move through in the way in which they are seen to move. Beyond these nothing can be conceived, either by comprehensive grasp or analogically to things grasped, as fully substantial entities, and not rather spoken of as the accidents or properties of such entities.  (L&S-THP)
 *** /Epicurus, Letter to Herodotus 40/ :Atoms:
 Moreover, among bodies, some are compounds, and others those from which compounds are made. And these latter are indivisible and unchangeable - if, that is, all things are not going to be destroyed into what is not, but are going to remain firmly in being during the dissolution of compounds - full in nature, and incapable of dissolution at any point or in any way. Therefore the principles of bodies must be the indivisible natures. (L&S-THP)
 *** /Epicurus, Letter to Herodotus 41/ :Atoms:
 Moreover, among bodies, some are compounds, and others those from which compounds are made. And these latter are indivisible and unchangeable - if, that is, all things are not going to be destroyed into what is not, but are going to remain firmly in being during the dissolution of compounds - full in nature, and incapable of dissolution at any point or in any way. Therefore the principles of bodies must be the indivisible natures. (L&S-THP)
 *** /Lucretius 1: 329-45/ :Atoms:Void:EpicurusNotCompleteEmpiricist:
+:PROPERTIES:
+:TRANSCLUDE_ID: lucretius-1-329-45
+:END:
 Now I return to the sequence of my argument. All nature, then, as it exists in itself, is made up of just two components: there are bodies, and there is void in which those bodies are situated and through which they move this way and that. That body exists as an entity in its own right is declared by our sensation, universally shared. Unless confidence in this is firmly grounded in the first instance, there will be nothing by reference to which we could establish anything about what is hidden from our view, by proceeding through reasoning. Next, if there were no room and space, which we call void, bodies could not be situated anywhere, nor could they move this way and that at all, as I showed to you a short while before. Moreover, there is nothing you could posit which is separate from all body and distinct from void, to be discovered as a third nature: for whatever exists must be something in its own right; and if it admits of touch, however slight or great, as long as it exists, it will increase the tally of body by an increment large or small and be added to its sum; but if it is intangible and unable to prevent anything from moving freely through it in any direction, then it will certainly be that which we call empty void. Further, whatever exists in its own right, will either act, or must itself be acted on when other things act, or will be such that things are able to exist and happen in it. But nothing can act or be acted on without body, nor provide room except empty void. Therefore, other than void and bodies, no third nature could be left in the tally of things, either to fall under our senses at some time, or to be grasped by anyone through reasoning of the mind. (L&S-THP)
 *** /Lucretius 1:503-98/ :Atoms:
 First, since we have found a vast difference between the twin natures of the two things - body, and the place in which everything happens - each must in itself be absolute and unmixed. For wherever there is the empty space which we call void, there no body exists, while wherever body is in occupation, there the emptiness of void is totally absent. Therefore the first bodies are solid and without void...  These can neither be dissolved when struck by external blows, nor be dismantled through internal penetration, nor succumb to any other kind of attack, as I proved to you a little earlier. For we see that without void nothing can either be crushed, broken or cut in two, or admit moisture, permeating cold or penetrating fire. These cause the destruction of all things, and the more void each thing contains the more it succumbs to internal attack from them. So if the first bodies are solid and without void, as I have taught, they must necessarily be everlasting. Besides, if matter had not been everlasting, everything would before now have been totally annihilated, and all the things which we see would have been regenerated from nothing. But since I have taught earlier that nothing can be created from nothing and that what has been generated cannot be reduced to nothing, there must be principles with imperishable body, into which everything can be dissolved when its final hour comes, so as to ensure a supply of matter for the renewal of things. The principles, then, are solid and uncompounded, and in no other way could they have survived the ages from infinite time past to keep things renewed... Furthermore, since things have a limit placed on their growth and lifespan according to their species, and since what each can and cannot do is decreed through the laws of nature, and nothing changes but everything is so constant that all the varieties of bird display from generation to generation on their bodies the markings of their own species, they naturally must also have a body of unalterable matter. For if the principles of things could in any way succumb and be altered, it would now also be uncertain what can and what cannot arise, and how each thing has its power limited and its deep-set boundary stone, nor could such a long succession of generations in each species replicate the nature, habits, lifestyle and movements of their parents.  (L&S-THP)
@@ -283,6 +298,9 @@ These discoveries of Epicurus are so acute in themselves and so subtly expressed
 Epicurus held that the concept of divinity  --  of that which is truly blessed and imperishable  --  is real and meaningful, but that the characteristics traditionally attributed to the gods by religion are wrong and must be corrected by reason. A being that is truly blessed and truly imperishable cannot simultaneously be subject to anger, favoritism, grief, or the exhausting labor of supervising human affairs. These are characteristics of weakness and of beings subject to disturbance  --  the very opposite of blessedness. When we think carefully about what divine blessedness actually requires, we must conclude that the gods neither punish nor reward human beings, neither created the universe nor maintain it, and take no interest in human affairs.
 The practical application is direct: if the gods are genuinely blessed and imperishable as their nature requires, then all fear of divine anger and all hope of divine favoritism is mistaken. Religious rituals designed to appease the gods, prayers offered to obtain divine intervention, and the anxiety that gods are watching and judging human behavior  --  all of this rests on a false conception of divinity. Epicurus did not counsel atheism or disrespect toward the divine concept; he counseled the opposite  --  a genuine admiration for the divine nature as a model of perfect blessedness, free from disturbance, that the human philosopher can aspire to approximate in their own life.
 *** /Epicurus, Principal Doctrine 1/ :NatureOfGods:
+:PROPERTIES:
+:TRANSCLUDE_ID: epicurus-principal-doctrine-1
+:END:
 That which is blessed and indestructible has no troubles itself, nor does it give trouble to anyone else, so that it is not affected by feelings of anger or gratitude. For all such things imply weakness. (L&S-THP)
 *** /Epicurus, Letter to Menoeceus 123-4/ :NatureOfGods:EpicurusNotAnAtheist:AnticipationsAreNotOpinions:
 First, think of god as an imperishable and blessed creature, as the common idea of god is in outline, and attach to him nothing alien to imperishability or inappropriate to blessedness, but believe about him everything that can preserve his combination of blessedness and imperishability. For there are gods - the knowledge of them is self-evident. But they are not such as the many believe them to be. For by their beliefs as to their nature the many do not preserve them. The impious man is not he who denies the gods of the many, but he who attaches to gods the beliefs of the many about them. For they are not preconceptions but false suppositions, the assertions of the many about gods. It is through these that the greatest harms, the ones affecting bad men, stem from gods, and the greatest benefits too. For having a total affinity for their own virtues, they are receptive to those who are like them, and consider alien all that is not of that kind. (L&S-THP)
@@ -613,9 +631,13 @@ Plato held that behind the visible world of ordinary experience there is a highe
 Epicurus rejected both. Since the sensations, anticipations, and feelings are the only reliable criteria of truth, any claim to a reality that cannot be confirmed through these faculties  --  whether Platonic Forms, Aristotelian essences, or divine revelations  --  falls outside the bounds of what can be known. The insistence that a "truer" reality lies elsewhere, accessible only to pure reason or to those who have received divine communication, is not a neutral philosophical position: it is one that systematically undermines confidence in the very faculties nature has given us, and it opens the door to unlimited speculation dressed up as knowledge. For Epicurus, all truth is in this world, accessible through the natural faculties we actually possess. This is one of the sharpest points of conflict between Epicureanism and both the Platonic and later Christian traditions.
 The Epicurean rejection of Forms and essences has an epistemological foundation and a physical one. Epistemologically: preconceptions (the concepts we use to understand the world) are formed through repeated sensory experience, not through rational access to a separate realm of eternal truths. The concept "man" is formed by repeatedly encountering men; it has no existence independent of those encounters. Physically: the world is atoms and void, and there is no third category of being. A "Form" of Beauty that is not composed of atoms and exists in no region of space is not a third kind of real thing: it is nothing. Saying that real beauty somehow "participates" in the Form of Beauty is saying that a real physical property of a real material compound participates in nothing  --  which explains nothing.
 *** /Epicurus, Letter to Herodotus 39-40/ :AntiIdealism:SensationAsBasisOfKnowledge:MethodOfReasoning:
-Moreover, the totality of things is bodies and void. That bodies exist is universally witnessed by sensation itself, by reference to which it is necessary to judge by reason what is non-evident, as I have already said above. And if there were not that which we name void and room and intangible substance, bodies would not have anywhere to be or to move through in the way in which they are seen to move. Beyond these nothing can be conceived, either by comprehensive grasp or analogically to things grasped, as fully substantial entities, and not rather spoken of as the accidents or properties of such entities.  (L&S-THP)
+:PROPERTIES:
+:TRANSCLUDE: epicurus-letter-to-herodotus-39-40
+:END:
 *** /Lucretius 1: 329-45/ :AntiIdealism:SensationAsBasisOfKnowledge:MethodOfReasoning:
-Now I return to the sequence of my argument. All nature, then, as it exists in itself, is made up of just two components: there are bodies, and there is void in which those bodies are situated and through which they move this way and that. That body exists as an entity in its own right is declared by our sensation, universally shared. Unless confidence in this is firmly grounded in the first instance, there will be nothing by reference to which we could establish anything about what is hidden from our view, by proceeding through reasoning. Next, if there were no room and space, which we call void, bodies could not be situated anywhere, nor could they move this way and that at all, as I showed to you a short while before. Moreover, there is nothing you could posit which is separate from all body and distinct from void, to be discovered as a third nature: for whatever exists must be something in its own right; and if it admits of touch, however slight or great, as long as it exists, it will increase the tally of body by an increment large or small and be added to its sum; but if it is intangible and unable to prevent anything from moving freely through it in any direction, then it will certainly be that which we call empty void. Further, whatever exists in its own right, will either act, or must itself be acted on when other things act, or will be such that things are able to exist and happen in it. But nothing can act or be acted on without body, nor provide room except empty void. Therefore, other than void and bodies, no third nature could be left in the tally of things, either to fall under our senses at some time, or to be grasped by anyone through reasoning of the mind. (L&S-THP)
+:PROPERTIES:
+:TRANSCLUDE: lucretius-1-329-45
+:END:
 *** /Lucretius 4.823-842 (Things Did Not Come Into Being For A Purpose -- Against Teleology)/ :AntiIdealism:
 One mistake in this context, which I am determined you should shun and take precautions to avoid, is that of supposing the clear lights of the eyes to have been created in order that we might see; that it is in order that we might be able to take lengthy strides that the knees and hips can be flexed above their base of feet; and again that the forearms were jointed to the powerful upper arms, and hands supplied on either side, as our servants, in order that we could perform whatever acts were needed for living. All other explanations of this type which they offer are back to front, due to distorted reasoning. For nothing has been engendered in our body in order that we might be able to use it. It is the fact of its being engendered that creates its use. Seeing did not exist before the lights of the eyes were engendered, nor was there pleading with words before the tongue was created. Therefore they cannot have grown for the sake of their use. (L&S-THP)
 *** /Cicero, On the Nature of the Gods 1.18-23 (Velleius Against Platonic Creation)/ :AntiIdealism:NatureOfGods:EpicurusNotAnAtheist:
@@ -709,6 +731,9 @@ Blessed is not the young man but the old one who has lived honourably. For the y
 *** /Epicurus, Vatican Saying 21/ :CalculatingDesires:
 We must not compel nature but persuade her; and we shall persuade her by pursuing the necessary desires, and the natural ones if they do no harm, but harshly rebuking the harmful ones.  (L&S-THP)
 *** /Epicurus, Vatican Saying 25/ :CalculatingDesires:
+:PROPERTIES:
+:TRANSCLUDE_ID: epicurus-vatican-saying-25
+:END:
 Poverty, when measured by nature's end, is great wealth, but unlimited wealth is great poverty. (L&S-THP)
 *** /Epicurus, Vatican Saying 33/ :CalculatingDesires:
 The flesh's cry is not to be hungry or thirsty or cold. For one who is in these states and expects to remain so could rival even Zeus in happiness.  (L&S-THP)
@@ -717,6 +742,9 @@ It takes just the same time for the greatest good to be created and for it to be
 *** /Epicurus, Vatican Saying 51/ :CalculatingDesires:SexMarriageAndChildrenAreNatural:
 [Letter from Metrodorus to Pythocles] You tell me that the movement of your flesh is too inclined towards sexual intercourse. So long as you do not break the laws or disturb proper and established conventions or distress any of your neighbors or ravage your body or squander the necessities of life, act upon your inclination in anyway you like. Yet it is impossible not to be constrained by at least one of these. For sex is never advantageous, and one should be content if it does no harm.  (L&S-THP)
 *** /Epicurus, Vatican Saying 59/ :CalculatingDesires:
+:PROPERTIES:
+:TRANSCLUDE_ID: epicurus-vatican-saying-59
+:END:
 What is insatiable is not the stomach, as people say, but the false opinion concerning its unlimited filling. (L&S-THP)
 *** /Epicurus, Vatican Saying 63/ :CalculatingDesires:
 There can be refinement even on slender means, and one who fails to take account of it is in a similar position to someone who goes astray through ignoring limits.  (L&S-THP)
@@ -739,6 +767,9 @@ Shortly I will speak about imprudence, but for the present about the virtues and
 *** /Diogenes of Oenoanda 38.1.8 -- 3.14/ :Pleasure:CalculatingDesires:
 It is difficult for people in general to calculate the superiority of these mental feelings [over bodily ones]. For it is impossible to suffer the extremes of both on a single occasion by way of a comparison ... on account of the rarity of this occurrence and of the destruction of life when it does occur. Therefore no criterion has been found for measuring the superiority of these over the others. Rather, when someone has bodily pains he says they are greater than mental ones, but when < he has mental pains he says they are the greater >. For < present things > are always more convincing than absent ones, and each person evidently either through necessity or through pleasure assigns the superioriry to the feeling which has hold of him. But by means of many other considerations a wise man reasons out this point that the majority find hard to calculate. (L&S-THP)
 *** /Diogenes Laertius 10.121/ :Happiness:KatastematicNotBestPleasure:
+:PROPERTIES:
+:TRANSCLUDE_ID: diogenes-laertius-10-121
+:END:
 Happiness is a twofold notion: the highest, such as god enjoys, which is incapable of increase; and the happiness which is capable of addition and subtraction of pleasures. (L&S-THP)
 *** /Diogenes Laertius 10.136-137/ :Pleasure:KatastematicNotBestPleasure:
 Epicurus disagrees with the Cyrenaics on pleasure: they do not admit static pleasure but only the kinetic type, whereas he accepts both types, for soul and for body, as he says in his book On Choice and Avoidance and in On The End and in Book 1 of On Lives.  In On Choices he speaks as follows: 'Freedom from disturbance and absence of pain are static pleasures; but joy and delight are regarded as kinetic activities.' He has a further disagreement with the Cyrenaics: they take bodily pains to be worse than mental ones, but he takes the mental ones to be worse, since the flesh is storm-tossed only in the present, but the soul in past, present and future. (L&S-THP)
@@ -751,6 +782,9 @@ Epicurus disagrees with the Cyrenaics on pleasure: they do not admit static plea
 *** /Cicero, On Ends 2.69/ :Pleasure:VirtueAsContextual:
 You [Torquatus, the Epicurean) will be embarrassed, I say, by that picture which Cleanthes made a habit of depicting in very apt words. He used to call his listeners to imagine a painting of Pleasure most beautifully clad and seated on a throne with the trappings of a queen, and the virtues at her side as her handmaids: they made it their sole task and function to minister to Pleasure, and merely whispered in her ear the warning (if the picture could make this clear) to be careful not to do anything imprudently that might offend people's thoughts or from which any pain might arise. 'As for us virtues, we were born to be your slaves; we have no other business." (L&S-THP)
 *** /Scholion on Epicurus, Principal Doctrine 29/ :CalculatingDesires:
+:PROPERTIES:
+:TRANSCLUDE_ID: scholion-on-epicurus-principal-doctrine-29
+:END:
 Natural and necessary [desires], according to Epicurus, are ones which bring relief from pain, such as drinking when thirsty; natural but non-necessary are ones which merely vary pleasure but do not remove pain, such as expensive foods; neither natural nor necessary are ones for things like crowns and erection of statues. (L&S-THP)
 *** /Athenaeus 546F (Usener 400, 70)/ :Pleasure:VirtueAsContextual:
 Epicurus says: 'The pleasure of the stomach is the beginning and root of all good, and it is to this that wisdom and over-refinement actually refer.' And in On The End he again says: 'We should honor rectitude and the virtues and such like things if they bring pleasure; but if not, we should say goodbye to them.' (L&S-THP)
@@ -827,19 +861,34 @@ What actual pleasure do you, Torquatus, or does Triarius here, derive from liter
 *** /Cicero, On Ends 1.10 (Torquatus)/ :Pleasure:CalculatingDesires:
 We denounce with righteous indignation and dislike men who are so beguiled and demoralized by the charms of the pleasure of the moment, so blinded by desire, that they cannot foresee the pain and trouble that are bound to ensue. In a free hour, when our power of choice is untrammelled, every pleasure is to be welcomed and every pain avoided. But in certain emergencies it will frequently occur that pleasures have to be repudiated and annoyances accepted. The wise man therefore always holds in these matters to this principle of selection: he rejects pleasures to secure other greater pleasures, or else he endures pains to avoid worse pain. (Rackham)
 *** /Cicero, On Ends 1.11 (Torquatus, the Statue of Chrysippus)/ :Pleasure:KatastematicNotBestPleasure:
+:PROPERTIES:
+:TRANSCLUDE_ID: cicero-on-ends-1-11-torquatus-the-statue-of-chrysi
+:END:
 At Athens there is in the Ceramicus a statue of Chrysippus seated and holding out one hand. 'Does your hand want anything, while it is in its present condition?' Answer: 'No, nothing.' 'But if pleasure were a good, it would want pleasure.' 'Yes, I suppose it would.' 'Therefore pleasure is not a good.' This is an argument, my father declared, which not even a statue would employ; it does not touch Epicurus. For if the only kind of pleasure were that which so to speak tickles the senses, neither the hand, nor any other part of the body, could be satisfied with the absence of pain unaccompanied by an agreeable and active sensation of pleasure. Whereas if, as Epicurus holds, the highest pleasure be to feel no pain, the reason why it would not have wanted pleasure is that to be without pain is to be in a state of pleasure. (Rackham)
 *** /Cicero, On Ends 1.18 (Torquatus)/ :Pleasure:KatastematicNotBestPleasure:
 This therefore clearly appears, that intense mental pleasure or distress contributes more to our happiness or misery than a bodily pleasure or pain of equal duration. But we do not agree that when pleasure is withdrawn uneasiness at once ensues, unless the pleasure happens to have been replaced by a pain: while on the other hand one is glad to lose a pain even though no active sensation of pleasure comes in its place: and this fact serves to show how great a pleasure is the mere absence of pain. (Rackham)
 *** /Cicero, On Ends 2.9 (Cicero and Torquatus)/ :Pleasure:KatastematicNotBestPleasure:
+:PROPERTIES:
+:TRANSCLUDE_ID: cicero-on-ends-2-9-cicero-and-torquatus
+:END:
 [Cicero:] 'Unless you are extraordinarily obstinate you are bound to admit that "freedom from pain" does not mean the same thing as "pleasure."' [Torquatus:] 'Well but on this point you will find me obstinate, for the fact that freedom from pain means pleasure is as true as any proposition can be.' (Rackham)
 *** /Cicero, On Ends 2.11 (Cicero and Torquatus)/ :Pleasure:KatastematicNotBestPleasure:
+:PROPERTIES:
+:TRANSCLUDE_ID: cicero-on-ends-2-11-cicero-and-torquatus
+:END:
 [Cicero:] 'Still, granting that there is nothing better, surely it does not therefore follow that what I may call the negation of pain is the same thing as pleasure?' [Torquatus:] 'Clearly the same, and indeed the greatest, beyond which none greater can possibly be.' (Rackham)
 *** /Cicero, On Ends 2.23 (Adversarial)/ :Pleasure:KatastematicNotBestPleasure:
 The name of pleasure certainly has no dignity in it, and perhaps we do not exactly understand what is meant by it. Cannot we understand what pleasure is, a thing which is known to every sparrow? At another time you speak of some other highest pleasure, which is susceptible of no addition whatever, but that it is present when every sort of pain is absent, and you call it then a 'state,' not a 'motion.' Let that, then, be pleasure. (Yonge)
 For if that were the only pleasure which tickled the senses, as it were, if I may say so, and which overflowed and penetrated them with a certain agreeable feeling, then even a hand could not be content with freedom from pain without some pleasing motion of pleasure. But if the highest pleasure is, as Epicurus asserts, to be free from pain, then, O Chrysippus, the first admission was correctly made to you, that the hand, when it was in that condition, was in want of nothing; but the second admission was not equally correct, that if pleasure were a good it would wish for it. For it would not wish for it for this reason, inasmuch as whatever is free from pain is in pleasure.  (L&S-THP)
 *** /Epicurus, Principal Doctrine 3/ :Pleasure:KatastematicNotBestPleasure:
+:PROPERTIES:
+:TRANSCLUDE_ID: epicurus-principal-doctrine-3
+:END:
 The removal of all pain is the limit of the magnitude of pleasures. Wherever pleasure is present, as long as it is there, pain or distress or their combination is absent. (L&S-THP)
 *** /Epicurus, Principal Doctrine 18/ :Pleasure:LengthOfLife:
+:PROPERTIES:
+:TRANSCLUDE_ID: epicurus-principal-doctrine-18
+:END:
 The pleasure in the flesh is not increased when once the pain due to want is removed, but is only varied: and the limit as regards pleasure in the mind is begotten by the reasoned understanding of these very pleasures and of the emotions akin to them, which used to cause the greatest fear to the mind. (L&S-THP)
 *** /Norman DeWitt, Epicurus and His Philosophy (1954), p. 240/ :Pleasure:
 The extension of the name of pleasure to this normal state of being was the major innovation of the new hedonism... nor that reason justified the application; nor that human beings would be the happier for so reasoning and believing.
@@ -907,7 +956,9 @@ The practical application of this framework is liberating: once we can identify 
 *** /Epicurus, Letter to Menoeceus 127-8/ :CalculatingDesires:NotLimitedToNaturalAndNecessaryDesires:
 We must reckon that of desires some are natural and necessary, some natural and unnecessary, and some neither natural nor necessary but arising from empty opinion. Epicurus regards as natural and necessary those which remove pain, like drink when thirsty; natural and unnecessary those which merely vary pleasure without removing pain, such as costly food; and neither natural nor necessary, for example, crowns and the erection of statues. (L&S-THP)
 *** /Scholion on Epicurus, Principal Doctrine 29/ :CalculatingDesires:
-Natural and necessary [desires], according to Epicurus, are ones which bring relief from pain, such as drinking when thirsty; natural but non-necessary are ones which merely vary pleasure but do not remove pain, such as expensive foods; neither natural nor necessary are ones for things like crowns and erection of statues. (L&S-THP)
+:PROPERTIES:
+:TRANSCLUDE: scholion-on-epicurus-principal-doctrine-29
+:END:
 *** /Epicurus, Principal Doctrine 26/ :CalculatingDesires:AllDesireNotPainful:
 Those desires which do not bring pain when unfulfilled are not necessary, and the longing for them is easily dispersed, when to achieve them seems difficult or when they seem likely to produce harm. (L&S-THP)
 *** /Epicurus, Principal Doctrine 29/ :CalculatingDesires:NotLimitedToNaturalAndNecessaryDesires:
@@ -917,11 +968,15 @@ Whenever intense passion is present in natural desires which do not lead to pain
 *** /Epicurus, Vatican Saying 21/ :CalculatingDesires:NotLimitedToNaturalAndNecessaryDesires:
 We must not compel nature but persuade her; and we shall persuade her by pursuing the necessary desires, and the natural ones if they do no harm, but harshly rebuking the harmful ones. (L&S-THP)
 *** /Epicurus, Vatican Saying 25/ :CalculatingDesires:
-Poverty, when measured by nature's end, is great wealth, but unlimited wealth is great poverty. (L&S-THP)
+:PROPERTIES:
+:TRANSCLUDE: epicurus-vatican-saying-25
+:END:
 *** /Epicurus, Vatican Saying 33/ :CalculatingDesires:Happiness:
 The flesh's cry is not to be hungry or thirsty or cold. For one who is in these states and expects to remain so could rival even Zeus in happiness. (L&S-THP)
 *** /Epicurus, Vatican Saying 59/ :CalculatingDesires:
-What is insatiable is not the stomach, as people say, but the false opinion concerning its unlimited filling. (L&S-THP)
+:PROPERTIES:
+:TRANSCLUDE: epicurus-vatican-saying-59
+:END:
 *** /Epicurus, Vatican Saying 71/ :CalculatingDesires:
 This question should be applied to all desires: what will happen to me if the object of my desire is achieved, and what if it is not? (L&S-THP)
 *** /Cicero, On Ends 1.45 (Torquatus on the Limit of Natural Desire)/ :CalculatingDesires:
@@ -1104,11 +1159,15 @@ And for this cause we call pleasure the beginning and end of the blessed life. F
 *** /Epicurus, Letter to Menoeceus 130-1/ :HappinessAsLifeOfPleasure:CalculatingDesires:VirtueAsContextual:
 Now we maintain that pleasure is not the pleasure of the profligate or that which depends on physical enjoyment, as some think who are ignorant of our doctrine... but sober reasoning, searching out the motives for all choice and avoidance, and banishing mere opinions, to which are due the greatest disturbance of the spirit. Of all this the beginning and the greatest good is prudence. Therefore prudence is a more precious thing even than philosophy; from it spring all the other virtues, for it teaches that we cannot lead a life of pleasure which is not also a life of prudence, honor and justice. (Bailey)
 *** /Epicurus, Principal Doctrine 18/ :HappinessAsLifeOfPleasure:Pleasure:KatastematicNotBestPleasure:
-The pleasure in the flesh is not increased when once the pain due to want is removed, but is only varied: and the limit as regards pleasure in the mind is begotten by the reasoned understanding of these very pleasures and of the emotions akin to them, which used to cause the greatest fear to the mind. (L&S-THP)
+:PROPERTIES:
+:TRANSCLUDE: epicurus-principal-doctrine-18
+:END:
 *** /Epicurus, Principal Doctrine 19/ :HappinessAsLifeOfPleasure:LengthOfLife:
 Infinite time contains no greater pleasure than limited time, if one measures, by reason, the limits of pleasure. (L&S-THP)
 *** /Diogenes Laertius 10.121/ :HappinessAsLifeOfPleasure:KatastematicNotBestPleasure:
-Happiness is a twofold notion: the highest, such as god enjoys, which is incapable of increase; and the happiness which is capable of addition and subtraction of pleasures. (L&S-THP)
+:PROPERTIES:
+:TRANSCLUDE: diogenes-laertius-10-121
+:END:
 *** /David Sedley, "Epicurean versus Cyrenaic Happiness" (2017), p. 89-106/ :HappinessAsLifeOfPleasure:
 Eudaimonia, happiness, is a property of a whole life, not of some portion of it.
 *** /Cicero, Tusculan Disputations 5.95 (Usener 439)/ :HappinessAsLifeOfPleasure:
@@ -1118,6 +1177,9 @@ Shortly I will speak about imprudence, but for the present about the virtues and
 *** /Lucretius 6.1-28 (The Leaky Vessel -- Happiness Cannot Be Filled By Accumulation)/ :HappinessAsLifeOfPleasure:CalculatingDesires:RoleOfPhilosophy:
 It was Athens of glorious name that first long ago bestowed on feeble mortals the produce of corn, and refurbished life, and established laws. It was Athens too that first bestowed soothing pleasures on life, when she gave birth to a man endowed with such insight, who long ago gave utterance to everything with truthful voice. When he saw that mortals were already supplied with almost everything that need demands for their livelihood, and that their life as far as possible was firm and secure, that men had abundance of power through wealth and social status and fame, yet that at home no one's heart was any less troubled, and that they were constantly wrecking their life, despite their intentions, under a compulsion to rage with aggressive complaints, he recognized that the flaw was there, caused by the utensil itself, and that by its flaw everything within was being befouled, whatever came in assembled from outside including beneficial things. He saw that the cause was partly the leaks and holes, which made it impossible for the utensil ever to be filled up, and partly its virtually polluting everything it had taken in with a foul taste. And so he purged people's hearts with his truthful words, and established the limit of desire and fear, and laid out the nature of the highest good to which we all strive, and indicated the way by whose narrow path we may press on towards it on a straight course. (L&S-THP)
 *** /Cicero, On Ends 1.29 (Torquatus, Rackham)/ :HappinessAsLifeOfPleasure:Pleasure:
+:PROPERTIES:
+:TRANSCLUDE_ID: cicero-on-ends-1-29-torquatus-rackham
+:END:
 We are inquiring, then, into what is the final and ultimate Good, which as all philosophers are agreed must be of such a nature as to be the End to which all other things are means, while it is not itself a means to anything else. This Epicurus finds in Pleasure; Pleasure he holds to be the Chief Good, and Pain the Chief Evil. (Rackham)
 *** /Cicero, On Ends 1.29 (Torquatus, Reid)/ :HappinessAsLifeOfPleasure:Pleasure:PleasureAsGuide:
 The problem before us then is, what is the climax and standard of things good... Epicurus places this standard in pleasure, which he lays down to be the supreme good, while pain is the supreme evil. Every creature, as soon as it is born, seeks after pleasure and delights therein as in its supreme good, while it recoils from pain as its supreme evil. (Reid)
@@ -1126,6 +1188,9 @@ Again, the truth that pleasure is the supreme good can be most easily apprehende
 *** /Cicero, On Ends 1.42 (Torquatus)/ :HappinessAsLifeOfPleasure:Pleasure:
 Let us imagine a man living in the continuous enjoyment of numerous and vivid pleasures alike of body and of mind, undisturbed either by the presence or by the prospect of pain: what possible state of existence could we describe as being more excellent or more desirable? (Rackham)
 *** /Cicero, On Ends 1.54 (Torquatus)/ :HappinessAsLifeOfPleasure:Pleasure:VirtueAsContextual:
+:PROPERTIES:
+:TRANSCLUDE_ID: cicero-on-ends-1-54-torquatus
+:END:
 If then even the glory of the Virtues, on which all the other philosophers love to expatiate so eloquently, has in the last resort no meaning unless it be based on pleasure, whereas pleasure is the only thing that is intrinsically attractive and alluring, it cannot be doubted that pleasure is the one supreme and final Good and that a life of happiness is nothing else than a life of pleasure. (Rackham)
 *** /Epicurus, Vatican Saying 55/ :HappinessAsLifeOfPleasure:RoleOfPhilosophy:
 We must heal our misfortunes by the grateful recollection of what has been and by the recognition that it is impossible to make undone what has been done. (Bailey)
@@ -1142,9 +1207,13 @@ Philodemus carefully distinguishes three types of anger: first, empty anger base
 The practical implication is that the Epicurean life is not a life of emotional flatness, numbness, or withdrawal from genuine engagement with the world. It is a life of full, natural emotional engagement conducted with wisdom. The person who loves genuinely is capable of natural anger when what they love is threatened or harmed. The person who enjoys genuine pleasures is also capable of honest acknowledgment of genuine pains. This complementary fullness is what the Epicurean full cup actually contains -- not a cup drained of the negative experiences that give the positive ones their meaning, but a cup full of the complete range of natural human engagement with a real world.
 This connects directly to the insight from C-9 that happiness is an emergent property of the well-lived life: a happiness achieved by suppressing or eliminating one pole of the complementary pairs -- allowing only pleasure and not pain, only love and not the anger that protects it -- is not genuine Epicurean happiness but an impoverished substitute that misunderstands what the full cup requires.
 *** /Epicurus, Principal Doctrine 3/ :LoveHatePleasurePain:KatastematicNotBestPleasure:
-The removal of all pain is the limit of the magnitude of pleasures. Wherever pleasure is present, as long as it is there, pain or distress or their combination is absent. (L&S-THP)
+:PROPERTIES:
+:TRANSCLUDE: epicurus-principal-doctrine-3
+:END:
 *** /Epicurus, Principal Doctrine 1/ :LoveHatePleasurePain:EpicurusNotAnAtheist:
-That which is blessed and indestructible has no troubles itself, nor does it give trouble to anyone else, so that it is not affected by feelings of anger or gratitude. For all such things imply weakness. (L&S-THP)
+:PROPERTIES:
+:TRANSCLUDE: epicurus-principal-doctrine-1
+:END:
 *** /Epicurus, Principal Doctrine 4/ :LoveHatePleasurePain:HappinessDoesNotRequireCompleteAbsenceOfPain:
 Pain does not last continuously in the flesh: when acute it is there for a very short time, while the pain which just exceeds the pleasure in the flesh does not persist for many days; and chronic illnesses contain an excess of pleasure in the flesh over pain. (L&S-THP)
 *** /Lucretius 3:98/ :LoveHatePleasurePain:HappinessDoesNotRequireCompleteAbsenceOfPain:
@@ -1160,6 +1229,9 @@ Once he has become wise, he no longer adopts the opposite character and does not
 *** /Lucretius 3.288-315 (The Soul's Compound Nature -- Natural Emotions Are Real)/ :LoveHatePleasurePain:
 It now remains to explain why the soul's motions and the soul itself are not all of a single kind throughout. We see that different natures are born in men, and that various manners cling to particular races -- and the different species of animals have very different modes of life. Hence in the lion the spirit is fierce, in the fox crafty, in the deer timid, and so forth. Thus from the very start these same natural seeds, these same first-beginnings have their effect through the bodies of all creatures differing in nature and appearance. (Bailey, adapted)
 *** /Porphyry, To Marcella 31 (Usener 221)/ :LoveHatePleasurePain:RoleOfPhilosophy:
+:PROPERTIES:
+:TRANSCLUDE_ID: porphyry-to-marcella-31-usener-221
+:END:
 [Quoting Epicurus] 'Empty are the words of that philosopher who offers therapy for no human suffering. For just as there is no use in medical expertise if it does not give therapy for bodily diseases, so too there is no use in philosophy if it does not expel the suffering of the soul.' (L&S-THP)
 ** The Role of Philosophy
 *** _Commentary_ :RoleOfPhilosophy:
@@ -1169,21 +1241,29 @@ Let no one either delay philosophizing when young, or weary of philosophizing wh
 *** /Epicurus, Vatican Saying 27/ :RoleOfPhilosophy:
 In other pursuits the reward comes at the end and is hard won. But in philosophy enjoyment keeps pace with knowledge. It is not learning followed by entertainment, but learning and entertainment at the same time.  (L&S-THP)
 *** /Epicurus, Vatican Saying 29/ :RoleOfPhilosophy:
-I would rather speak with the frankness of a natural philosopher, and reveal the things which are expedient to all mankind, even if no one is going to understand me, than assent to the received opinions and reap the adulation lavishly bestowed by the multitude.  (L&S-THP)
+:PROPERTIES:
+:TRANSCLUDE: epicurus-vatican-saying-29
+:END:
 *** /Epicurus, Vatican Saying 41/ :RoleOfPhilosophy:HowToLive:
 We should laugh, philosophize, and handle our household affairs and other personal matters, all at the same time, and never cease making the utterances which stem from correct philosophy.  (L&S-THP)
 *** /Epicurus, Vatican Saying 45/ :RoleOfPhilosophy:
-Natural philosophy does not make people boastful and loud-mouthed, nor flaunters of culture, the thing so hotly competed for among the multitude, but modest and self-sufficient, and proud at their own goods, not at those of their circumstances. (L&S-THP)
+:PROPERTIES:
+:TRANSCLUDE: epicurus-vatican-saying-45
+:END:
 *** /Epicurus, Vatican Saying 54/ :RoleOfPhilosophy:
 One should not pretend to philosophize, but actually philosophize. For what we need is not the semblance of health, but real health.   (L&S-THP)
 *** /Lucretius 1.62-79/ :RoleOfPhilosophy:EpicurusNotAnAtheist:
-(1) When human life lay foul to see and groveling upon the ground, crushed by the weight of Religion, who displayed her head from the regions of heaven, lowering over mortals with horrible aspect, (2) a man of Greece dared first to raise his mortal eyes against her, first to make a stand against her; for neither fables of the gods could quell him, nor thunderbolts, nor heaven with menacing roar, but all the more they goaded the eager courage of his soul to long to be the first to burst through the close-set bolts of nature's gates. (3) Therefore his vigorous mind won through, and he passed on far beyond the fiery walls of the world, and in mind and spirit traversed the boundless universe; (4) whence returning victorious he reports to us what can arise, what cannot, and by what principle each thing has its powers limited and its deep-set boundary stone. (5) Therefore Religion is now in turn cast down and trampled underfoot, while we by the victory are exalted high as heaven. (L&S-THP)
+:PROPERTIES:
+:TRANSCLUDE: lucretius-1-62-79
+:END:
 *** /Lucretius 2.7-13/ :RoleOfPhilosophy:NoPoliticsDoesNotMeanQuietist:
 But nothing is more welcome than to occupy the heights effectively fortified by the teaching of the wise, tranquil sanctuaries from which you can look down upon others and see them wandering all abroad and going astray in their search for the path of life, competing in talent, contending in rank, striving night and day by extraordinary effort to rise to the height of power and gain possession of the world. (L&S-THP)
 *** /Diogenes Laertius 10.6/ :RoleOfPhilosophy:EpicurusEasyToUnderstand:
 In his letter to Pythocles Epicurus writes:  'My fortunate friend, hoist your sail and steer clear of ail culture.' (L&S-THP)
 *** /Porphyry, To Marcella 31 (Usener 221)/ :RoleOfPhilosophy:
-[Quoting Epicurus] 'Empty are the words of that philosopher who offers therapy for no human suffering. For just as there is no use in medical expertise if it does not give therapy for bodily diseases, so too there is no use in philosophy if it does not expel the suffering of the soul.' (L&S-THP)
+:PROPERTIES:
+:TRANSCLUDE: porphyry-to-marcella-31-usener-221
+:END:
 *** /Athenaeus 588A (Usener 117)/ :RoleOfPhilosophy:EpicurusEasyToUnderstand:
 [Quoting Epicurus] 'I congratulate you, Apelles, for embarking on philosophy while still untainted by any culture.' (L&S-THP)
 *** /Sextus Empiricus, Against the Professors n. 169 (Usener 219)/ :RoleOfPhilosophy:Happiness:
@@ -1212,10 +1292,17 @@ The substitution of tranquility for pleasure has a specific philosophical origin
 *** /Diogenes of Oinoanda, Fragment 32/ :PleasureNotTranquilityIsHighestGood:Pleasure:VirtueAsContextual:
 Shortly I will speak about imprudence, but for the present about the virtues and pleasure. Now if, fellow men, the question at issue between these people [the Stoics] and ourselves involved examining 'what is the means of happiness?', and they wanted to say the virtues, as is in fact true, there would be no need to do anything except to agree with them and abandon the matter. But since, as I was saying, the issue is not 'what is the means of happiness?', but what being happy is and what our nature ultimately desires, I affirm now and always, with a great shout to all Greeks and foreigners, pleasure is the end of the best lifestyle, while the virtues which are now being inappropriately fussed about by them (being transferred from the position of means to that of end) are in no way the end, but the means to the end. (L&S-THP)
 *** /Cicero, On Ends 1.29 (Torquatus, Rackham)/ :PleasureNotTranquilityIsHighestGood:HappinessAsLifeOfPleasure:Pleasure:
-We are inquiring, then, into what is the final and ultimate Good, which as all philosophers are agreed must be of such a nature as to be the End to which all other things are means, while it is not itself a means to anything else. This Epicurus finds in Pleasure; Pleasure he holds to be the Chief Good, and Pain the Chief Evil. (Rackham)
+:PROPERTIES:
+:TRANSCLUDE: cicero-on-ends-1-29-torquatus-rackham
+:END:
 *** /Cicero, On Ends 1.54 (Torquatus)/ :PleasureNotTranquilityIsHighestGood:HappinessAsLifeOfPleasure:Pleasure:VirtueAsContextual:
-If then even the glory of the Virtues, on which all the other philosophers love to expatiate so eloquently, has in the last resort no meaning unless it be based on pleasure, whereas pleasure is the only thing that is intrinsically attractive and alluring, it cannot be doubted that pleasure is the one supreme and final Good and that a life of happiness is nothing else than a life of pleasure. (Rackham)
+:PROPERTIES:
+:TRANSCLUDE: cicero-on-ends-1-54-torquatus
+:END:
 *** /Seneca, Letters to Lucilius 21.10/ :PleasureNotTranquilityIsHighestGood:Happiness:HappinessAsLifeOfPleasure:Pleasure:
+:PROPERTIES:
+:TRANSCLUDE_ID: seneca-letters-to-lucilius-21-10
+:END:
 /Hospes, hic bene manebis; hic summum bonum voluptas est./ -- "Stranger, here you will do well to tarry; here our highest good is pleasure."
 *** /Aulus Gellius, Attic Nights II.6/ :PleasureNotTranquilityIsHighestGood:Pleasure:
 :PROPERTIES:
@@ -1287,11 +1374,17 @@ A pleasant physical sensation affects this life of ours; why therefore, do you h
 *** _Commentary_
 Epicurus recognized exactly two feelings -- pleasure and pain -- with no third, neutral state between them. Given that framework, "absence of pain" is not a separate, lesser category sitting below pleasure; it is pleasure, described from the negative side, and at its complete extent it is the greatest pleasure there is, since nothing remains to diminish it. Critics ancient and modern have treated this equation as a verbal trick -- a way of smuggling a modest, static condition in under pleasure's name to escape Plato's and the Stoics' objections. But the identification is not a dodge. Aulus Gellius, a literary scholar with no stake in the philosophical dispute, confirms that praising or condemning something by denying its opposite's faults was a completely ordinary rhetorical convention in antiquity, used by Homer and Virgil as readily as by Epicurus. And when Cicero, in Torquatus's own mouth, presses the equation as hard as it can be pressed -- demanding that Torquatus either back down or affirm it outright -- Torquatus does not hedge. He affirms it twice, in the strongest possible terms available to him.
 *** /Cicero, On Ends 2.9 (Cicero and Torquatus)/ :AbsenceOfPainIsPleasure:KatastematicNotBestPleasure:
-[Cicero:] 'Unless you are extraordinarily obstinate you are bound to admit that "freedom from pain" does not mean the same thing as "pleasure."' [Torquatus:] 'Well but on this point you will find me obstinate, for the fact that freedom from pain means pleasure is as true as any proposition can be.' (Rackham)
+:PROPERTIES:
+:TRANSCLUDE: cicero-on-ends-2-9-cicero-and-torquatus
+:END:
 *** /Cicero, On Ends 2.11 (Cicero and Torquatus)/ :AbsenceOfPainIsPleasure:KatastematicNotBestPleasure:
-[Cicero:] 'Still, granting that there is nothing better, surely it does not therefore follow that what I may call the negation of pain is the same thing as pleasure?' [Torquatus:] 'Clearly the same, and indeed the greatest, beyond which none greater can possibly be.' (Rackham)
+:PROPERTIES:
+:TRANSCLUDE: cicero-on-ends-2-11-cicero-and-torquatus
+:END:
 *** /Epicurus, Principal Doctrine 3/ :AbsenceOfPainIsPleasure:KatastematicNotBestPleasure:
-The removal of all pain is the limit of the magnitude of pleasures. Wherever pleasure is present, as long as it is there, pain or distress or their combination is absent. (L&S-THP)
+:PROPERTIES:
+:TRANSCLUDE: epicurus-principal-doctrine-3
+:END:
 *** /Diogenes Laertius 10:34/ :AbsenceOfPainIsPleasure:Pleasure:
 The internal sensations they say are two, pleasure and pain, which occur to every living creature, and the one is akin to nature and the other alien: by means of these two choice and avoidance are determined. (Bailey)
 *** /Aulus Gellius, Attic Nights II.6/ :AbsenceOfPainIsPleasure:Pleasure:
@@ -1299,7 +1392,9 @@ The internal sensations they say are two, pleasure and pain, which occur to ever
 :TRANSCLUDE: aulus-gellius-ii6
 :END:
 *** /Cicero, On Ends 1.11 (Torquatus, the Statue of Chrysippus)/ :AbsenceOfPainIsPleasure:KatastematicNotBestPleasure:
-At Athens there is in the Ceramicus a statue of Chrysippus seated and holding out one hand. 'Does your hand want anything, while it is in its present condition?' Answer: 'No, nothing.' 'But if pleasure were a good, it would want pleasure.' 'Yes, I suppose it would.' 'Therefore pleasure is not a good.' This is an argument, my father declared, which not even a statue would employ; it does not touch Epicurus. For if the only kind of pleasure were that which so to speak tickles the senses, neither the hand, nor any other part of the body, could be satisfied with the absence of pain unaccompanied by an agreeable and active sensation of pleasure. Whereas if, as Epicurus holds, the highest pleasure be to feel no pain, the reason why it would not have wanted pleasure is that to be without pain is to be in a state of pleasure. (Rackham)
+:PROPERTIES:
+:TRANSCLUDE: cicero-on-ends-1-11-torquatus-the-statue-of-chrysi
+:END:
 *** /Cicero, On Ends 2.23 (Adversarial)/ :AbsenceOfPainIsPleasure:KatastematicNotBestPleasure:
 The name of pleasure certainly has no dignity in it, and perhaps we do not exactly understand what is meant by it. Cannot we understand what pleasure is, a thing which is known to every sparrow? At another time you speak of some other highest pleasure, which is susceptible of no addition whatever, but that it is present when every sort of pain is absent, and you call it then a 'state,' not a 'motion.' Let that, then, be pleasure. (Yonge)
 For if that were the only pleasure which tickled the senses, as it were, if I may say so, and which overflowed and penetrated them with a certain agreeable feeling, then even a hand could not be content with freedom from pain without some pleasing motion of pleasure. But if the highest pleasure is, as Epicurus asserts, to be free from pain, then, O Chrysippus, the first admission was correctly made to you, that the hand, when it was in that condition, was in want of nothing; but the second admission was not equally correct, that if pleasure were a good it would wish for it. For it would not wish for it for this reason, inasmuch as whatever is free from pain is in pleasure. (L&S-THP)
@@ -1357,7 +1452,9 @@ Of desires, all that do not lead to a sense of pain, if they are not satisfied, 
 Live unknown.
 We must release ourselves from the prison of affairs and politics.
 *** /Seneca, Letters to Lucilius 21.10/ :LiveUnknownDoesNotMeanIsolation:PleasureNotTranquilityIsHighestGood:
-/Hospes, hic bene manebis; hic summum bonum voluptas est./ -- "Stranger, here you will do well to tarry; here our highest good is pleasure."
+:PROPERTIES:
+:TRANSCLUDE: seneca-letters-to-lucilius-21-10
+:END:
 ** Does Avoiding Politics Mean Passive Withdrawal From The World? :NoPoliticsDoesNotMeanQuietist:
 *** _Commentary_
 Epicurus's advice to avoid formal office-seeking is often mistaken for a blanket counsel of passivity. But Diogenes Laertius's own description of the Epicurean Wise Man shows an active life: he engages in lawsuits, writes and leaves behind treatises, gathers a school, and lectures in public when asked. What he avoids is the specific mechanism of formal political ambition -- competing for office, delivering set-piece political oratory -- because that mechanism ties one's happiness to the unstable opinions of a crowd. The historical example of Cassius Longinus, an open and self-identified Epicurean who organized armed resistance to Caesar's tyranny, along with other Epicurean figures in Roman public life, puts the passive-withdrawal caricature to rest.
