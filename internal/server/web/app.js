@@ -59,6 +59,40 @@ const api = {
   },
 };
 
+// Scans `nodesToScan` for cross-file :TRANSCLUDE: references not already
+// present in `cache` (see tree.applyTransclusions) and fetches each one via
+// GET /api/transclude, returning the updates to merge in — does not mutate
+// `cache` itself. Shared by the live-view auto-fetch effect (which can show
+// a "loading…" badge and settle in later) and export's pre-pass (which
+// can't — export output has to be complete and synchronous).
+async function fetchMissingTransclusions(nodesToScan, currentFile, cache) {
+  const refs = [];
+  const scan = (list) => {
+    for (const n of list) {
+      const ref = n.properties?.TRANSCLUDE;
+      if (ref) {
+        const parsed = tree.parseTranscludeRef(ref);
+        if (parsed?.file && parsed.file !== currentFile) refs.push(parsed);
+      }
+      if (n.children?.length > 0) scan(n.children);
+    }
+  };
+  scan(nodesToScan || []);
+  const missing = refs.filter((r) => cache[`${r.file}::${r.id}`] === undefined);
+  if (missing.length === 0) return {};
+  const updates = {};
+  for (const r of missing) {
+    const key = `${r.file}::${r.id}`;
+    try {
+      const data = await api.get(`/api/transclude?file=${encodeURIComponent(r.file)}&id=${encodeURIComponent(r.id)}`);
+      updates[key] = data.node;
+    } catch {
+      updates[key] = "missing";
+    }
+  }
+  return updates;
+}
+
 // Build the correct API URL for a doc/hash request. Absolute filesystem
 // paths (from the folder browser) go as a query param to avoid Go's mux
 // cleaning double-slashes; relative workspace names go in the path segment.
@@ -339,7 +373,7 @@ function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onIn
 // path because toggleHoist normally infers its target from whichever node
 // happens to be keyboard-focused — irrelevant here, since the menu can be
 // opened on any node regardless of focus.
-function NodeActionMenu({ x, y, nodeId, isHoisted, dispatch, onToggleHoistNode, onCopyFormatted, onCut, onCopyNode, onPasteNode, hasClipboard, onCleanText, onClose }) {
+function NodeActionMenu({ x, y, nodeId, isHoisted, dispatch, onToggleHoistNode, onCopyFormatted, onCut, onCopyNode, onPasteNode, hasClipboard, onCleanText, isTransclusion, onCopyReference, onPasteAsTransclusion, hasReferenceClipboard, onGoToSource, onDetachTransclusion, onClose }) {
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -372,6 +406,14 @@ function NodeActionMenu({ x, y, nodeId, isHoisted, dispatch, onToggleHoistNode, 
       <button className="note-ctx-item" onClick=${() => { onToggleHoistNode(nodeId); onClose(); }}>${isHoisted ? "Unhoist" : "Hoist"}</button>
       <div className="note-ctx-sep" />
       <button className="note-ctx-item" onClick=${() => { onCleanText(nodeId); onClose(); }}>Clean Text</button>
+      <div className="note-ctx-sep" />
+      ${isTransclusion ? html`
+        <button className="note-ctx-item" onClick=${() => { onGoToSource(nodeId); onClose(); }}>Go to Source</button>
+        <button className="note-ctx-item" onClick=${() => { onDetachTransclusion(nodeId); onClose(); }}>Detach Transclusion</button>
+      ` : html`
+        <button className="note-ctx-item" onClick=${() => { onCopyReference(nodeId); onClose(); }}>Copy Reference</button>
+        <button className="note-ctx-item" disabled=${!hasReferenceClipboard} onClick=${() => { onPasteAsTransclusion(nodeId); onClose(); }}>Paste as Transclusion</button>
+      `}
     </div>
   `;
 }
@@ -713,6 +755,14 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
   const [imgPopup, setImgPopup] = useState(null); // { index, rect }
   const [tableEdit, setTableEdit] = useState(null); // { tableIndex, rows, headerCount }
 
+  // Transclusion display state — see the matching block in OutlineNode for
+  // the full explanation. Duplicated here (rather than threaded through
+  // props) since it's a cheap pure computation from node._transclusion.
+  const transclusion = node._transclusion || null;
+  const isEditableTransclusion = transclusion?.status === "resolved" && transclusion.editable === true;
+  const isReadOnlyContent = !!transclusion && !isEditableTransclusion;
+  const contentTargetId = isEditableTransclusion ? transclusion.sourceId : node.id;
+
   // Inserts a blank 2x2 table at pos and opens it in the table editor —
   // the right-click menu's Insert Table, parameterized by cursor position
   // rather than reading localRef directly, so it works regardless of
@@ -728,7 +778,7 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
     const newBody = before + pre + tableText + post + after;
     // New table index = number of table blocks in the text before the insertion point.
     const newTableIndex = tree.findTableBlocksInBody(before + pre).length;
-    dispatch(node.id, "change-body", newBody);
+    dispatch(contentTargetId, "change-body", newBody);
     dispatch(node.id, "preview-body");
     setTableEdit({ tableIndex: newTableIndex, rows: blankRows, headerCount: 1 });
   };
@@ -766,6 +816,7 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
                    document.body.dispatchEvent(new CustomEvent("epicWikiNav", { detail: { name: wikiEl.dataset.wiki } }));
                    return;
                  }
+                 if (isReadOnlyContent) return;
                  const tableEl = e.target.closest(".org-table");
                  if (tableEl) {
                    const idx = parseInt(tableEl.dataset.tableIndex || "0");
@@ -816,8 +867,10 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
             data-node-id=${node.id}
             value=${node.body || ""}
             placeholder="Add notes..."
-            onChange=${(e) => { dispatch(node.id, "change-body", tree.orgifyPaths(e.target.value)); triggerLinkPicker(e.target, e, true); }}
+            readOnly=${isReadOnlyContent}
+            onChange=${(e) => { dispatch(contentTargetId, "change-body", tree.orgifyPaths(e.target.value)); triggerLinkPicker(e.target, e, true); }}
             onContextMenu=${(e) => {
+              if (isReadOnlyContent) return;
               e.preventDefault();
               const ta = e.target;
               setCtxMenu({ x: e.clientX, y: e.clientY, textarea: ta,
@@ -828,13 +881,19 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
               if (!document.hasFocus()) dispatch(node.id, "preview-body");
             }}
             onKeyDown=${(e) => {
+              if (isReadOnlyContent) {
+                if (e.key === "Escape") { e.preventDefault(); dispatch(node.id, "focus-outline"); }
+                return;
+              }
               const marker = formatMarkerForKey(e);
-              if (marker) { e.preventDefault(); wrapSelectionWithMarker(e, marker, (v) => dispatch(node.id, "change-body", v)); return; }
-              if (matchShortcut("splitNode", e)) { e.preventDefault(); dispatch(node.id, "split-body-at-cursor", e.target.selectionStart); return; }
+              if (marker) { e.preventDefault(); wrapSelectionWithMarker(e, marker, (v) => dispatch(contentTargetId, "change-body", v)); return; }
+              if (matchShortcut("splitNode", e)) { e.preventDefault(); dispatch(contentTargetId, "split-body-at-cursor", e.target.selectionStart); return; }
               // Same node-structural shortcuts as the title field (handleKey)
               // — a note is still editing this node, so Indent/Outdent/Move
               // should reposition it too, not fall through to the browser's
-              // Alt+Left/Right back/forward navigation.
+              // Alt+Left/Right back/forward navigation. These act on the
+              // wrapper's own tree position even for a live-synced
+              // transclusion — moving the copy shouldn't move the source.
               if (matchShortcut("moveUp", e))       { e.preventDefault(); dispatch(node.id, "move-up"); return; }
               if (matchShortcut("moveDown", e))     { e.preventDefault(); dispatch(node.id, "move-down"); return; }
               if (matchShortcut("indent", e))       { e.preventDefault(); dispatch(node.id, "indent"); return; }
@@ -853,16 +912,16 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
       sel=${ctxMenu.sel} textarea=${ctxMenu.textarea}
       nodeId=${node.id} dispatch=${dispatch}
       onCommit=${(newVal, cursor) => {
-        dispatch(node.id, "change-body", tree.orgifyPaths(newVal));
+        dispatch(contentTargetId, "change-body", tree.orgifyPaths(newVal));
         requestAnimationFrame(() => {
           ctxMenu.textarea.focus();
           ctxMenu.textarea.setSelectionRange(cursor, cursor);
         });
       }}
-      onInsertFootnote=${() => triggerInsertFootnote({ nodeId: node.id, bodyText: ctxMenu.sel.value, cursorPos: ctxMenu.sel.start })}
+      onInsertFootnote=${() => triggerInsertFootnote({ nodeId: contentTargetId, bodyText: ctxMenu.sel.value, cursorPos: ctxMenu.sel.start })}
       onInsertImage=${() => {
         document.body.dispatchEvent(new CustomEvent("epicInsertImage", {
-          detail: { nodeId: node.id, cursorPos: ctxMenu.sel.start, body: node.body || "" }
+          detail: { nodeId: contentTargetId, cursorPos: ctxMenu.sel.start, body: node.body || "" }
         }));
       }}
       onInsertTable=${() => insertTableAtCursor(ctxMenu.sel.start)}
@@ -875,7 +934,7 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
         block=${block}
         nodeBody=${node.body}
         rect=${imgPopup.rect}
-        onUpdate=${(newBody) => dispatch(node.id, "change-body", newBody)}
+        onUpdate=${(newBody) => dispatch(contentTargetId, "change-body", newBody)}
         onClose=${() => setImgPopup(null)} />` : null;
     })()}
     ${tableEdit && html`<${TableEditor}
@@ -884,7 +943,7 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
       onSave=${({ rows, headerCount }) => {
         const newLines = tree.serializeOrgTable({ rows, headerCount });
         const newBody = tree.replaceTableBlockInBody(node.body || "", tableEdit.tableIndex, newLines);
-        dispatch(node.id, "change-body", newBody);
+        dispatch(contentTargetId, "change-body", newBody);
         setTableEdit(null);
       }}
       onCancel=${() => setTableEdit(null)} />`}
@@ -901,9 +960,28 @@ function toLetters(n, upper) {
   return result + ".";
 }
 
+const TRANSCLUSION_BADGE_TITLES = {
+  resolved: "Transcluded — click to go to source",
+  missing: "Transclusion source not found",
+  loading: "Loading transcluded content…",
+  chained: "Source is itself a transclusion — chained transclusion isn't supported",
+};
+
 function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, outlineFormat, levelFormats, siblingIndex, verticalLines, showTagChips, tagsOnRight, onSearchTag, bodyEditingId, bodyPreviewId, bodyRefs, onNodeHandleMouseDown, onNodeHandleMenu, nodeMenuOpenId, globalFont, levelFonts, globalColor, levelColors }) {
   const isFocused = focusedId === node.id;
   const hasChildren = node.children?.length > 0;
+  // Transclusion display state — see tree.applyTransclusions. `transclusion`
+  // is only set on nodes produced by that pass, never on a node read
+  // straight from real editable state (used outside the main outline, e.g.
+  // detail pane), so everything below is a no-op there.
+  const transclusion = node._transclusion || null;
+  const isEditableTransclusion = transclusion?.status === "resolved" && transclusion.editable === true;
+  const isReadOnlyContent = !!transclusion && !isEditableTransclusion;
+  // Title/body edits on an editable (same-file) transcluded copy redirect
+  // to the source node's real id instead of this wrapper's — that's the
+  // live-sync: both places show the same content because there's really
+  // only one place it's stored.
+  const contentTargetId = isEditableTransclusion ? transclusion.sourceId : node.id;
   const bulletFmt = (levelFormats && levelFormats[depth]) || outlineFormat || "bullets";
   const effectiveFont = (levelFonts && levelFonts[depth]) || globalFont;
   const effectiveColor = (levelColors && levelColors[depth]) || globalColor;
@@ -968,10 +1046,17 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
 
   return html`
     <div>
-      <div className=${"node-row" + (isFocused ? " focused" : "")} data-node-id=${node.id} data-depth=${depth}>
+      <div className=${"node-row" + (isFocused ? " focused" : "") + (transclusion ? " transcluded" + (isReadOnlyContent ? " transcluded-readonly" : " transcluded-live") : "")} data-node-id=${node.id} data-depth=${depth}>
         ${verticalLines
           ? Array.from({ length: depth }, (_, i) => html`<span key=${i} className="indent-guide" />`)
           : html`<span style=${{ width: depth * 24, flexShrink: 0 }} />`}
+        ${transclusion && html`
+          <span className=${"transclusion-badge" + (transclusion.status !== "resolved" ? " transclusion-badge-warn" : "")}
+                title=${TRANSCLUSION_BADGE_TITLES[transclusion.status] || ""}
+                onClick=${(e) => { e.stopPropagation(); if (transclusion.status === "resolved") dispatch(node.id, "goto-transclusion-source"); }}>
+            ${transclusion.status === "resolved" ? "⇋" : "⚠"}
+          </span>
+        `}
         <span className=${"node-handle" + (nodeMenuOpenId === node.id ? " menu-open" : "")}
               title="Drag to move \u00B7 Click for actions"
               onMouseDown=${(e) => {
@@ -1035,6 +1120,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
               style=${showOverlay ? {position:"absolute",left:"-9999px",opacity:0,pointerEvents:"none",width:"1px",height:"1px",padding:0,border:0,overflow:"hidden",margin:0} : typoStyle}
               value=${node.title}
               placeholder=""
+              readOnly=${isReadOnlyContent}
               onFocus=${() => dispatch(node.id, "focus")}
               onKeyDown=${(e) => {
                 if (e.key === "Escape" && titleFormatMode) {
@@ -1064,9 +1150,17 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                   });
                   return;
                 }
-                handleKey(e, node.id, dispatch);
+                // Structural keys (Enter/Backspace/Tab) act as if they were
+                // pressed at the source's own position — for an editable
+                // (same-file) transclusion, editing the copy IS editing the
+                // source. Read-only copies (cross-file, or any unresolved
+                // state) never mutate content, so structural edits are
+                // skipped entirely rather than acting on the wrapper's own
+                // (always-empty) stored title.
+                if (isReadOnlyContent) return;
+                handleKey(e, contentTargetId, dispatch);
               }}
-              onChange=${(e) => { setIsEditing(true); dispatch(node.id, "change", tree.orgifyPaths(e.target.value)); triggerLinkPicker(e.target, e); }}
+              onChange=${(e) => { setIsEditing(true); dispatch(contentTargetId, "change", tree.orgifyPaths(e.target.value)); triggerLinkPicker(e.target, e); }}
             />
           `}
         ${showOverlay && html`
@@ -5336,6 +5430,20 @@ function App() {
       return next;
     });
   }, []);
+  // Whether finding a heading under a filter/search shows its whole subtree
+  // (default) or keeps pruning non-matching descendants within it — see
+  // tree.filterTree. Defaults on: the old narrower behavior could make a
+  // real sub-item look like it had vanished.
+  const [filterShowFullSubtree, setFilterShowFullSubtree] = useState(() => {
+    try { const v = localStorage.getItem("epicorg.filterShowFullSubtree"); return v === null ? true : v === "1"; } catch { return true; }
+  });
+  const toggleFilterShowFullSubtree = useCallback(() => {
+    setFilterShowFullSubtree((p) => {
+      const next = !p;
+      try { localStorage.setItem("epicorg.filterShowFullSubtree", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  }, []);
   const [readingWidth, setReadingWidth] = useState(() => {
     try { const v = localStorage.getItem("epicorg.readingWidth"); return v === null ? true : v === "1"; } catch { return true; }
   });
@@ -5754,6 +5862,21 @@ function App() {
   // with fresh ids each time (see tree.pasteNodeAfter) so pasting the same
   // clipboard repeatedly never collides with an earlier paste.
   const [nodeClipboard, setNodeClipboard] = useState(null);
+  // Reference clipboard for transclusion — separate from nodeClipboard
+  // (which holds a full node for Cut/Copy/Paste-as-duplicate). "Copy
+  // Reference" assigns the source node a permanent TRANSCLUDE_ID (if it
+  // doesn't have one yet) and remembers { file, id, label } here; "Paste as
+  // Transclusion" consumes it. Not written to the OS clipboard — the value
+  // is an internal id, not something a human would want to paste elsewhere.
+  const [referenceClipboard, setReferenceClipboard] = useState(null);
+  // Resolved cross-file transclusion sources, keyed by "file::id" — see
+  // tree.applyTransclusions. undefined = not yet fetched, "missing" =
+  // fetched but unavailable (deleted, moved, or itself chained), otherwise
+  // the resolved node. Same-file transclusions never need this — they're
+  // resolved live from the current in-memory tree instead.
+  const [transclusionCache, setTransclusionCache] = useState({});
+  const transclusionCacheRef = useRef({});
+  useEffect(() => { transclusionCacheRef.current = transclusionCache; }, [transclusionCache]);
   // Which node's inline body/notes textarea is currently open for editing —
   // body text now lives under each bullet rather than in the detail pane.
   const [bodyEditingId, setBodyEditingId] = useState(null);
@@ -5762,6 +5885,11 @@ function App() {
   const dirtyRef = useRef(false);
   const nodesRef = useRef(null);
   const visibleNodesRef = useRef(null);
+  // Forward reference to goToTranscludeSource (defined later, kept in sync
+  // there) so the central dispatch() — defined before it — can still route
+  // the "goto-transclusion-source" action to it, same pattern as
+  // loadFileRef above for epicWikiNav.
+  const goToTranscludeSourceRef = useRef(null);
   const preambleRef = useRef("");
   const hashRef = useRef("");
   const currentFileRef = useRef(null);
@@ -5798,9 +5926,33 @@ function App() {
   const isHoisted = !!hoistedNode;
   const hoistBaseNodes = hoistedNode ? [hoistedNode] : nodes;
   const visibleNodes = useMemo(
-    () => isFiltering && hoistBaseNodes ? tree.filterTree(hoistBaseNodes, searchQuery, selectedTags) : hoistBaseNodes,
-    [hoistBaseNodes, searchQuery, selectedTags, isFiltering]
+    () => isFiltering && hoistBaseNodes ? tree.filterTree(hoistBaseNodes, searchQuery, selectedTags, filterShowFullSubtree) : hoistBaseNodes,
+    [hoistBaseNodes, searchQuery, selectedTags, isFiltering, filterShowFullSubtree]
   );
+  // Layers transclusion resolution on top of the filtered/hoisted tree —
+  // display-only (see tree.applyTransclusions): ids are preserved so
+  // dispatch/save still target the right underlying node, but a
+  // transcluding node's title/body/children are swapped for its resolved
+  // source's. Same-file references resolve live from visibleNodes itself;
+  // cross-file references resolve from transclusionCache, populated by the
+  // fetch effect below. This is what's actually rendered and navigated.
+  const displayNodes = useMemo(
+    () => tree.applyTransclusions(visibleNodes, currentFile, transclusionCache),
+    [visibleNodes, currentFile, transclusionCache]
+  );
+  // Fetches any cross-file transclusion sources referenced by the visible
+  // tree that aren't already cached. Same-file references never reach
+  // here — applyTransclusions resolves those live from visibleNodes itself.
+  // See fetchMissingTransclusions (module scope) — shared with export's
+  // synchronous-resolution pre-pass below.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const updates = await fetchMissingTransclusions(visibleNodes, currentFile, transclusionCacheRef.current);
+      if (!cancelled && Object.keys(updates).length > 0) setTransclusionCache((prev) => ({ ...prev, ...updates }));
+    })();
+    return () => { cancelled = true; };
+  }, [visibleNodes, currentFile]);
   const toggleHoist = useCallback(() => {
     setHoistedId((prev) => {
       if (prev) return null;
@@ -6671,9 +6823,24 @@ function App() {
     } catch {}
   }, [loadFile, setView, setNodes, markDirty, focusNode]);
 
-  const exportToHtml = useCallback(() => {
+  // Resolves every transclusion in `sourceNodes` before export — unlike the
+  // live view, export output has to be complete and synchronous (no
+  // "loading…" badge that settles in later), so any cross-file source not
+  // already cached is fetched up front. Reuses/extends transclusionCache so
+  // a file that's already been viewed doesn't refetch.
+  const resolveTranscludedNodesForExport = useCallback(async (sourceNodes) => {
+    const updates = await fetchMissingTransclusions(sourceNodes, currentFileRef.current, transclusionCacheRef.current);
+    if (Object.keys(updates).length > 0) {
+      transclusionCacheRef.current = { ...transclusionCacheRef.current, ...updates };
+      setTransclusionCache((prev) => ({ ...prev, ...updates }));
+    }
+    return tree.applyTransclusions(sourceNodes, currentFileRef.current, transclusionCacheRef.current);
+  }, []);
+
+  const exportToHtml = useCallback(async () => {
     if (!currentFile) return;
-    const html = generateExportHtml(nodes, preamble, currentFile, theme, resolveTopBarColor(topBarColor), outlineFormat, levelFormats);
+    const resolved = await resolveTranscludedNodesForExport(nodes);
+    const html = generateExportHtml(resolved, preamble, currentFile, theme, resolveTopBarColor(topBarColor), outlineFormat, levelFormats);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -6681,28 +6848,35 @@ function App() {
     a.download = currentFile.replace(/\.org$/, "") + ".html";
     a.click();
     URL.revokeObjectURL(url);
-  }, [nodes, preamble, currentFile, theme, topBarColor]);
+  }, [nodes, preamble, currentFile, theme, topBarColor, resolveTranscludedNodesForExport]);
 
   // PDF export reuses the same HTML export (which carries its own
   // @media print rules — see export.js), opened in a new tab and printed
   // via the browser's native print dialog ("Save as PDF") rather than
   // generating a file server-side — see the epicorg architecture notes on
   // why (no bundled Chrome/PDF-rendering dependency).
-  const exportToPdf = useCallback(() => {
+  const exportToPdf = useCallback(async () => {
     if (!currentFile) return;
-    const html = generateExportHtml(nodes, preamble, currentFile, theme, resolveTopBarColor(topBarColor), outlineFormat, levelFormats);
+    // window.open must happen synchronously in the click handler's own call
+    // stack, or popup blockers kill it — so open the tab with a placeholder
+    // first, then fill in the real (transclusion-resolved) content once the
+    // async resolution settles, instead of awaiting before opening it.
     const win = window.open("", "_blank");
     if (!win) { showToast("Pop-up blocked — allow pop-ups for epicorg to export to PDF"); return; }
+    win.document.write('<p style="font-family:sans-serif;padding:2rem;">Preparing export…</p>');
+    const resolved = await resolveTranscludedNodesForExport(nodes);
+    const html = generateExportHtml(resolved, preamble, currentFile, theme, resolveTopBarColor(topBarColor), outlineFormat, levelFormats);
     win.onload = () => { win.focus(); win.print(); };
     win.onafterprint = () => win.close();
     win.document.open();
     win.document.write(html);
     win.document.close();
-  }, [nodes, preamble, currentFile, theme, topBarColor, outlineFormat, levelFormats, showToast]);
+  }, [nodes, preamble, currentFile, theme, topBarColor, outlineFormat, levelFormats, showToast, resolveTranscludedNodesForExport]);
 
-  const exportToMarkdown = useCallback(() => {
+  const exportToMarkdown = useCallback(async () => {
     if (!currentFile) return;
-    const md = generateMarkdown(nodes, preamble, currentFile);
+    const resolved = await resolveTranscludedNodesForExport(nodes);
+    const md = generateMarkdown(resolved, preamble, currentFile);
     const blob = new Blob([md], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -6710,7 +6884,7 @@ function App() {
     a.download = currentFile.replace(/\.org$/, "") + ".md";
     a.click();
     URL.revokeObjectURL(url);
-  }, [nodes, preamble, currentFile]);
+  }, [nodes, preamble, currentFile, resolveTranscludedNodesForExport]);
 
   const importFromMarkdown = useCallback((file) => {
     if (!file) return;
@@ -7288,6 +7462,8 @@ function App() {
 
     if (action === "release-focus") { setFocusedId(null); return; }
 
+    if (action === "goto-transclusion-source") { goToTranscludeSourceRef.current?.(nodeId); return; }
+
     if (action === "edit-title") {
       // value, if given, is the character offset the user actually clicked
       // at within the rendered title — honored by the focus effect below
@@ -7515,6 +7691,86 @@ function App() {
     dispatch(nodeId, "change", cleanUpText(node.title || ""));
     if (node.body) dispatch(nodeId, "change-body", cleanUpText(node.body));
   }, [dispatch]);
+
+  // Transclusion — see tree.js's "Transclusion" section for the property
+  // scheme. "Copy Reference" assigns the node a permanent TRANSCLUDE_ID
+  // (reusing one if it already has it) and remembers it here; "Paste as
+  // Transclusion" turns another node into a live copy of it.
+  const copyReference = useCallback((nodeId) => {
+    const node = tree.findNode(nodesRef.current || [], nodeId);
+    if (!node) return;
+    if (node.properties?.TRANSCLUDE) {
+      showToast("That's already a transclusion — copy the reference from its source instead");
+      return;
+    }
+    const { nodes: next, id } = tree.ensureTranscludeId(nodesRef.current || [], nodeId);
+    setNodes(next);
+    markDirty();
+    setReferenceClipboard({ file: currentFileRef.current, id, label: node.title || "(untitled)" });
+    showToast("Reference copied — use Paste as Transclusion elsewhere");
+  }, [markDirty, showToast]);
+
+  const pasteAsTransclusion = useCallback((nodeId) => {
+    if (!referenceClipboard) return;
+    const node = tree.findNode(nodesRef.current || [], nodeId);
+    if (!node) return;
+    const sameFile = referenceClipboard.file === currentFileRef.current;
+    if (sameFile && node.properties?.TRANSCLUDE_ID === referenceClipboard.id) {
+      showToast("Can't transclude a node into itself");
+      return;
+    }
+    const ref = tree.formatTranscludeRef(sameFile ? null : referenceClipboard.file, referenceClipboard.id);
+    setNodes((prev) => tree.makeTransclusion(prev, nodeId, ref));
+    markDirty();
+    showToast(`Now transcludes "${referenceClipboard.label || "source"}"`);
+  }, [referenceClipboard, markDirty, showToast]);
+
+  // Navigates to a transcluding node's source: same-file jumps straight to
+  // it, cross-file opens that file first (via loadFileRef, kept in sync
+  // further down) and then focuses it once loaded.
+  const goToTranscludeSource = useCallback(async (nodeId) => {
+    const node = tree.findNode(nodesRef.current || [], nodeId);
+    const ref = node?.properties?.TRANSCLUDE;
+    if (!ref) return;
+    const parsed = tree.parseTranscludeRef(ref);
+    if (!parsed) return;
+    if (!parsed.file || parsed.file === currentFileRef.current) {
+      const source = tree.findNodeByProperty(nodesRef.current || [], "TRANSCLUDE_ID", parsed.id);
+      if (!source) { showToast("Source node not found"); return; }
+      dispatch(source.id, "focus");
+      dispatch(source.id, "focus-outline");
+      return;
+    }
+    await loadFileRef.current?.(parsed.file);
+    requestAnimationFrame(() => {
+      const source = tree.findNodeByProperty(nodesRef.current || [], "TRANSCLUDE_ID", parsed.id);
+      if (source) { dispatch(source.id, "focus"); dispatch(source.id, "focus-outline"); }
+      else showToast(`Opened ${parsed.file} but couldn't find the source node`);
+    });
+  }, [dispatch, showToast]);
+  useEffect(() => { goToTranscludeSourceRef.current = goToTranscludeSource; }, [goToTranscludeSource]);
+
+  // Turns a transcluding node back into a normal, independently-editable
+  // node, baking in whatever content is currently resolved for it (so
+  // nothing visually changes at the moment of detaching).
+  const detachTranscludeNode = useCallback((nodeId) => {
+    const node = tree.findNode(nodesRef.current || [], nodeId);
+    const ref = node?.properties?.TRANSCLUDE;
+    if (!ref) return;
+    const parsed = tree.parseTranscludeRef(ref);
+    let content = null;
+    if (parsed) {
+      if (!parsed.file || parsed.file === currentFileRef.current) {
+        const source = tree.findNodeByProperty(nodesRef.current || [], "TRANSCLUDE_ID", parsed.id);
+        if (source) content = { title: source.title, body: source.body, children: source.children };
+      } else {
+        const cached = transclusionCacheRef.current[`${parsed.file}::${parsed.id}`];
+        if (cached && cached !== "missing") content = { title: cached.title, body: cached.body, children: cached.children };
+      }
+    }
+    setNodes((prev) => tree.detachTransclusion(prev, nodeId, content));
+    markDirty();
+  }, [markDirty]);
 
   // Cleans up the selected text via dispatch (not a raw DOM "input" event)
   // because a body note's textarea unmounts into a formatted preview the
@@ -7973,7 +8229,7 @@ function App() {
   const focusedNode = (!isPreambleFocused && focusedId) ? tree.findNode(nodes, focusedId) : null;
   const detailNode = isPreambleFocused ? { body: preamble } : focusedNode;
   const detailKey = isPreambleFocused ? "preamble" : focusedId;
-  visibleNodesRef.current = visibleNodes;
+  visibleNodesRef.current = displayNodes;
 
   // Drop favorites/recents for files that no longer exist (renamed/deleted).
   // Absolute paths (opened via filesystem navigator) are always kept — they
@@ -8063,6 +8319,10 @@ function App() {
           onCopyFormatted=${copyNodeAsFormatted}
           onCut=${cutNode} onCopyNode=${copyNode} onPasteNode=${pasteNode} hasClipboard=${!!nodeClipboard}
           onCleanText=${cleanNodeText}
+          isTransclusion=${!!tree.findNode(nodesRef.current || nodes || [], nodeMenu.nodeId)?.properties?.TRANSCLUDE}
+          onCopyReference=${copyReference} onPasteAsTransclusion=${pasteAsTransclusion}
+          hasReferenceClipboard=${!!referenceClipboard}
+          onGoToSource=${goToTranscludeSource} onDetachTransclusion=${detachTranscludeNode}
           onClose=${() => setNodeMenu(null)} />`}
       ${showHelp && html`<${CommandPalette} commands=${buildCommands({
           undo, redo, canUndo, canRedo,
@@ -8290,13 +8550,13 @@ function App() {
             `}
             <div className=${"outline-content" + (readingWidth ? " reading-width" : "")}>
               ${!isFiltering && !isHoisted && html`<${PreambleRow} focused=${isPreambleFocused} preamble=${preamble} dispatch=${dispatch} inputRefs=${inputRefs} />`}
-              ${visibleNodes.length === 0 ? html`
+              ${displayNodes.length === 0 ? html`
                 <div className="empty" onClick=${() => {
                   if (isFiltering) { setSearchQuery(""); clearTags(); return; }
                   const nn = tree.newNode();
                   setNodes([nn]); focusNode(nn.id); markDirty();
                 }}>${isFiltering ? "No matches — click to clear filters" : "Click or press any key to start"}</div>
-              ` : visibleNodes.map((node, i) => html`
+              ` : displayNodes.map((node, i) => html`
                 <${OutlineNode} key=${node.id} node=${node} focusedId=${focusedId}
                   dispatch=${dispatch} inputRefs=${inputRefs} depth=${0}
                   titleFormatMode=${titleFormatMode} notesVisible=${notesVisible}
@@ -8452,6 +8712,7 @@ function App() {
           textMode=${textMode} onSetViewMode=${setViewMode}
           isHoisted=${isHoisted} canToggleHoist=${isHoisted || (focusedId && focusedId !== "preamble")}
           onToggleHoist=${toggleHoist}
+          filterShowFullSubtree=${filterShowFullSubtree} onToggleFilterShowFullSubtree=${toggleFilterShowFullSubtree}
           onFoldToLevel=${foldToLevel}
           onExportToOrg=${exportToOrg} onExportToHtml=${exportToHtml} onExportToPdf=${exportToPdf} onExportToMarkdown=${exportToMarkdown} onImportFromMarkdown=${importFromMarkdown}
           tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${toggleTagPanel}
@@ -10007,6 +10268,7 @@ function SettingsModal({
   view, onSetView,
   textMode, onSetViewMode,
   isHoisted, canToggleHoist, onToggleHoist,
+  filterShowFullSubtree, onToggleFilterShowFullSubtree,
   onFoldToLevel,
   onExportToOrg, onExportToHtml, onExportToPdf, onExportToMarkdown, onImportFromMarkdown,
   tagPanelVisible, onToggleTagPanel,
@@ -10090,6 +10352,9 @@ function SettingsModal({
         <${StgRow} label="Hoist" desc="Isolate the focused item, hiding everything else">
           <input type="checkbox" checked=${isHoisted} onChange=${onToggleHoist}
                  disabled=${!canToggleHoist || textMode || view !== "outline"} />
+        </${StgRow}>
+        <${StgRow} label="Filter shows full subtree" desc="When a search/filter matches a heading, show everything beneath it — not just sub-items that also match">
+          <input type="checkbox" checked=${filterShowFullSubtree} onChange=${onToggleFilterShowFullSubtree} />
         </${StgRow}>
         <${StgRow} label="Fold to level" desc="Collapse outline to this depth">
           <div className="stg-segmented">

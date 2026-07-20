@@ -241,6 +241,15 @@ func Register(mux *http.ServeMux, store *orgfile.Store, onSave func(), defaultFi
 		h.unlinkedMentions(w, r)
 	})
 
+	// Transclusion: resolve a :TRANSCLUDE: reference to its source node's content.
+	mux.HandleFunc("/api/transclude", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		h.transclude(w, r)
+	})
+
 	// Full-text search — scans all .org files for nodes matching a query.
 	mux.HandleFunc("/api/search/text", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {

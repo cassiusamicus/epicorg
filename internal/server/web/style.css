@@ -3243,6 +3243,45 @@ header.header-tinted {
   animation: node-jump-flash 2s ease-out forwards;
 }
 
+/* Transclusion — a copy that mirrors a source node elsewhere (see
+   tree.applyTransclusions). "live" (same-file) copies are still editable —
+   typing there edits the source — so they get a subtle accent tint rather
+   than looking locked. Read-only copies (cross-file, or a broken/loading
+   reference) get a dashed left border, matching how org-transclusion marks
+   read-only transclusions in Emacs. */
+.node-row.transcluded-live {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.node-row.transcluded-readonly {
+  border-left: 2px dashed var(--text-dim);
+  padding-left: 2px;
+}
+
+.node-row.transcluded-readonly .node-title,
+.node-row.transcluded-readonly .node-title-preview,
+.node-row.transcluded-readonly .node-body-textarea,
+.node-row.transcluded-readonly ~ .node-body-row .node-body-preview {
+  opacity: 0.85;
+}
+
+.transclusion-badge {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 28px;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.transclusion-badge-warn {
+  color: var(--warn);
+  cursor: default;
+}
+
 /* Dynalist-style hover-revealed handle to the left of the bullet: drag to
    move (reorder/indent/outdent), click or right-click for the node action
    menu. A dedicated always-present column (not overlapping the bullet) so

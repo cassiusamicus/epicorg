@@ -227,6 +227,16 @@ func (s *Store) SetBackupMaxVersions(n int) error {
 	return saveGlobalConfig(cfg)
 }
 
+// ResolveFilePath is the exported form of resolveFilePath, for callers
+// outside the package that need to validate or read a logical file name
+// (e.g. resolving a cross-file transclusion reference) without going
+// through the full LoadFile/SaveFile side effects.
+func (s *Store) ResolveFilePath(name string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.resolveFilePath(name)
+}
+
 // resolveFilePath returns the absolute filesystem path for a logical file name.
 // Names starting with "journal/" are redirected to journalDir when configured.
 // Absolute paths (from the filesystem browser) are returned as-is.

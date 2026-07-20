@@ -566,15 +566,29 @@ test("filterTree: keeps ancestor when descendant matches", () => {
   assertEqual(result[0].children[0].id, "a1");
 });
 
-test("filterTree: matching node still prunes non-matching children (sparse tree)", () => {
+test("filterTree: matching node shows its full subtree by default (no further pruning)", () => {
   const t = [node("a", "alpha", [node("a1", "x"), node("a2", "y")])];
   const result = tree.filterTree(t, "alpha");
+  assertEqual(result[0].children.length, 2);
+  assertEqual(result[0].children.map((n) => n.id), ["a1", "a2"]);
+});
+
+test("filterTree: showFullSubtree=false still prunes non-matching children under a match", () => {
+  const t = [node("a", "alpha", [node("a1", "x"), node("a2", "y")])];
+  const result = tree.filterTree(t, "alpha", null, false);
   assertEqual(result[0].children.length, 0);
 });
 
-test("filterTree: matching node keeps its own matching descendants", () => {
+test("filterTree: matching node keeps all descendants by default, matching or not", () => {
   const t = [node("a", "alpha", [node("a1", "alpha junior"), node("a2", "y")])];
   const result = tree.filterTree(t, "alpha");
+  assertEqual(result[0].children.length, 2);
+  assertEqual(result[0].children.map((n) => n.id), ["a1", "a2"]);
+});
+
+test("filterTree: showFullSubtree=false keeps only matching descendants under a match", () => {
+  const t = [node("a", "alpha", [node("a1", "alpha junior"), node("a2", "y")])];
+  const result = tree.filterTree(t, "alpha", null, false);
   assertEqual(result[0].children.length, 1);
   assertEqual(result[0].children[0].id, "a1");
 });
@@ -1099,6 +1113,136 @@ test("splitBodyAtCursor: works on a nested (child) node", () => {
   assertEqual(result[0].children.length, 2);
   assertEqual(result[0].children[0].body, "First. ");
   assertEqual(result[0].children[1].body, "Second.");
+});
+
+// --- Transclusion ---
+
+test("parseTranscludeRef: same-file bare id", () => {
+  assertEqual(tree.parseTranscludeRef("tc-abc123"), { file: null, id: "tc-abc123" });
+});
+
+test("parseTranscludeRef: cross-file file::id", () => {
+  assertEqual(tree.parseTranscludeRef("Notes/Other.org::tc-abc123"), { file: "Notes/Other.org", id: "tc-abc123" });
+});
+
+test("parseTranscludeRef: empty ref is null", () => {
+  assertEqual(tree.parseTranscludeRef(""), null);
+});
+
+test("formatTranscludeRef: same-file omits the file segment", () => {
+  assertEqual(tree.formatTranscludeRef(null, "tc-abc123"), "tc-abc123");
+});
+
+test("formatTranscludeRef: cross-file joins with ::", () => {
+  assertEqual(tree.formatTranscludeRef("Notes/Other.org", "tc-abc123"), "Notes/Other.org::tc-abc123");
+});
+
+test("ensureTranscludeId: assigns a fresh id when the node has none", () => {
+  const t = [node("a", "Quote")];
+  const { nodes: result, id } = tree.ensureTranscludeId(t, "a");
+  assert(!!id);
+  assertEqual(tree.findNode(result, "a").properties.TRANSCLUDE_ID, id);
+});
+
+test("ensureTranscludeId: reuses an existing id instead of overwriting it", () => {
+  const t = [{ ...node("a", "Quote"), properties: { TRANSCLUDE_ID: "tc-existing" } }];
+  const { nodes: result, id } = tree.ensureTranscludeId(t, "a");
+  assertEqual(id, "tc-existing");
+  assertEqual(result, t); // unchanged — no new object created
+});
+
+test("makeTransclusion: sets TRANSCLUDE and clears the node's own content", () => {
+  const t = [node("a", "Copy", [node("a1", "child")])];
+  const result = tree.makeTransclusion(t, "a", "tc-source1");
+  const n = tree.findNode(result, "a");
+  assertEqual(n.title, "");
+  assertEqual(n.body, "");
+  assertEqual(n.children, []);
+  assertEqual(n.properties.TRANSCLUDE, "tc-source1");
+});
+
+test("detachTransclusion: removes TRANSCLUDE and bakes in given content", () => {
+  const t = [{ ...node("a", ""), properties: { TRANSCLUDE: "tc-source1" } }];
+  const result = tree.detachTransclusion(t, "a", { title: "Resolved title", body: "Resolved body", children: [] });
+  const n = tree.findNode(result, "a");
+  assertEqual(n.properties.TRANSCLUDE, undefined);
+  assertEqual(n.title, "Resolved title");
+  assertEqual(n.body, "Resolved body");
+});
+
+test("detachTransclusion: without content, just removes the property", () => {
+  const t = [{ ...node("a", ""), properties: { TRANSCLUDE: "tc-source1", OTHER: "keep" } }];
+  const result = tree.detachTransclusion(t, "a");
+  const n = tree.findNode(result, "a");
+  assertEqual(n.properties, { OTHER: "keep" });
+  assertEqual(n.title, "");
+});
+
+test("applyTransclusions: resolves a same-file reference and is live-editable", () => {
+  const source = { ...node("src", "Original quote"), body: "The text.", properties: { TRANSCLUDE_ID: "tc-1" } };
+  const copy = { ...node("cpy", ""), properties: { TRANSCLUDE: "tc-1" } };
+  const result = tree.applyTransclusions([source, copy], "Outline.org", {});
+  const resolved = tree.findNode(result, "cpy");
+  assertEqual(resolved.title, "Original quote");
+  assertEqual(resolved.body, "The text.");
+  assertEqual(resolved._transclusion.status, "resolved");
+  assertEqual(resolved._transclusion.editable, true);
+  assertEqual(resolved._transclusion.sourceId, "src");
+});
+
+test("applyTransclusions: same-file source missing -> status 'missing'", () => {
+  const copy = [{ ...node("cpy", ""), properties: { TRANSCLUDE: "tc-nope" } }];
+  const result = tree.applyTransclusions(copy, "Outline.org", {});
+  assertEqual(result[0]._transclusion.status, "missing");
+});
+
+test("applyTransclusions: cross-file reference resolves from cache and is read-only", () => {
+  const copy = [{ ...node("cpy", ""), properties: { TRANSCLUDE: "Other.org::tc-1" } }];
+  const cache = { "Other.org::tc-1": { title: "Remote quote", body: "Body.", tags: [], children: [] } };
+  const result = tree.applyTransclusions(copy, "Outline.org", cache);
+  const resolved = result[0];
+  assertEqual(resolved.title, "Remote quote");
+  assertEqual(resolved._transclusion.status, "resolved");
+  assertEqual(resolved._transclusion.editable, false);
+  assertEqual(resolved._transclusion.sourceFile, "Other.org");
+});
+
+test("applyTransclusions: cross-file reference not yet in cache -> status 'loading'", () => {
+  const copy = [{ ...node("cpy", ""), properties: { TRANSCLUDE: "Other.org::tc-1" } }];
+  const result = tree.applyTransclusions(copy, "Outline.org", {});
+  assertEqual(result[0]._transclusion.status, "loading");
+});
+
+test("applyTransclusions: cross-file reference cached as unavailable -> status 'missing'", () => {
+  const copy = [{ ...node("cpy", ""), properties: { TRANSCLUDE: "Other.org::tc-1" } }];
+  const cache = { "Other.org::tc-1": "missing" };
+  const result = tree.applyTransclusions(copy, "Outline.org", cache);
+  assertEqual(result[0]._transclusion.status, "missing");
+});
+
+test("applyTransclusions: a source that is itself a transclusion is 'chained', not followed", () => {
+  const relay = { ...node("relay", ""), properties: { TRANSCLUDE_ID: "tc-1", TRANSCLUDE: "tc-2" } };
+  const copy = { ...node("cpy", ""), properties: { TRANSCLUDE: "tc-1" } };
+  const result = tree.applyTransclusions([relay, copy], "Outline.org", {});
+  assertEqual(tree.findNode(result, "cpy")._transclusion.status, "chained");
+});
+
+test("applyTransclusions: nested children of a resolved transclusion get namespaced, read-only ids", () => {
+  const source = { ...node("src", "Parent quote", [node("src1", "child quote")]), properties: { TRANSCLUDE_ID: "tc-1" } };
+  const copy = { ...node("cpy", ""), properties: { TRANSCLUDE: "tc-1" } };
+  const result = tree.applyTransclusions([source, copy], "Outline.org", {});
+  const resolved = tree.findNode(result, "cpy");
+  assertEqual(resolved.children.length, 1);
+  assert(resolved.children[0].id !== "src1", "nested child id must not collide with the real source child's id");
+  assert(resolved.children[0].id.includes("::"), "nested child id should be namespaced");
+  assertEqual(resolved.children[0]._transclusion.readOnly, true);
+});
+
+test("applyTransclusions: a node without a TRANSCLUDE property passes through untouched", () => {
+  const t = [node("a", "Normal", [node("a1", "child")])];
+  const result = tree.applyTransclusions(t, "Outline.org", {});
+  assertEqual(result[0]._transclusion, undefined);
+  assertEqual(result[0].children[0].id, "a1");
 });
 
 // --- Done ---

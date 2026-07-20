@@ -70,6 +70,14 @@ export function generateMarkdown(nodes, preamble, filename) {
         lines.push("");
       }
 
+      // Cross-file transclusion attribution — see the matching note in
+      // renderNodesHtml (export.js's HTML exporter). Same-file
+      // transclusions stay seamless.
+      if (node._transclusion?.status === "resolved" && node._transclusion.sourceFile) {
+        lines.push(`*↗ transcluded from ${node._transclusion.sourceFile}*`);
+        lines.push("");
+      }
+
       if (!sched && !dl && !(node.tags && node.tags.length) && !(node.body && node.body.trim())) {
         lines.push("");
       }
@@ -260,6 +268,14 @@ function renderNodesHtml(nodes, depth, outlineFormat, levelFormats) {
 
     if (node.body) {
       inner += `<div class="nbody">${bodyHtml}</div>`;
+    }
+
+    // Cross-file transclusions get a light attribution so readers know the
+    // content lives elsewhere too — see tree.applyTransclusions. Same-file
+    // transclusions stay visually seamless (the duplicate is already
+    // visible elsewhere in this same export).
+    if (node._transclusion?.status === "resolved" && node._transclusion.sourceFile) {
+      inner += `<div class="tc-note">↗ transcluded from <cite>${esc(node._transclusion.sourceFile)}</cite></div>`;
     }
 
     const nodeTags = new Set(ownTags);
@@ -509,6 +525,8 @@ mark.flt-mark.flt-current{background:#ff9f1c}
 .nh.done .nt{text-decoration:line-through;color:var(--dim)}
 .nbody{font-size:13px;color:var(--dim);padding:3px 0 8px 19px;line-height:1.65;white-space:pre-wrap;word-break:break-word}
 .nbody p{margin-bottom:.5em}
+.tc-note{font-size:11px;color:var(--dim);padding:0 0 8px 19px;font-style:italic}
+.tc-note cite{font-style:normal}
 
 /* Depth-based heading sizes */
 .ns[data-level="1"]>.nh>.nt{font-weight:600;font-size:15px}

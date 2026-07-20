@@ -63,6 +63,52 @@ func SaveWorkspace(cfg *WorkspaceConfig) error {
 	return os.WriteFile(filepath.Join(dir, "workspace.json"), data, 0644)
 }
 
+// IsPathAllowed reports whether absPath lies within an included workspace
+// root and is not inside an excluded subtree of that root. Used to validate
+// user-supplied file references (e.g. transclusion targets written into a
+// property value) before reading them from disk, so a hand-edited property
+// can't be used to read arbitrary files outside the configured workspace.
+func IsPathAllowed(cfg *WorkspaceConfig, absPath string) bool {
+	absPath = filepath.Clean(absPath)
+	var excluded []string
+	for _, p := range cfg.Paths {
+		if !p.Included {
+			excluded = append(excluded, filepath.Clean(p.Path))
+		}
+	}
+	for _, p := range cfg.Paths {
+		if !p.Included {
+			continue
+		}
+		root := filepath.Clean(p.Path)
+		if !pathIsWithin(root, absPath) {
+			continue
+		}
+		underExcluded := false
+		for _, ex := range excluded {
+			if pathIsWithin(ex, absPath) {
+				underExcluded = true
+				break
+			}
+		}
+		if !underExcluded {
+			return true
+		}
+	}
+	return false
+}
+
+func pathIsWithin(root, path string) bool {
+	if root == path {
+		return true
+	}
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
 // WalkWorkspace walks all included paths in cfg, calling fn for each .org file found.
 //
 //   - absPath is the absolute filesystem path to the file.

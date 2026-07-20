@@ -843,6 +843,38 @@ func (h *handlers) unlinkedMentions(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{"mentions": results})
 }
 
+// transclude resolves a :TRANSCLUDE: reference (file + TRANSCLUDE_ID) to its
+// source node's current content. Read-only: never touches per-file
+// merge-base/active state, and rejects sources that are themselves
+// transclusions to avoid chaining.
+func (h *handlers) transclude(w http.ResponseWriter, r *http.Request) {
+	file := r.URL.Query().Get("file")
+	id := r.URL.Query().Get("id")
+	if file == "" || id == "" {
+		http.Error(w, "missing file or id parameter", http.StatusBadRequest)
+		return
+	}
+	cfg, err := orgfile.LoadWorkspace(h.store.Dir())
+	if err != nil {
+		cfg = orgfile.DefaultWorkspace(h.store.Dir())
+	}
+	absPath := h.store.ResolveFilePath(file)
+	if !orgfile.IsPathAllowed(cfg, absPath) {
+		http.Error(w, "file is outside the configured workspace", http.StatusForbidden)
+		return
+	}
+	node, err := orgfile.FindTranscludeSource(absPath, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	if node.Properties != nil && node.Properties["TRANSCLUDE"] != "" {
+		http.Error(w, "source node is itself a transclusion; chained transclusion is not supported", http.StatusConflict)
+		return
+	}
+	writeJSON(w, map[string]interface{}{"file": file, "node": node})
+}
+
 func (h *handlers) getAgenda(w http.ResponseWriter, r *http.Request) {
 	items, err := h.store.ScanAgenda()
 	if err != nil {

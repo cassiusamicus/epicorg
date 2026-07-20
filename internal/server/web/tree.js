@@ -1149,12 +1149,19 @@ export function buildFootnoteIndex(nodes) {
 }
 
 // Filter the tree into a sparse view: a node is kept only if its own title
-// matches, or one of its descendants does (kept as a breadcrumb). Either
-// way, children are filtered too, so non-matching descendants are pruned
-// even under a matching node. Returns the original list when both filters
-// are empty. `selectedTags` matches with OR semantics (any one tag present
-// on the node is enough); it combines with the text query using AND.
-export function filterTree(nodes, query, selectedTags) {
+// matches, or one of its descendants does (kept as a breadcrumb). Returns
+// the original list when both filters are empty. `selectedTags` matches
+// with OR semantics (any one tag present on the node is enough); it
+// combines with the text query using AND.
+//
+// showFullSubtree controls what happens once a node itself matches:
+// - true (default): show everything beneath it untouched, unfiltered —
+//   finding a heading always reveals its full context, so a sub-item that
+//   doesn't itself repeat the search text is never mistaken for missing.
+// - false: keep filtering children too, so non-matching descendants are
+//   pruned even under a matching node (a more compact, narrower result set,
+//   at the cost of that exact confusion).
+export function filterTree(nodes, query, selectedTags, showFullSubtree = true) {
   const hasTagFilter = selectedTags && selectedTags.length > 0;
   if (!query && !hasTagFilter) return nodes;
   const result = [];
@@ -1162,12 +1169,188 @@ export function filterTree(nodes, query, selectedTags) {
     const textMatch = matchesQuery(query, n.title);
     const tagMatch = !hasTagFilter || (n.tags || []).some((t) => selectedTags.includes(t));
     const selfMatch = textMatch && tagMatch;
-    const children = n.children?.length > 0 ? filterTree(n.children, query, selectedTags) : [];
+    if (selfMatch && showFullSubtree) {
+      result.push({ ...n, collapsed: false });
+      continue;
+    }
+    const children = n.children?.length > 0 ? filterTree(n.children, query, selectedTags, showFullSubtree) : [];
     if (selfMatch || children.length > 0) {
       result.push({ ...n, collapsed: false, children });
     }
   }
   return result;
+}
+
+// --- Transclusion ---
+//
+// A node becomes a "source" by carrying a :TRANSCLUDE_ID: property (a
+// permanent, randomly-generated id — unlike newId()'s n1/n2 counters, this
+// has to survive across sessions since it's written into the org file).
+// A node becomes a "copy" by carrying a :TRANSCLUDE: property whose value is
+// that id (same-file) or "path/to/file.org::id" (cross-file), mirroring
+// org's own file:...::#id link syntax. See applyTransclusions below for how
+// a copy's displayed content is resolved from its source.
+
+const TRANSCLUDE_ID_PROP = "TRANSCLUDE_ID";
+const TRANSCLUDE_PROP = "TRANSCLUDE";
+
+export function newTransclusionId() {
+  return "tc-" + Math.random().toString(36).slice(2, 10);
+}
+
+// Splits a :TRANSCLUDE: property value into { file, id }. file is null for
+// a same-file reference (bare id).
+export function parseTranscludeRef(ref) {
+  if (!ref) return null;
+  const idx = ref.lastIndexOf("::");
+  if (idx < 0) return { file: null, id: ref.trim() };
+  return { file: ref.slice(0, idx).trim(), id: ref.slice(idx + 2).trim() };
+}
+
+export function formatTranscludeRef(file, id) {
+  return file ? `${file}::${id}` : id;
+}
+
+export function setNodeProperty(nodes, nodeId, propName, propValue) {
+  return mapNode(nodes, nodeId, (n) => ({ ...n, properties: { ...(n.properties || {}), [propName]: propValue } }));
+}
+
+export function removeNodeProperty(nodes, nodeId, propName) {
+  return mapNode(nodes, nodeId, (n) => {
+    if (!n.properties || !(propName in n.properties)) return n;
+    const rest = { ...n.properties };
+    delete rest[propName];
+    return { ...n, properties: rest };
+  });
+}
+
+// Ensures node `nodeId` has a TRANSCLUDE_ID property, assigning a fresh one
+// if it doesn't already have one. Returns { nodes, id }.
+export function ensureTranscludeId(nodes, nodeId) {
+  const existing = findNode(nodes, nodeId);
+  const current = existing?.properties?.[TRANSCLUDE_ID_PROP];
+  if (current) return { nodes, id: current };
+  const id = newTransclusionId();
+  return { nodes: setNodeProperty(nodes, nodeId, TRANSCLUDE_ID_PROP, id), id };
+}
+
+// Marks node `nodeId` as transcluding `ref`, clearing its own title/body/
+// children — they're replaced at render/export time by the resolved
+// source's content (see applyTransclusions) and are never themselves
+// written to disk for this node, so the two copies can never drift apart.
+export function makeTransclusion(nodes, nodeId, ref) {
+  return mapNode(nodes, nodeId, (n) => ({
+    ...n,
+    title: "",
+    body: "",
+    children: [],
+    properties: { ...(n.properties || {}), [TRANSCLUDE_PROP]: ref },
+  }));
+}
+
+// Removes the TRANSCLUDE property from node `nodeId`, turning it back into a
+// normal, independently-editable node. If `content` (typically the node's
+// last-resolved display content) is given, it's baked in as the node's own
+// title/body/children so nothing visually changes at the moment of
+// detaching — otherwise the node reverts to its stored (empty) content.
+export function detachTransclusion(nodes, nodeId, content = null) {
+  return mapNode(nodes, nodeId, (n) => {
+    const rest = { ...(n.properties || {}) };
+    delete rest[TRANSCLUDE_PROP];
+    const base = { ...n, properties: rest };
+    if (!content) return base;
+    return { ...base, title: content.title || "", body: content.body || "", children: content.children || [] };
+  });
+}
+
+function indexByTranscludeId(nodes, out = {}) {
+  for (const n of nodes) {
+    const id = n.properties?.[TRANSCLUDE_ID_PROP];
+    if (id) out[id] = n;
+    if (n.children?.length > 0) indexByTranscludeId(n.children, out);
+  }
+  return out;
+}
+
+// Gives a resolved transclusion's nested children fresh, namespaced ids
+// (real node ids never contain "::") so they can't collide with the ids of
+// the very same nodes rendered at their actual source location elsewhere in
+// the tree. These are read-only display clones — id collisions would
+// otherwise confuse findNode/dispatch, which search by id globally.
+function cloneReadOnly(n, idPrefix) {
+  const id = idPrefix + "::" + n.id;
+  return {
+    ...n,
+    id,
+    _transclusion: { status: "resolved", editable: false, readOnly: true },
+    children: (n.children || []).map((c) => cloneReadOnly(c, id)),
+  };
+}
+
+// Resolves every :TRANSCLUDE: reference in `nodes` against same-file
+// siblings (via TRANSCLUDE_ID) and, for cross-file references, against
+// `cache` — a map of "file::id" -> resolved node (the shape returned by
+// GET /api/transclude's "node" field), "missing" (fetched, source
+// unavailable), or absent entirely (not yet fetched — caller should fetch
+// it). Populate and refresh `cache` in app.js; this function is pure.
+//
+// Returns a NEW tree for DISPLAY/EXPORT ONLY: a transcluding node keeps its
+// own id (so dispatch/save still target the right underlying node) but its
+// title/body/tags/children are swapped for the resolved source's, and it
+// picks up `_transclusion` metadata: { status, editable, sourceFile,
+// sourceId, ref }. `editable` is true only for same-file references — see
+// app.js's live-sync dispatch redirect, which routes edits made through the
+// copy to `sourceId` instead of the copy's own id. Nested descendants of a
+// resolved subtree are always read-only, never live-editable (see
+// cloneReadOnly above) — only the transcluding node's own title/body get
+// live-sync.
+//
+// A resolved same-file source that is itself a transclusion is treated as
+// unresolvable ("chained") rather than followed further, since chained
+// transclusion isn't supported (matches the server's rejection for
+// cross-file lookups in internal/api's transclude handler).
+export function applyTransclusions(nodes, currentFile, cache) {
+  if (!nodes) return nodes;
+  const sameFileIndex = indexByTranscludeId(nodes);
+
+  function resolve(ref) {
+    const parsed = parseTranscludeRef(ref);
+    if (!parsed) return { status: "missing" };
+    if (!parsed.file || parsed.file === currentFile) {
+      const source = sameFileIndex[parsed.id];
+      if (!source) return { status: "missing" };
+      if (source.properties?.[TRANSCLUDE_PROP]) return { status: "chained" };
+      return { status: "resolved", editable: true, sourceFile: null, sourceId: source.id, node: source };
+    }
+    const key = `${parsed.file}::${parsed.id}`;
+    const cached = cache ? cache[key] : undefined;
+    if (cached === undefined) return { status: "loading" };
+    if (cached === "missing") return { status: "missing" };
+    return { status: "resolved", editable: false, sourceFile: parsed.file, sourceId: parsed.id, node: cached };
+  }
+
+  function walk(list) {
+    return list.map((n) => {
+      const ref = n.properties?.[TRANSCLUDE_PROP];
+      if (!ref) {
+        return n.children?.length > 0 ? { ...n, children: walk(n.children) } : n;
+      }
+      const r = resolve(ref);
+      if (r.status !== "resolved") {
+        return { ...n, title: "", body: "", children: [], _transclusion: { status: r.status, ref } };
+      }
+      return {
+        ...n,
+        title: r.node.title,
+        body: r.node.body,
+        tags: r.node.tags,
+        children: (r.node.children || []).map((c) => cloneReadOnly(c, n.id)),
+        _transclusion: { status: "resolved", editable: r.editable, sourceFile: r.sourceFile, sourceId: r.sourceId, ref },
+      };
+    });
+  }
+
+  return walk(nodes);
 }
 
 // All bookmarked nodes in document order — returns [{id, title, bookmark}]
