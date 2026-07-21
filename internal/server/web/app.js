@@ -3238,14 +3238,14 @@ const SHORTCUT_DEFS = [
   { id: "navDown",     cat: "Reference", label: "Navigate Down",     def: "↓",           fixed: true },
   { id: "navBack",     cat: "Reference", label: "Go Back",           def: "Alt+←",       fixed: true },
   { id: "navForward",  cat: "Reference", label: "Go Forward",        def: "Alt+→",       fixed: true },
-  { id: "foldLevel1",  cat: "Reference", label: "Fold to Level 1",   def: "Alt+1",       fixed: true },
-  { id: "foldLevel2",  cat: "Reference", label: "Fold to Level 2",   def: "Alt+2",       fixed: true },
-  { id: "foldLevel3",  cat: "Reference", label: "Fold to Level 3",   def: "Alt+3",       fixed: true },
-  { id: "foldLevel4",  cat: "Reference", label: "Fold to Level 4",   def: "Alt+4",       fixed: true },
-  { id: "foldLevel5",  cat: "Reference", label: "Fold to Level 5",   def: "Alt+5",       fixed: true },
-  { id: "foldLevel6",  cat: "Reference", label: "Fold to Level 6",   def: "Alt+6",       fixed: true },
-  { id: "foldLevel7",  cat: "Reference", label: "Fold to Level 7",   def: "Alt+7",       fixed: true },
-  { id: "foldLevel8",  cat: "Reference", label: "Fold to Level 8",   def: "Alt+8",       fixed: true },
+  { id: "foldLevel1",  cat: "Reference", label: "Fold Or Expand To Show Level 1",   def: "Alt+1",       fixed: true },
+  { id: "foldLevel2",  cat: "Reference", label: "Fold Or Expand To Show Level 2",   def: "Alt+2",       fixed: true },
+  { id: "foldLevel3",  cat: "Reference", label: "Fold Or Expand To Show Level 3",   def: "Alt+3",       fixed: true },
+  { id: "foldLevel4",  cat: "Reference", label: "Fold Or Expand To Show Level 4",   def: "Alt+4",       fixed: true },
+  { id: "foldLevel5",  cat: "Reference", label: "Fold Or Expand To Show Level 5",   def: "Alt+5",       fixed: true },
+  { id: "foldLevel6",  cat: "Reference", label: "Fold Or Expand To Show Level 6",   def: "Alt+6",       fixed: true },
+  { id: "foldLevel7",  cat: "Reference", label: "Fold Or Expand To Show Level 7",   def: "Alt+7",       fixed: true },
+  { id: "foldLevel8",  cat: "Reference", label: "Fold Or Expand To Show Level 8",   def: "Alt+8",       fixed: true },
   { id: "expandAll",   cat: "Reference", label: "Expand All",        def: "Alt+9",       fixed: true },
 ];
 
@@ -10406,7 +10406,7 @@ function SettingsModal({
         <${StgRow} label="Filter shows full subtree" desc="When a search/filter matches a heading, show everything beneath it — not just sub-items that also match">
           <input type="checkbox" checked=${filterShowFullSubtree} onChange=${onToggleFilterShowFullSubtree} />
         </${StgRow}>
-        <${StgRow} label="Fold to level" desc="Collapse outline to this depth">
+        <${StgRow} label="Fold or expand to show level" desc="Collapse outline to this depth">
           <div className="stg-segmented">
             ${FOLD_LEVELS.map((lvl) => html`
               <button key=${lvl}
@@ -11098,7 +11098,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
                 <button key=${lvl} className="view-tab"
                         disabled=${textMode}
                         onClick=${() => onFoldToLevel(lvl)}
-                        title=${textMode ? "Not available in reveal codes mode" : "Fold to level " + lvl + " (Alt+" + lvl + ")"}>${lvl}</button>
+                        title=${textMode ? "Not available in reveal codes mode" : "Fold or expand to show level " + lvl + " (Alt+" + lvl + ")"}>${lvl}</button>
               `)}
               <button className="view-tab"
                       disabled=${textMode}
@@ -11312,14 +11312,14 @@ function buildCommands(ctx) {
     { category: "View", label: `Level ${focusedDepth + 1}: Set to Letters (A B C…)`, desc: "Set all headings at this depth to uppercase letters (overrides global)",      keys: "", action: () => setLevelFormat(focusedDepth, "upper"),    disabled: focusedDepth < 0 },
     { category: "View", label: `Level ${focusedDepth + 1}: Reset to global`,         desc: "Remove per-level override; this depth falls back to global style",            keys: "", action: () => setLevelFormat(focusedDepth, null),       disabled: focusedDepth < 0 || !levelFormats?.[focusedDepth] },
     // Fold
-    { category: "Folding", label: "Fold to Level 1",      desc: "Collapse all but top level",     keys: "Alt+1",         action: () => foldToLevel(1) },
-    { category: "Folding", label: "Fold to Level 2",      desc: "Expand to level 2",              keys: "Alt+2",         action: () => foldToLevel(2) },
-    { category: "Folding", label: "Fold to Level 3",      desc: "Expand to level 3",              keys: "Alt+3",         action: () => foldToLevel(3) },
-    { category: "Folding", label: "Fold to Level 4",      desc: "Expand to level 4",              keys: "Alt+4",         action: () => foldToLevel(4) },
-    { category: "Folding", label: "Fold to Level 5",      desc: "Expand to level 5",              keys: "Alt+5",         action: () => foldToLevel(5) },
-    { category: "Folding", label: "Fold to Level 6",      desc: "Expand to level 6",              keys: "Alt+6",         action: () => foldToLevel(6) },
-    { category: "Folding", label: "Fold to Level 7",      desc: "Expand to level 7",              keys: "Alt+7",         action: () => foldToLevel(7) },
-    { category: "Folding", label: "Fold to Level 8",      desc: "Expand to level 8",              keys: "Alt+8",         action: () => foldToLevel(8) },
+    { category: "Folding", label: "Fold Or Expand To Show Level 1",      desc: "Collapse all but top level",     keys: "Alt+1",         action: () => foldToLevel(1) },
+    { category: "Folding", label: "Fold Or Expand To Show Level 2",      desc: "Expand to level 2",              keys: "Alt+2",         action: () => foldToLevel(2) },
+    { category: "Folding", label: "Fold Or Expand To Show Level 3",      desc: "Expand to level 3",              keys: "Alt+3",         action: () => foldToLevel(3) },
+    { category: "Folding", label: "Fold Or Expand To Show Level 4",      desc: "Expand to level 4",              keys: "Alt+4",         action: () => foldToLevel(4) },
+    { category: "Folding", label: "Fold Or Expand To Show Level 5",      desc: "Expand to level 5",              keys: "Alt+5",         action: () => foldToLevel(5) },
+    { category: "Folding", label: "Fold Or Expand To Show Level 6",      desc: "Expand to level 6",              keys: "Alt+6",         action: () => foldToLevel(6) },
+    { category: "Folding", label: "Fold Or Expand To Show Level 7",      desc: "Expand to level 7",              keys: "Alt+7",         action: () => foldToLevel(7) },
+    { category: "Folding", label: "Fold Or Expand To Show Level 8",      desc: "Expand to level 8",              keys: "Alt+8",         action: () => foldToLevel(8) },
     { category: "Folding", label: "Expand All",           desc: "Unfold everything",              keys: "Alt+9",         action: () => foldToLevel(9) },
     { category: "Folding", label: "Expand All + Notes",   desc: "Unfold every heading and show all inline notes", keys: "", action: expandAllWithNotes },
     // Edit
