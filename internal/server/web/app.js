@@ -304,6 +304,7 @@ function useFixedMenuPosition(menuRef, x, y) {
 function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onInsertFootnote, onInsertImage, onInsertTable, onClose }) {
   const menuRef = useRef(null);
   const hasSel = sel.start !== sel.end;
+  const hasBody = !!sel.value;
 
   useEffect(() => {
     const down = (e) => { if (!menuRef.current?.contains(e.target)) onClose(); };
@@ -342,6 +343,10 @@ function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onIn
     dispatch(nodeId, "join-with-next");
     onClose();
   };
+  const doConvertNoteToNode = () => {
+    dispatch(nodeId, "convert-note-to-node");
+    onClose();
+  };
   const doInsertFootnote = () => { onInsertFootnote(); onClose(); };
   const doInsertImage = () => { onInsertImage(); onClose(); };
   const doInsertTable = () => { onInsertTable(); onClose(); };
@@ -358,6 +363,7 @@ function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onIn
       <div className="note-ctx-sep" />
       <button className="note-ctx-item" onClick=${doSplit}>Split At Cursor Location</button>
       <button className="note-ctx-item" onClick=${doJoin}>Join with Next Node</button>
+      <button className="note-ctx-item" disabled=${!hasBody} onClick=${doConvertNoteToNode}>Convert Note To Node</button>
       <div className="note-ctx-sep" />
       <button className="note-ctx-item" onClick=${doInsertFootnote}>Insert Footnote</button>
       <button className="note-ctx-item" onClick=${doInsertImage}>Insert Image</button>
@@ -4123,7 +4129,7 @@ const UNDOABLE_ACTIONS = new Set([
   "change-preamble", "change", "change-body", "update-properties", "update-tags", "update-bookmarks",
   "set-status", "set-priority", "cycle-status", "new-sibling", "new-sibling-before", "delete", "duplicate", "paste-node", "indent", "outdent", "move-up", "move-down",
   "indent-only", "outdent-only", "move-up-only", "move-down-only",
-  "split-at-cursor", "split-body-at-cursor", "join-with-next",
+  "split-at-cursor", "split-body-at-cursor", "join-with-next", "convert-note-to-node",
 ]);
 // Of those, typing actions get debounced into one undo step per "burst"
 // rather than one per keystroke.
@@ -7695,6 +7701,19 @@ function App() {
       });
       markDirty(); return;
     }
+
+    if (action === "convert-note-to-node") {
+      setNodes((p) => {
+        const { nodes: updated, newId } = tree.convertNoteToNode(p, nodeId);
+        if (newId) {
+          setBodyEditingId((prev) => (prev === nodeId ? null : prev));
+          setBodyPreviewId(null);
+          focusNode(newId);
+        }
+        return updated;
+      });
+      markDirty(); return;
+    }
   }, [focusNode, markDirty, maybeSnapshotForUndo]);
 
   // Node clipboard for the per-node menu's Cut/Copy/Paste — explicit-id
@@ -7853,6 +7872,21 @@ function App() {
     if (!meta || (meta.field !== "change" && meta.field !== "change-body")) return;
     const action = meta.field === "change-body" ? "split-body-at-cursor" : "split-at-cursor";
     dispatch(meta.nodeId, action, el.selectionStart);
+  }, [dispatch]);
+
+  // Converts whichever note (body field) was last focused into a new child
+  // node — the palette equivalent of the note's right-click "Convert Note
+  // To Node". Same _lastOutlineTextarea mechanism as splitAtCursorLocation
+  // above (a body note's textarea unmounts into a preview the instant it
+  // blurs), but only ever acts on a note field, never a title — titles
+  // aren't "notes" to convert.
+  const convertNoteToNodeAtFocus = useCallback(() => {
+    const isLive = document.activeElement?.tagName === "TEXTAREA";
+    const el = isLive ? document.activeElement : _lastOutlineTextarea;
+    if (!el || el.tagName !== "TEXTAREA") return;
+    const meta = isLive ? fieldMetaForTextarea(el) : _lastOutlineTextareaMeta;
+    if (!meta || meta.field !== "change-body") return;
+    dispatch(meta.nodeId, "convert-note-to-node");
   }, [dispatch]);
 
   const onNodeHandleMouseDown = useCallback((nodeId, e) => {
@@ -8391,7 +8425,7 @@ function App() {
           copyAsFormatted, copyAsPlain,
           clearRecentFiles,
           setFindOpen, findInputRef,
-          cleanUpSelectedText, splitAtCursorLocation,
+          cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus,
         })} onClose=${() => setShowHelp(false)} />`}
       ${showShortcutEditor && html`
         <${ShortcutEditor}
@@ -11281,7 +11315,7 @@ function buildCommands(ctx) {
     copyAsFormatted, copyAsPlain,
     clearRecentFiles,
     setFindOpen, findInputRef,
-    cleanUpSelectedText, splitAtCursorLocation,
+    cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus,
   } = ctx;
 
   return [
@@ -11334,6 +11368,7 @@ function buildCommands(ctx) {
     { category: "Edit", label: "Insert Date Stamp",       desc: "Insert formatted date/time at cursor", keys: displayCombo(getShortcutCombo("insertDateStamp")), action: insertDateStamp },
     { category: "Edit", label: "Split At Cursor Location", desc: "Split the focused title into two sibling nodes, or the focused note into a new node's note directly after", keys: displayCombo(getShortcutCombo("splitNode")), action: splitAtCursorLocation },
     { category: "Edit", label: "Join with Next Node",     desc: "Merge this node with the next sibling",        keys: displayCombo(getShortcutCombo("joinNode")),   action: joinFocusedWithNext },
+    { category: "Edit", label: "Convert Note To Node",    desc: "Turn the focused note into a new first-child node", keys: "", action: convertNoteToNodeAtFocus },
     { category: "Edit", label: "Hoist / Unhoist",         desc: isHoisted ? "Unhoist — show full tree" : "Hoist focused item", keys: displayCombo(getShortcutCombo("hoist")), action: toggleHoist },
     // Search
     { category: "Search", label: "Full-text Search…",    desc: "Search across all org files",    keys: displayCombo(getShortcutCombo("textSearch")),      action: () => setShowTextSearch(true) },

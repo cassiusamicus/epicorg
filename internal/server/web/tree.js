@@ -475,6 +475,28 @@ export function splitBodyAtCursor(nodes, id, pos) {
   return { nodes: walk(nodes), newId: nn.id };
 }
 
+// Converts a node's whole note/body into a new child node: the note text
+// becomes the new node's title as-is (line breaks included), inserted as
+// the first child, and the original note is cleared — the reverse of
+// turning a heading into a note. No-op if the node has no note.
+export function convertNoteToNode(nodes, id) {
+  const nn = newNode();
+  let newIdOut = null;
+  function walk(list) {
+    return list.map((n) => {
+      if (n.id === id) {
+        if (!n.body) return n;
+        nn.title = n.body;
+        newIdOut = nn.id;
+        return { ...n, body: "", collapsed: false, children: [nn, ...(n.children || [])] };
+      }
+      return n.children?.length > 0 ? { ...n, children: walk(n.children) } : n;
+    });
+  }
+  const result = walk(nodes);
+  return { nodes: result, newId: newIdOut };
+}
+
 // --- Folding ---
 
 export function foldToLevel(nodes, level, depth = 1) {

@@ -1297,5 +1297,54 @@ test("highlightMatchesHtml: escapes text both inside and outside marks", () => {
   assertEqual(html, '&lt;tag&gt; <mark class="raw-find-match raw-find-match-current">cat</mark> &lt;/tag&gt;');
 });
 
+// --- convertNoteToNode ---
+
+test("convertNoteToNode: note becomes the title of a new first child", () => {
+  const t = [{ ...node("a", "Parent"), body: "The note text." }];
+  const { nodes: result, newId } = tree.convertNoteToNode(t, "a");
+  const parent = tree.findNode(result, "a");
+  assertEqual(parent.body, "");
+  assertEqual(parent.children.length, 1);
+  assertEqual(parent.children[0].id, newId);
+  assertEqual(parent.children[0].title, "The note text.");
+  assertEqual(parent.children[0].body, "");
+});
+
+test("convertNoteToNode: multi-line note is preserved as-is in the title", () => {
+  const t = [{ ...node("a", "Parent"), body: "Line one.\nLine two." }];
+  const { nodes: result } = tree.convertNoteToNode(t, "a");
+  assertEqual(tree.findNode(result, "a").children[0].title, "Line one.\nLine two.");
+});
+
+test("convertNoteToNode: new node is inserted before existing children", () => {
+  const t = [{ ...node("a", "Parent", [node("existing", "Existing child")]), body: "New note" }];
+  const { nodes: result } = tree.convertNoteToNode(t, "a");
+  const parent = tree.findNode(result, "a");
+  assertEqual(parent.children.length, 2);
+  assertEqual(parent.children[0].title, "New note");
+  assertEqual(parent.children[1].id, "existing");
+});
+
+test("convertNoteToNode: uncollapses the parent so the new child is visible", () => {
+  const t = [{ ...node("a", "Parent"), body: "Note", collapsed: true }];
+  const { nodes: result } = tree.convertNoteToNode(t, "a");
+  assertEqual(tree.findNode(result, "a").collapsed, false);
+});
+
+test("convertNoteToNode: no-op when the node has no note", () => {
+  const t = [node("a", "Parent")];
+  const { nodes: result, newId } = tree.convertNoteToNode(t, "a");
+  assertEqual(newId, null);
+  assertEqual(result, t);
+});
+
+test("convertNoteToNode: works on a nested (child) node", () => {
+  const t = [node("a", "Parent", [{ ...node("a1", "Child"), body: "Child's note" }])];
+  const { nodes: result } = tree.convertNoteToNode(t, "a1");
+  const child = tree.findNode(result, "a1");
+  assertEqual(child.body, "");
+  assertEqual(child.children[0].title, "Child's note");
+});
+
 // --- Done ---
 report();
