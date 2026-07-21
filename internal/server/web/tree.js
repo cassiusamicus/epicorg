@@ -754,6 +754,17 @@ const BARE_PATH_RE = /(?<![a-zA-Z0-9])(\/(?:[^\s/\n]+\/)+[^\n/]*\.[a-zA-Z0-9]{1,
 // (e.g. [[file:/path...]] where "/" is preceded by ":").
 const BARE_PATH_ORG_RE = /(?<![a-zA-Z0-9:])(\/(?:[^\s/\n]+\/)+[^\n/]*\.[a-zA-Z0-9]{1,10})(?=[\s,;!?"]|$)/g;
 
+// Bare domain-looking text ending in .com/.net/.org (e.g. "EpicurusToday.com")
+// → clickable link, DISPLAY-TIME ONLY — deliberately not mirrored by an
+// orgifyPaths-style rewrite of the stored text the way bare file paths are.
+// This outline is full of citations and Latin abbreviations dense with
+// periods; a wrong guess by a domain-detecting regex baked permanently into
+// the file would be far costlier than one here that's just a rendering
+// choice, reversible by definition. The lookbehind excludes "/", ":", "@"
+// so this doesn't reprocess a domain that's already part of a URL, file
+// path, or email address handled elsewhere.
+const BARE_DOMAIN_RE = /(?<![a-zA-Z0-9/:@.-])((?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+(?:com|net|org))(?=[\s.,;!?"')\]]|$)/g;
+
 function barePathToLink(_, path) {
   const filename = path.split("/").pop();
   return `[[file:${path}][${filename}]]`;
@@ -780,6 +791,30 @@ export function orgifyPaths(text) {
   }
   result += text.slice(lastIndex).replace(BARE_PATH_ORG_RE, barePathToLink);
   return result;
+}
+
+// Whether clipboard text pasted over a selection should be treated as a
+// single URL for the paste-creates-a-hyperlink feature: the whole trimmed
+// string, with no internal whitespace/newlines (a URL never contains
+// spaces), starting with a recognized scheme. Deliberately strict — a URL
+// embedded in a longer pasted sentence should still paste as plain text,
+// not silently eat the sentence around it.
+export function isPastedUrl(text) {
+  if (!text) return false;
+  const t = text.trim();
+  if (!t || /\s/.test(t)) return false;
+  return /^(https?:\/\/|mailto:|file:)/i.test(t);
+}
+
+// Replaces the selected range [start, end) of `value` with an org-mode
+// link wrapping the previously-selected text as the link's label —
+// [[url][label]] — displaying what was selected but now pointing at url.
+// Returns the new field value and the cursor position (end of the link),
+// for the paste-creates-a-hyperlink feature.
+export function wrapSelectionAsLink(value, start, end, url) {
+  const label = value.slice(start, end);
+  const link = `[[${url}][${label}]]`;
+  return { value: value.slice(0, start) + link + value.slice(end), cursor: start + link.length };
 }
 
 // Emphasis boundary rules, taken directly from real org-mode's own
@@ -1160,6 +1195,14 @@ export function renderOrgInline(text) {
     const safe = path.replace(/"/g, "&quot;");
     const label = path.split("/").pop();
     const html = `<a href="file://${safe}" class="org-file-link" title="${safe}" target="_blank" rel="noopener">${label}</a>`;
+    links.push(html);
+    return LINK_PLACEHOLDER + links.length + LINK_PLACEHOLDER;
+  });
+
+  // Bare domain-looking text (EpicurusToday.com) → clickable link. See
+  // BARE_DOMAIN_RE above for why this is display-time only.
+  result = result.replace(BARE_DOMAIN_RE, (match) => {
+    const html = `<a href="https://${match}" target="_blank" rel="noopener noreferrer">${match}</a>`;
     links.push(html);
     return LINK_PLACEHOLDER + links.length + LINK_PLACEHOLDER;
   });

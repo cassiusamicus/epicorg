@@ -857,6 +857,55 @@ test("renderOrgInline: adjacent emphasis spans separated by one space both apply
   assertEqual(tree.renderOrgInline("*bold1* *bold2*"), "<strong>bold1</strong> <strong>bold2</strong>");
 });
 
+// --- renderOrgInline: bare domain auto-linking (display-time only) ---
+
+test("renderOrgInline: bare .com/.net/.org domain becomes a clickable link", () => {
+  assertEqual(
+    tree.renderOrgInline("Visit EpicurusToday.com for more."),
+    'Visit <a href="https://EpicurusToday.com" target="_blank" rel="noopener noreferrer">EpicurusToday.com</a> for more.'
+  );
+  assertEqual(
+    tree.renderOrgInline("some-site.net is nice"),
+    '<a href="https://some-site.net" target="_blank" rel="noopener noreferrer">some-site.net</a> is nice'
+  );
+});
+
+test("renderOrgInline: sentence-ending period after a domain is not swallowed into the link", () => {
+  assertEqual(
+    tree.renderOrgInline("See EpicureanFriends.org."),
+    'See <a href="https://EpicureanFriends.org" target="_blank" rel="noopener noreferrer">EpicureanFriends.org</a>.'
+  );
+});
+
+test("renderOrgInline: does not touch a domain that's already part of a full URL", () => {
+  // Bare (bracket-less) https:// URLs aren't auto-linked by any existing
+  // mechanism — this just confirms the new domain regex doesn't wrongly
+  // grab the "example.com" portion out of the middle of one.
+  assertEqual(tree.renderOrgInline("already https://example.com/page linked"), "already https://example.com/page linked");
+});
+
+test("renderOrgInline: does not link the domain part of an email address", () => {
+  assertEqual(tree.renderOrgInline("email me at foo@example.com please"), "email me at foo@example.com please");
+});
+
+test("renderOrgInline: a bare file path's .org tail isn't double-linked as a separate domain", () => {
+  // The whole path already becomes a file link via the pre-existing
+  // bare-path handling; this just confirms the new domain regex doesn't
+  // also grab "file.org" out of it as a second, separate link.
+  const html = tree.renderOrgInline("path /home/user/file.org exists");
+  assertEqual((html.match(/<a /g) || []).length, 1);
+  assertEqual(html, 'path <a href="file:///home/user/file.org" class="org-file-link" title="/home/user/file.org" target="_blank" rel="noopener">file.org</a> exists');
+});
+
+test("renderOrgInline: does not match a longer URL path following the domain", () => {
+  assertEqual(tree.renderOrgInline("EpicurusToday.com/page has more").includes("<a "), false);
+});
+
+test("renderOrgInline: plain scholarly citation text with periods is untouched", () => {
+  const text = "Cicero, On Ends 1.11 (Torquatus)";
+  assertEqual(tree.renderOrgInline(text), text);
+});
+
 // --- renderOrgBody: quote blocks ---
 test("renderOrgBody: quote block renders as blockquote, hides markers", () => {
   assertEqual(
@@ -1344,6 +1393,44 @@ test("convertNoteToNode: works on a nested (child) node", () => {
   const child = tree.findNode(result, "a1");
   assertEqual(child.body, "");
   assertEqual(child.children[0].title, "Child's note");
+});
+
+// --- isPastedUrl / wrapSelectionAsLink ---
+
+test("isPastedUrl: recognizes http/https/mailto/file URLs", () => {
+  assert(tree.isPastedUrl("https://example.com/page"));
+  assert(tree.isPastedUrl("http://example.com"));
+  assert(tree.isPastedUrl("mailto:someone@example.com"));
+  assert(tree.isPastedUrl("file:/home/user/notes.org"));
+});
+
+test("isPastedUrl: trims surrounding whitespace", () => {
+  assert(tree.isPastedUrl("  https://example.com  \n"));
+});
+
+test("isPastedUrl: rejects plain text and URLs embedded in a sentence", () => {
+  assert(!tree.isPastedUrl("just some text"));
+  assert(!tree.isPastedUrl("see https://example.com for more"));
+  assert(!tree.isPastedUrl(""));
+  assert(!tree.isPastedUrl(null));
+});
+
+test("isPastedUrl: rejects multi-line paste even if it starts with a URL", () => {
+  assert(!tree.isPastedUrl("https://example.com\nmore text"));
+});
+
+test("wrapSelectionAsLink: wraps the selected range as [[url][label]]", () => {
+  const text = "See the source text here.";
+  const start = text.indexOf("the source");
+  const end = start + "the source".length;
+  const { value, cursor } = tree.wrapSelectionAsLink(text, start, end, "https://example.com");
+  assertEqual(value, "See [[https://example.com][the source]] text here.");
+  assertEqual(cursor, start + "[[https://example.com][the source]]".length);
+});
+
+test("wrapSelectionAsLink: works at the start and end of the string", () => {
+  const { value } = tree.wrapSelectionAsLink("Hello", 0, 5, "https://x.com");
+  assertEqual(value, "[[https://x.com][Hello]]");
 });
 
 // --- Done ---

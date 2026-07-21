@@ -755,7 +755,7 @@ function TableEditor({ rows: initRows, headerCount: initHeaderCount, onSave, onC
   `;
 }
 
-function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notesVisible, depth, bodyRefs }) {
+function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notesVisible, depth, bodyRefs, linkifySelectionFromClipboard }) {
   const localRef = useRef(null);
   const [ctxMenu, setCtxMenu] = useState(null);
   const [imgPopup, setImgPopup] = useState(null); // { index, rect }
@@ -893,6 +893,7 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
               }
               const marker = formatMarkerForKey(e);
               if (marker) { e.preventDefault(); wrapSelectionWithMarker(e, marker, (v) => dispatch(contentTargetId, "change-body", v)); return; }
+              if (matchShortcut("linkifySelection", e)) { e.preventDefault(); linkifySelectionFromClipboard?.(); return; }
               if (matchShortcut("splitNode", e)) { e.preventDefault(); dispatch(contentTargetId, "split-body-at-cursor", e.target.selectionStart); return; }
               // Same node-structural shortcuts as the title field (handleKey)
               // — a note is still editing this node, so Indent/Outdent/Move
@@ -973,7 +974,7 @@ const TRANSCLUSION_BADGE_TITLES = {
   chained: "Source is itself a transclusion — chained transclusion isn't supported",
 };
 
-function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, outlineFormat, levelFormats, siblingIndex, verticalLines, showTagChips, tagsOnRight, onSearchTag, bodyEditingId, bodyPreviewId, bodyRefs, onNodeHandleMouseDown, onNodeHandleMenu, nodeMenuOpenId, globalFont, levelFonts, globalColor, levelColors }) {
+function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, outlineFormat, levelFormats, siblingIndex, verticalLines, showTagChips, tagsOnRight, onSearchTag, bodyEditingId, bodyPreviewId, bodyRefs, onNodeHandleMouseDown, onNodeHandleMenu, nodeMenuOpenId, globalFont, levelFonts, globalColor, levelColors, linkifySelectionFromClipboard }) {
   const isFocused = focusedId === node.id;
   const hasChildren = node.children?.length > 0;
   // Transclusion display state — see tree.applyTransclusions. `transclusion`
@@ -1164,7 +1165,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                 // skipped entirely rather than acting on the wrapper's own
                 // (always-empty) stored title.
                 if (isReadOnlyContent) return;
-                handleKey(e, contentTargetId, dispatch);
+                handleKey(e, contentTargetId, dispatch, linkifySelectionFromClipboard);
               }}
               onChange=${(e) => { setIsEditing(true); dispatch(contentTargetId, "change", tree.orgifyPaths(e.target.value)); triggerLinkPicker(e.target, e); }}
             />
@@ -1233,6 +1234,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
         notesVisible=${notesVisible}
         depth=${depth}
         bodyRefs=${bodyRefs}
+        linkifySelectionFromClipboard=${linkifySelectionFromClipboard}
       />
       ${hasChildren && !node.collapsed && node.children.map(
         (child, i) => html`
@@ -1262,6 +1264,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
             levelFonts=${levelFonts}
             globalColor=${globalColor}
             levelColors=${levelColors}
+            linkifySelectionFromClipboard=${linkifySelectionFromClipboard}
           />
         `
       )}
@@ -3220,6 +3223,7 @@ const SHORTCUT_DEFS = [
   { id: "strikethrough",   cat: "Formatting", label: "Strikethrough",         def: "Ctrl+S" },
   { id: "insertFootnote",  cat: "Formatting", label: "Insert Footnote",       def: "Ctrl+Shift+N" },
   { id: "insertDateStamp", cat: "Formatting", label: "Insert Date Stamp",     def: "Ctrl+Shift+Q" },
+  { id: "linkifySelection", cat: "Formatting", label: "Link Selection From Clipboard", def: "Ctrl+Shift+L" },
   { id: "splitNode",       cat: "Outline",    label: "Split At Cursor Location", def: "Ctrl+Shift+S" },
   { id: "joinNode",        cat: "Outline",    label: "Join with Next Node",   def: "Ctrl+Shift+J" },
   { id: "moveUp",          cat: "Outline",    label: "Move Node Up",          def: "Alt+ArrowUp" },
@@ -3484,9 +3488,10 @@ function wrapSelectionWithMarker(e, marker, onChange) {
   requestAnimationFrame(() => el.setSelectionRange(start + marker.length, end + marker.length));
 }
 
-function handleKey(e, id, dispatch) {
+function handleKey(e, id, dispatch, linkifySelectionFromClipboard) {
   const marker = formatMarkerForKey(e);
   if (marker) { e.preventDefault(); wrapSelectionWithMarker(e, marker, (v) => dispatch(id, "change", v)); return; }
+  if (matchShortcut("linkifySelection", e)) { e.preventDefault(); linkifySelectionFromClipboard?.(); return; }
   if (matchShortcut("splitNode", e)) { e.preventDefault(); dispatch(id, "split-at-cursor", e.target.selectionStart); return; }
   if (matchShortcut("joinNode", e))  { e.preventDefault(); dispatch(id, "join-with-next"); return; }
   if (matchShortcut("moveUp", e))       { e.preventDefault(); dispatch(id, "move-up"); return; }
@@ -5712,47 +5717,57 @@ function App() {
 
       const text = cd.getData("text/plain").trim();
       let link;
+      const start = ta.selectionStart ?? ta.value.length;
+      const end   = ta.selectionEnd   ?? ta.value.length;
+      // Pasting over a selected range uses what was selected as the link's
+      // label — "highlight text, paste a URL, get that text turned into a
+      // link" — instead of the usual auto-derived filename/hostname label.
+      const selectedLabel = start !== end ? ta.value.slice(start, end) : null;
       if (/^\/[^\s]+$/.test(text)) {
         // Absolute file path → [[file:path][filename]]
         const name = text.split("/").filter(Boolean).pop() || text;
-        link = `[[file:${text}][${name}]]`;
+        link = `[[file:${text}][${selectedLabel || name}]]`;
       } else if (/^https?:\/\/\S+$/.test(text)) {
-        // HTTP/HTTPS URL → [[url][hostname]], upgraded in place to
-        // "hostname - Page Title" once the title loads (fetched server-side
-        // to sidestep browser CORS restrictions on arbitrary sites).
-        let hostname = text;
-        try { hostname = new URL(text).hostname.replace(/^www\./, ""); } catch {}
-        link = `[[${text}][${hostname}]]`;
-        const meta = fieldMetaForTextarea(ta);
-        if (meta) {
-          const placeholderLink = link;
-          fetch("/api/url-title?url=" + encodeURIComponent(text))
-            .then((r) => (r.ok ? r.json() : null))
-            .then((data) => {
-              const title = data && data.title && data.title.trim();
-              if (!title) return;
-              const newLink = `[[${text}][${hostname} - ${title}]]`;
-              let current;
-              if (meta.field === "change-preamble") {
-                current = preambleRef.current;
-              } else {
-                const node = tree.findNode(nodesRef.current || [], meta.nodeId);
-                if (!node) return;
-                current = meta.field === "change-body" ? node.body : node.title;
-              }
-              // Only patch if the placeholder link is still there unmodified —
-              // the user may have since edited or deleted it.
-              if (typeof current !== "string" || !current.includes(placeholderLink)) return;
-              dispatch(meta.nodeId, meta.field, current.replace(placeholderLink, newLink));
-            })
-            .catch(() => {});
+        if (selectedLabel) {
+          // A selection supplies the label outright — no hostname/title
+          // lookup, since that would silently overwrite a deliberate choice.
+          link = `[[${text}][${selectedLabel}]]`;
+        } else {
+          // HTTP/HTTPS URL → [[url][hostname]], upgraded in place to
+          // "hostname - Page Title" once the title loads (fetched server-side
+          // to sidestep browser CORS restrictions on arbitrary sites).
+          let hostname = text;
+          try { hostname = new URL(text).hostname.replace(/^www\./, ""); } catch {}
+          link = `[[${text}][${hostname}]]`;
+          const meta = fieldMetaForTextarea(ta);
+          if (meta) {
+            const placeholderLink = link;
+            fetch("/api/url-title?url=" + encodeURIComponent(text))
+              .then((r) => (r.ok ? r.json() : null))
+              .then((data) => {
+                const title = data && data.title && data.title.trim();
+                if (!title) return;
+                const newLink = `[[${text}][${hostname} - ${title}]]`;
+                let current;
+                if (meta.field === "change-preamble") {
+                  current = preambleRef.current;
+                } else {
+                  const node = tree.findNode(nodesRef.current || [], meta.nodeId);
+                  if (!node) return;
+                  current = meta.field === "change-body" ? node.body : node.title;
+                }
+                // Only patch if the placeholder link is still there unmodified —
+                // the user may have since edited or deleted it.
+                if (typeof current !== "string" || !current.includes(placeholderLink)) return;
+                dispatch(meta.nodeId, meta.field, current.replace(placeholderLink, newLink));
+              })
+              .catch(() => {});
+          }
         }
       } else {
         return;
       }
       e.preventDefault();
-      const start = ta.selectionStart ?? ta.value.length;
-      const end   = ta.selectionEnd   ?? ta.value.length;
       const newVal = ta.value.substring(0, start) + link + ta.value.substring(end);
       const proto = window.HTMLTextAreaElement.prototype;
       Object.getOwnPropertyDescriptor(proto, "value").set.call(ta, newVal);
@@ -7889,6 +7904,28 @@ function App() {
     dispatch(meta.nodeId, "convert-note-to-node");
   }, [dispatch]);
 
+  // Wraps whichever field (title or note) was last focused, and the text
+  // currently selected there, as a link pointing at whatever URL is on the
+  // system clipboard — the manual/keyboard-triggered form of paste-creates-
+  // a-link (see the onPaste handlers on the title/body textareas for the
+  // automatic form, triggered by an actual paste gesture). Same
+  // _lastOutlineTextarea/meta + dispatch mechanism as
+  // convertNoteToNodeAtFocus above, and for the same reason.
+  const linkifySelectionFromClipboard = useCallback(async () => {
+    const isLive = document.activeElement?.tagName === "TEXTAREA";
+    const el = isLive ? document.activeElement : _lastOutlineTextarea;
+    if (!el || el.tagName !== "TEXTAREA") return;
+    const meta = isLive ? fieldMetaForTextarea(el) : _lastOutlineTextareaMeta;
+    if (!meta) return;
+    const start = el.selectionStart, end = el.selectionEnd;
+    if (start === end) { showToast("Select some text first"); return; }
+    const clip = await navigator.clipboard.readText().catch(() => "");
+    if (!tree.isPastedUrl(clip)) { showToast("Clipboard doesn't contain a URL"); return; }
+    const { value: newVal, cursor } = tree.wrapSelectionAsLink(el.value, start, end, clip.trim());
+    dispatch(meta.nodeId, meta.field, tree.orgifyPaths(newVal));
+    requestAnimationFrame(() => { if (document.body.contains(el)) el.setSelectionRange(cursor, cursor); });
+  }, [dispatch, showToast]);
+
   const onNodeHandleMouseDown = useCallback((nodeId, e) => {
     dragStateRef.current = { nodeId, startX: e.clientX, startY: e.clientY, pending: true };
   }, []);
@@ -8425,7 +8462,7 @@ function App() {
           copyAsFormatted, copyAsPlain,
           clearRecentFiles,
           setFindOpen, findInputRef,
-          cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus,
+          cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus, linkifySelectionFromClipboard,
         })} onClose=${() => setShowHelp(false)} />`}
       ${showShortcutEditor && html`
         <${ShortcutEditor}
@@ -8652,7 +8689,8 @@ function App() {
                   onNodeHandleMenu=${onNodeHandleMenu}
                   nodeMenuOpenId=${nodeMenu?.nodeId}
                   globalFont=${globalFont} levelFonts=${levelFonts}
-                  globalColor=${globalColor} levelColors=${levelColors} />
+                  globalColor=${globalColor} levelColors=${levelColors}
+                  linkifySelectionFromClipboard=${linkifySelectionFromClipboard} />
               `)}
               ${!isFiltering && currentFile && html`
                 <${BacklinksSection}
@@ -11315,7 +11353,7 @@ function buildCommands(ctx) {
     copyAsFormatted, copyAsPlain,
     clearRecentFiles,
     setFindOpen, findInputRef,
-    cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus,
+    cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus, linkifySelectionFromClipboard,
   } = ctx;
 
   return [
@@ -11369,6 +11407,7 @@ function buildCommands(ctx) {
     { category: "Edit", label: "Split At Cursor Location", desc: "Split the focused title into two sibling nodes, or the focused note into a new node's note directly after", keys: displayCombo(getShortcutCombo("splitNode")), action: splitAtCursorLocation },
     { category: "Edit", label: "Join with Next Node",     desc: "Merge this node with the next sibling",        keys: displayCombo(getShortcutCombo("joinNode")),   action: joinFocusedWithNext },
     { category: "Edit", label: "Convert Note To Node",    desc: "Turn the focused note into a new first-child node", keys: "", action: convertNoteToNodeAtFocus },
+    { category: "Edit", label: "Link Selection From Clipboard", desc: "Wrap the selected text as a link to the URL currently on the clipboard", keys: displayCombo(getShortcutCombo("linkifySelection")), action: linkifySelectionFromClipboard },
     { category: "Edit", label: "Hoist / Unhoist",         desc: isHoisted ? "Unhoist — show full tree" : "Hoist focused item", keys: displayCombo(getShortcutCombo("hoist")), action: toggleHoist },
     // Search
     { category: "Search", label: "Full-text Search…",    desc: "Search across all org files",    keys: displayCombo(getShortcutCombo("textSearch")),      action: () => setShowTextSearch(true) },
