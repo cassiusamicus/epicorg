@@ -497,6 +497,31 @@ export function convertNoteToNode(nodes, id) {
   return { nodes: result, newId: newIdOut };
 }
 
+// Converts a node into a note appended to whichever node sits immediately
+// above it in the rendered outline — the same "previous visible node" rule
+// ↑ navigation uses (previous sibling's last visible descendant, or the
+// parent if there's no previous sibling), so a first child merges into its
+// parent rather than refusing outright. The reverse of convertNoteToNode.
+// Refuses (returns { nodes: unchanged, ok: false, reason }) if the node has
+// children — a note can't contain sub-headings — or if it's the very first
+// node in the document, with nothing above it to merge into.
+export function convertNodeToNote(nodes, id) {
+  const flat = flattenVisible(nodes);
+  const idx = flat.findIndex((n) => n.id === id);
+  if (idx <= 0) return { nodes, ok: false, reason: "no-prior" };
+  const target = flat[idx];
+  if (target.children?.length > 0) return { nodes, ok: false, reason: "has-children" };
+  const priorId = flat[idx - 1].id;
+
+  const noteText = [target.title, target.body].filter(Boolean).join("\n");
+  const withoutTarget = removeNode(nodes, id);
+  const result = mapNode(withoutTarget, priorId, (n) => ({
+    ...n,
+    body: [n.body, noteText].filter(Boolean).join("\n"),
+  }));
+  return { nodes: result, ok: true, priorId };
+}
+
 // --- Folding ---
 
 export function foldToLevel(nodes, level, depth = 1) {

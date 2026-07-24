@@ -755,7 +755,7 @@ function TableEditor({ rows: initRows, headerCount: initHeaderCount, onSave, onC
   `;
 }
 
-function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notesVisible, depth, bodyRefs, linkifySelectionFromClipboard }) {
+function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notesVisible, depth, bodyRefs, linkifySelectionFromClipboard, showToast }) {
   const localRef = useRef(null);
   const [ctxMenu, setCtxMenu] = useState(null);
   const [imgPopup, setImgPopup] = useState(null); // { index, rect }
@@ -894,6 +894,15 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
               const marker = formatMarkerForKey(e);
               if (marker) { e.preventDefault(); wrapSelectionWithMarker(e, marker, (v) => dispatch(contentTargetId, "change-body", v)); return; }
               if (matchShortcut("linkifySelection", e)) { e.preventDefault(); linkifySelectionFromClipboard?.(); return; }
+              // Same reasoning as the title field: split has no clean
+              // single target for an editable (same-file) transclusion
+              // copy's note (it both edits shared content and creates a
+              // sibling local to wherever you're looking) — detach first.
+              if (isEditableTransclusion && matchShortcut("splitNode", e)) {
+                e.preventDefault();
+                showToast?.("Detach this transclusion first to split it");
+                return;
+              }
               if (matchShortcut("splitNode", e)) { e.preventDefault(); dispatch(contentTargetId, "split-body-at-cursor", e.target.selectionStart); return; }
               // Same node-structural shortcuts as the title field (handleKey)
               // — a note is still editing this node, so Indent/Outdent/Move
@@ -974,7 +983,7 @@ const TRANSCLUSION_BADGE_TITLES = {
   chained: "Source is itself a transclusion — chained transclusion isn't supported",
 };
 
-function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, outlineFormat, levelFormats, siblingIndex, verticalLines, showTagChips, tagsOnRight, onSearchTag, bodyEditingId, bodyPreviewId, bodyRefs, onNodeHandleMouseDown, onNodeHandleMenu, nodeMenuOpenId, globalFont, levelFonts, globalColor, levelColors, linkifySelectionFromClipboard }) {
+function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, outlineFormat, levelFormats, siblingIndex, verticalLines, showTagChips, tagsOnRight, onSearchTag, bodyEditingId, bodyPreviewId, bodyRefs, onNodeHandleMouseDown, onNodeHandleMenu, nodeMenuOpenId, globalFont, levelFonts, globalColor, levelColors, linkifySelectionFromClipboard, showToast }) {
   const isFocused = focusedId === node.id;
   const hasChildren = node.children?.length > 0;
   // Transclusion display state — see tree.applyTransclusions. `transclusion`
@@ -1157,15 +1166,24 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                   });
                   return;
                 }
-                // Structural keys (Enter/Backspace/Tab) act as if they were
-                // pressed at the source's own position — for an editable
-                // (same-file) transclusion, editing the copy IS editing the
-                // source. Read-only copies (cross-file, or any unresolved
+                // Read-only transclusions (cross-file, or any unresolved
                 // state) never mutate content, so structural edits are
-                // skipped entirely rather than acting on the wrapper's own
-                // (always-empty) stored title.
+                // skipped entirely.
                 if (isReadOnlyContent) return;
-                handleKey(e, contentTargetId, dispatch, linkifySelectionFromClipboard);
+                // Split has no clean single target for an editable
+                // (same-file) transclusion copy: it both edits content
+                // (which lives at the source) and creates a new sibling
+                // (which belongs next to whichever copy you're actually
+                // looking at) in one operation — there's no way to do both
+                // without either silently touching the source's neighbors
+                // (the original bug) or leaving a half-split result spread
+                // across two places in the file. Detach first instead.
+                if (isEditableTransclusion && matchShortcut("splitNode", e)) {
+                  e.preventDefault();
+                  showToast?.("Detach this transclusion first to split it");
+                  return;
+                }
+                handleKey(e, node.id, contentTargetId, dispatch, linkifySelectionFromClipboard);
               }}
               onChange=${(e) => { setIsEditing(true); dispatch(contentTargetId, "change", tree.orgifyPaths(e.target.value)); triggerLinkPicker(e.target, e); }}
             />
@@ -1235,6 +1253,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
         depth=${depth}
         bodyRefs=${bodyRefs}
         linkifySelectionFromClipboard=${linkifySelectionFromClipboard}
+        showToast=${showToast}
       />
       ${hasChildren && !node.collapsed && node.children.map(
         (child, i) => html`
@@ -1265,6 +1284,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
             globalColor=${globalColor}
             levelColors=${levelColors}
             linkifySelectionFromClipboard=${linkifySelectionFromClipboard}
+            showToast=${showToast}
           />
         `
       )}
@@ -3260,15 +3280,16 @@ const SHORTCUT_DEFS = [
 ];
 
 const TOOLBAR_ITEMS = [
-  { id: "home",       label: "Home button",          desc: "Jump to your configured home file" },
-  { id: "navArrows",  label: "Back / Forward",       desc: "Navigate recently viewed files" },
-  { id: "foldLevels", label: "Fold level buttons",   desc: "Collapse outline to heading levels 1–3 (outline only)" },
-  { id: "moveGroup",  label: "Move / Notes / Hoist", desc: "Outline movement panel, inline notes, hoist (outline only)" },
-  { id: "undoRedo",   label: "Undo / Redo",          desc: "Undo and redo editing actions" },
-  { id: "viewTabs",   label: "View switcher",        desc: "Switch between Outline, Agenda, TODO, Journal" },
-  { id: "modeToggle", label: "Mode toggle",          desc: "Plain, formatted titles, and reveal codes (outline only)" },
+  { id: "home",          label: "Home button",          desc: "Jump to your configured home file" },
+  { id: "quickSwitcher", label: "Quick switcher",       desc: "Jump to any file (Ctrl+K)" },
+  { id: "navArrows",     label: "Back / Forward",       desc: "Navigate recently viewed files" },
+  { id: "foldLevels",    label: "Fold level buttons",   desc: "Collapse outline to heading levels 1–3 (outline only)" },
+  { id: "moveGroup",     label: "Move / Notes / Hoist", desc: "Outline movement panel, inline notes, hoist (outline only)" },
+  { id: "undoRedo",      label: "Undo / Redo",          desc: "Undo and redo editing actions" },
+  { id: "viewTabs",      label: "View switcher",        desc: "Switch between Outline, Agenda, TODO, Journal" },
+  { id: "modeToggle",    label: "Mode toggle",          desc: "Plain, formatted titles, and reveal codes (outline only)" },
 ];
-const TOOLBAR_DEFAULTS = { home: true, navArrows: true, foldLevels: true, moveGroup: true, undoRedo: true, viewTabs: true, modeToggle: true };
+const TOOLBAR_DEFAULTS = { home: true, quickSwitcher: true, navArrows: true, foldLevels: true, moveGroup: true, undoRedo: true, viewTabs: true, modeToggle: true };
 const TOOLBAR_CONFIG_KEY = "epicorg.toolbarConfig";
 
 // Module-level shortcut overrides — mutated directly so key handlers
@@ -3488,32 +3509,41 @@ function wrapSelectionWithMarker(e, marker, onChange) {
   requestAnimationFrame(() => el.setSelectionRange(start + marker.length, end + marker.length));
 }
 
-function handleKey(e, id, dispatch, linkifySelectionFromClipboard) {
+// wrapperId is the node actually on screen (its real tree position — new
+// siblings, moves, deletes, folding and navigation must always act here).
+// contentId is where the field's *text* actually lives — for a live-synced
+// (same-file) transclusion copy that's the source, since the copy has no
+// stored title of its own; for every other node the two are identical.
+// Conflating them used to route Enter/Delete/Move/etc. through contentId
+// too, so pressing Enter on a transcluded copy inserted the new sibling
+// next to the source somewhere else in the file instead of where you were
+// looking — see the "Insert new sibling..." fix.
+function handleKey(e, wrapperId, contentId, dispatch, linkifySelectionFromClipboard) {
   const marker = formatMarkerForKey(e);
-  if (marker) { e.preventDefault(); wrapSelectionWithMarker(e, marker, (v) => dispatch(id, "change", v)); return; }
+  if (marker) { e.preventDefault(); wrapSelectionWithMarker(e, marker, (v) => dispatch(contentId, "change", v)); return; }
   if (matchShortcut("linkifySelection", e)) { e.preventDefault(); linkifySelectionFromClipboard?.(); return; }
-  if (matchShortcut("splitNode", e)) { e.preventDefault(); dispatch(id, "split-at-cursor", e.target.selectionStart); return; }
-  if (matchShortcut("joinNode", e))  { e.preventDefault(); dispatch(id, "join-with-next"); return; }
-  if (matchShortcut("moveUp", e))       { e.preventDefault(); dispatch(id, "move-up"); return; }
-  if (matchShortcut("moveDown", e))     { e.preventDefault(); dispatch(id, "move-down"); return; }
-  if (matchShortcut("indent", e))       { e.preventDefault(); dispatch(id, "indent"); return; }
-  if (matchShortcut("outdent", e))      { e.preventDefault(); dispatch(id, "outdent"); return; }
-  if (matchShortcut("moveUpOnly", e))   { e.preventDefault(); dispatch(id, "move-up-only"); return; }
-  if (matchShortcut("moveDownOnly", e)) { e.preventDefault(); dispatch(id, "move-down-only"); return; }
-  if (matchShortcut("indentOnly", e))   { e.preventDefault(); dispatch(id, "indent-only"); return; }
-  if (matchShortcut("outdentOnly", e))  { e.preventDefault(); dispatch(id, "outdent-only"); return; }
+  if (matchShortcut("splitNode", e)) { e.preventDefault(); dispatch(contentId, "split-at-cursor", e.target.selectionStart); return; }
+  if (matchShortcut("joinNode", e))  { e.preventDefault(); dispatch(wrapperId, "join-with-next"); return; }
+  if (matchShortcut("moveUp", e))       { e.preventDefault(); dispatch(wrapperId, "move-up"); return; }
+  if (matchShortcut("moveDown", e))     { e.preventDefault(); dispatch(wrapperId, "move-down"); return; }
+  if (matchShortcut("indent", e))       { e.preventDefault(); dispatch(wrapperId, "indent"); return; }
+  if (matchShortcut("outdent", e))      { e.preventDefault(); dispatch(wrapperId, "outdent"); return; }
+  if (matchShortcut("moveUpOnly", e))   { e.preventDefault(); dispatch(wrapperId, "move-up-only"); return; }
+  if (matchShortcut("moveDownOnly", e)) { e.preventDefault(); dispatch(wrapperId, "move-down-only"); return; }
+  if (matchShortcut("indentOnly", e))   { e.preventDefault(); dispatch(wrapperId, "indent-only"); return; }
+  if (matchShortcut("outdentOnly", e))  { e.preventDefault(); dispatch(wrapperId, "outdent-only"); return; }
   const key = e.key;
-  if (key === "Tab")       { e.preventDefault(); dispatch(id, "toggle"); return; }
-  if (key === "ArrowUp")   { e.preventDefault(); dispatch(id, "nav-up"); return; }
-  if (key === "ArrowDown") { e.preventDefault(); dispatch(id, "nav-down"); return; }
-  if (key === "Enter" && e.shiftKey) { e.preventDefault(); dispatch(id, "focus-body"); return; }
+  if (key === "Tab")       { e.preventDefault(); dispatch(wrapperId, "toggle"); return; }
+  if (key === "ArrowUp")   { e.preventDefault(); dispatch(wrapperId, "nav-up"); return; }
+  if (key === "ArrowDown") { e.preventDefault(); dispatch(wrapperId, "nav-down"); return; }
+  if (key === "Enter" && e.shiftKey) { e.preventDefault(); dispatch(wrapperId, "focus-body"); return; }
   if (key === "Enter") {
     e.preventDefault();
     const atStart = e.target.selectionStart === 0 && e.target.selectionEnd === 0;
-    dispatch(id, atStart ? "new-sibling-before" : "new-sibling");
+    dispatch(wrapperId, atStart ? "new-sibling-before" : "new-sibling");
     return;
   }
-  if (key === "Backspace" && e.target.value === "") { e.preventDefault(); dispatch(id, "delete"); return; }
+  if (key === "Backspace" && e.target.value === "") { e.preventDefault(); dispatch(wrapperId, "delete"); return; }
 }
 
 // --- Date stamp ---
@@ -4134,7 +4164,7 @@ const UNDOABLE_ACTIONS = new Set([
   "change-preamble", "change", "change-body", "update-properties", "update-tags", "update-bookmarks",
   "set-status", "set-priority", "cycle-status", "new-sibling", "new-sibling-before", "delete", "duplicate", "paste-node", "indent", "outdent", "move-up", "move-down",
   "indent-only", "outdent-only", "move-up-only", "move-down-only",
-  "split-at-cursor", "split-body-at-cursor", "join-with-next", "convert-note-to-node",
+  "split-at-cursor", "split-body-at-cursor", "join-with-next", "convert-note-to-node", "convert-node-to-note",
 ]);
 // Of those, typing actions get debounced into one undo step per "burst"
 // rather than one per keystroke.
@@ -7729,7 +7759,28 @@ function App() {
       });
       markDirty(); return;
     }
-  }, [focusNode, markDirty, maybeSnapshotForUndo]);
+
+    if (action === "convert-node-to-note") {
+      const targetNode = tree.findNode(nodesRef.current || [], nodeId);
+      if (targetNode?.properties?.TRANSCLUDE) {
+        showToast("Detach this transclusion first to convert it");
+        return;
+      }
+      let succeeded = false;
+      setNodes((p) => {
+        const result = tree.convertNodeToNote(p, nodeId);
+        if (!result.ok) {
+          showToast(result.reason === "has-children" ? "Can't convert — this node has children" : "No prior node to convert into");
+          return p;
+        }
+        succeeded = true;
+        focusNode(result.priorId);
+        return result.nodes;
+      });
+      if (succeeded) markDirty();
+      return;
+    }
+  }, [focusNode, markDirty, maybeSnapshotForUndo, showToast]);
 
   // Node clipboard for the per-node menu's Cut/Copy/Paste — explicit-id
   // versions (like toggleHoistNode/copyNodeAsFormatted above) since the menu
@@ -7902,6 +7953,21 @@ function App() {
     const meta = isLive ? fieldMetaForTextarea(el) : _lastOutlineTextareaMeta;
     if (!meta || meta.field !== "change-body") return;
     dispatch(meta.nodeId, "convert-note-to-node");
+  }, [dispatch]);
+
+  // Converts whichever node's TITLE field was last focused into a note
+  // appended to the node immediately above it in the outline — the
+  // command-palette reverse of Convert Note To Node. Only ever acts on a
+  // title field, never a note (a note is already "a note"). Refusal
+  // (has children / no prior node / is a transclusion copy) is reported
+  // via toast inside the "convert-node-to-note" dispatch handler.
+  const convertNodeToNoteAtFocus = useCallback(() => {
+    const isLive = document.activeElement?.tagName === "TEXTAREA";
+    const el = isLive ? document.activeElement : _lastOutlineTextarea;
+    if (!el || el.tagName !== "TEXTAREA") return;
+    const meta = isLive ? fieldMetaForTextarea(el) : _lastOutlineTextareaMeta;
+    if (!meta || meta.field !== "change") return;
+    dispatch(meta.nodeId, "convert-node-to-note");
   }, [dispatch]);
 
   // Wraps whichever field (title or note) was last focused, and the text
@@ -8419,7 +8485,8 @@ function App() {
                   onShowToolbarCustomizer=${() => setShowToolbarCustomizer(true)}
                   onOpenSettings=${(sec) => { setShowSettings(true); if (sec) setSettingsSection(sec); }}
                   onExportToOrg=${exportToOrg}
-                  onExportToHtml=${exportToHtml} />
+                  onExportToHtml=${exportToHtml}
+                  onOpenQuickSwitcher=${() => setShowQuickSwitcher(true)} />
       `}
       ${showOutlineActions && html`
         <${OutlineActionsPanel}
@@ -8462,7 +8529,7 @@ function App() {
           copyAsFormatted, copyAsPlain,
           clearRecentFiles,
           setFindOpen, findInputRef,
-          cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus, linkifySelectionFromClipboard,
+          cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus, convertNodeToNoteAtFocus, linkifySelectionFromClipboard,
         })} onClose=${() => setShowHelp(false)} />`}
       ${showShortcutEditor && html`
         <${ShortcutEditor}
@@ -8690,7 +8757,8 @@ function App() {
                   nodeMenuOpenId=${nodeMenu?.nodeId}
                   globalFont=${globalFont} levelFonts=${levelFonts}
                   globalColor=${globalColor} levelColors=${levelColors}
-                  linkifySelectionFromClipboard=${linkifySelectionFromClipboard} />
+                  linkifySelectionFromClipboard=${linkifySelectionFromClipboard}
+                  showToast=${showToast} />
               `)}
               ${!isFiltering && currentFile && html`
                 <${BacklinksSection}
@@ -11082,7 +11150,7 @@ function OutlineActionsPanel({ onAction, focusedId, onClose }) {
   `;
 }
 
-function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, filterExpanded, setFilterExpanded, rawFindMatches, rawFindIdx, onRawFindNavigate, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat, globalFont, onSetGlobalFont, levelFonts, onSetLevelFont, globalColor, onSetGlobalColor, levelColors, onSetLevelColor, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, onOpenSearchPanel, searchPanelOpen, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer, onExportToOrg, onExportToHtml, onOpenSettings }) {
+function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, filterExpanded, setFilterExpanded, rawFindMatches, rawFindIdx, onRawFindNavigate, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat, globalFont, onSetGlobalFont, levelFonts, onSetLevelFont, globalColor, onSetGlobalColor, levelColors, onSetLevelColor, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, onOpenSearchPanel, searchPanelOpen, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer, onExportToOrg, onExportToHtml, onOpenSettings, onOpenQuickSwitcher }) {
   // Whether the toolbar/search/etc. actually fit is measured, not
   // guessed from viewport width — a long filename or a pile of tags
   // eats into the same space a phone-width media query would assume is
@@ -11154,6 +11222,12 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
               <button className=${"view-tab" + (homeFile && currentFile === homeFile ? " active" : "") + (!homeFile ? " toolbar-home-unset" : "")}
                       onClick=${() => homeFile ? onGoHome() : onOpenSettings?.("workspace")}
                       title=${homeFile ? "Go home: " + homeFile : "No home file set — click to configure"}><${IconHome} /></button>
+            </div>
+          `}
+          ${toolbarConfig.quickSwitcher && html`
+            <div className="view-toggle">
+              <button className="view-tab" onClick=${onOpenQuickSwitcher}
+                      title="Quick switcher (Ctrl+K)"><${IconLightning} /></button>
             </div>
           `}
           ${toolbarConfig.navArrows && html`
@@ -11353,7 +11427,7 @@ function buildCommands(ctx) {
     copyAsFormatted, copyAsPlain,
     clearRecentFiles,
     setFindOpen, findInputRef,
-    cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus, linkifySelectionFromClipboard,
+    cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus, convertNodeToNoteAtFocus, linkifySelectionFromClipboard,
   } = ctx;
 
   return [
@@ -11407,6 +11481,7 @@ function buildCommands(ctx) {
     { category: "Edit", label: "Split At Cursor Location", desc: "Split the focused title into two sibling nodes, or the focused note into a new node's note directly after", keys: displayCombo(getShortcutCombo("splitNode")), action: splitAtCursorLocation },
     { category: "Edit", label: "Join with Next Node",     desc: "Merge this node with the next sibling",        keys: displayCombo(getShortcutCombo("joinNode")),   action: joinFocusedWithNext },
     { category: "Edit", label: "Convert Note To Node",    desc: "Turn the focused note into a new first-child node", keys: "", action: convertNoteToNodeAtFocus },
+    { category: "Edit", label: "Convert Node To Note",    desc: "Fold the focused node into a note on the node immediately above it", keys: "", action: convertNodeToNoteAtFocus },
     { category: "Edit", label: "Link Selection From Clipboard", desc: "Wrap the selected text as a link to the URL currently on the clipboard", keys: displayCombo(getShortcutCombo("linkifySelection")), action: linkifySelectionFromClipboard },
     { category: "Edit", label: "Hoist / Unhoist",         desc: isHoisted ? "Unhoist — show full tree" : "Hoist focused item", keys: displayCombo(getShortcutCombo("hoist")), action: toggleHoist },
     // Search

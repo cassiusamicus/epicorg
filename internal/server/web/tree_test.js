@@ -1395,6 +1395,76 @@ test("convertNoteToNode: works on a nested (child) node", () => {
   assertEqual(child.children[0].title, "Child's note");
 });
 
+// --- convertNodeToNote ---
+
+test("convertNodeToNote: merges into the previous sibling's note and removes the node", () => {
+  const t = [node("a", "First"), node("b", "Second")];
+  const { nodes: result, ok, priorId } = tree.convertNodeToNote(t, "b");
+  assert(ok);
+  assertEqual(priorId, "a");
+  assertEqual(result.length, 1);
+  assertEqual(result[0].id, "a");
+  assertEqual(result[0].body, "Second");
+});
+
+test("convertNodeToNote: appends to an existing note, joined by a newline", () => {
+  const t = [{ ...node("a", "First"), body: "Existing note." }, node("b", "Second")];
+  const { nodes: result } = tree.convertNodeToNote(t, "b");
+  assertEqual(tree.findNode(result, "a").body, "Existing note.\nSecond");
+});
+
+test("convertNodeToNote: includes the node's own body along with its title", () => {
+  const t = [node("a", "First"), { ...node("b", "Second"), body: "Second's own note." }];
+  const { nodes: result } = tree.convertNodeToNote(t, "b");
+  assertEqual(tree.findNode(result, "a").body, "Second\nSecond's own note.");
+});
+
+test("convertNodeToNote: with no previous sibling, merges into the parent", () => {
+  const t = [node("parent", "Parent", [node("a", "Only child")])];
+  const { nodes: result, ok, priorId } = tree.convertNodeToNote(t, "a");
+  assert(ok);
+  assertEqual(priorId, "parent");
+  const parent = tree.findNode(result, "parent");
+  assertEqual(parent.body, "Only child");
+  assertEqual(parent.children.length, 0);
+});
+
+test("convertNodeToNote: previous sibling with visible children merges into its last descendant, not the sibling itself", () => {
+  const t = [
+    node("a", "First", [node("a1", "First's child")]),
+    node("b", "Second"),
+  ];
+  const { nodes: result, priorId } = tree.convertNodeToNote(t, "b");
+  assertEqual(priorId, "a1");
+  assertEqual(tree.findNode(result, "a1").body, "Second");
+  assertEqual(tree.findNode(result, "a").body, "");
+});
+
+test("convertNodeToNote: a collapsed previous sibling's hidden children are skipped, merges into the sibling itself", () => {
+  const t = [
+    { ...node("a", "First", [node("a1", "First's child")]), collapsed: true },
+    node("b", "Second"),
+  ];
+  const { priorId } = tree.convertNodeToNote(t, "b");
+  assertEqual(priorId, "a");
+});
+
+test("convertNodeToNote: refuses when the node has children", () => {
+  const t = [node("a", "First"), node("b", "Second", [node("b1", "Grandchild")])];
+  const { nodes: result, ok, reason } = tree.convertNodeToNote(t, "b");
+  assertEqual(ok, false);
+  assertEqual(reason, "has-children");
+  assertEqual(result, t);
+});
+
+test("convertNodeToNote: refuses when the node is the very first node in the document", () => {
+  const t = [node("a", "First"), node("b", "Second")];
+  const { nodes: result, ok, reason } = tree.convertNodeToNote(t, "a");
+  assertEqual(ok, false);
+  assertEqual(reason, "no-prior");
+  assertEqual(result, t);
+});
+
 // --- isPastedUrl / wrapSelectionAsLink ---
 
 test("isPastedUrl: recognizes http/https/mailto/file URLs", () => {
