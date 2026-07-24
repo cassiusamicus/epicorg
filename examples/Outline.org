@@ -704,6 +704,8 @@ I affirm now and always, with a great shout to all Greeks and foreigners, pleasu
 *** /Cicero, On Ends I.42 (Torquatus)/ :Happiness:HappinessAsLifeOfPleasure:Pleasure:
 [Torquatus's formal derivation of the Telos: since pleasure and pain are what actually drive every choice and avoidance, and the Telos is by definition that to which all else is a means but which is not itself a means to anything further, pleasure -- not virtue -- must be the Chief Good. Rendered here as "live pleasantly" rather than Rackham's "live agreeably": the Latin is /iucunde vivere/, an adverbial form of /iucundus/ ("pleasant, delightful"), not a direct cognate of /voluptas/ ("pleasure") -- but "pleasantly" keeps the translation aligned with how Bailey renders the identical construction elsewhere on this site (e.g. Principal Doctrine 5, "live pleasantly"), rather than drifting toward the vaguer "agreeably."]
 Pleasure and pain moreover supply the motives of desire and of avoidance, and the springs of conduct generally. This being so, it clearly follows that actions are right and praiseworthy only as being a means to the attainment of a life of pleasure. But that which is not itself a means to anything else, but to which all else is a means, is what the Greeks term the Telos, the highest, ultimate or final Good. It must therefore be admitted that the Chief Good is to live pleasantly.
+*** /Cicero, In defense of Publius Sestius, 10.23/ 
+“He {Publius Clodius} praised those most who are said to be above all others the teachers and eulogists of pleasure {the Epicureans}. … He added that these same men were quite right in saying that the wise do everything for their own interests; that no sane man should engage in public affairs; that nothing was preferable to a life of tranquility crammed full of pleasures. But those who said that men should aim at an honorable position, should consult the public interest, should think of duty throughout life not of self-interest, should face danger for their country, receive wounds, welcome death – these he called visionaries and madmen.” Note: [[http://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.02.0020:text=Sest.:chapter=10:section=23][Here is a link]] to Perseus where the Latin and translation of this can be compared. The Latin is: “nihil esse praestabilius otiosa vita, plena et conferta voluptatibus.” See also [[https://nodictionaries.com/text-word-note/3770272-non-oportere-nihil-esse-praestabilius-otiosa-uita-plena-et-conferta-uoluptatibus][here for word translations]].
 *** /Lucretius, De Rerum Natura 2.172/ :Happiness:HappinessAsLifeOfPleasure:Pleasure:PleasureAsGuide:
 [Lucretius's own compressed formula for the same claim -- also cited above under "Ethics Is The Study of How To Live Well" -- included here as well since nothing in the ancient record states this section's heading more memorably or in fewer words.]
 /Dux vitae dia voluptas./ -- Divine pleasure, the guide of life. (Munro/Rouse)
@@ -838,7 +840,7 @@ These medicines we have put fully to the test; for we have dispelled the fears t
 *** /Metrodorus, in Diogenes Laertius, Book X/ :Pleasure:KatastematicNotBestPleasure:
 [Metrodorus, Epicurus's closest colleague, affirms both static and kinetic pleasure as genuine pleasure, in the same passage in which Epicurus distinguishes his own view from the Cyrenaics.]
 Thus Pleasure being conceived both as that species which consists in motion and that which is a state of rest.
-** The Term "Pleasure" Means The Same Thing As ""Absence of Pain,"" And Includes All Mental And Bodily Experience That Is Not Painful
+** The Term "Pleasure" Means The Same Thing As "Absence of Pain," And Includes All Mental And Bodily Experience That Is Not Painful
 *** _Commentary_ :Pleasure:
 The claim that "pleasure" and "absence of pain" are the same thing is one of the most frequently misunderstood aspects of Epicurean philosophy: these two terms are exact equivalents that name the same reality from different directions. The key to understanding this is Epicurus' foundational claim that there are only two feelings  --  pleasure and pain  --  with no neutral "zero" state in between. Given this, the absence of pain is not a neutral condition but simply the presence of pleasure, and the absence of pleasure is simply the presence of pain. The two terms are interchangeable because they refer to the same territory mapped from opposite poles.
 This is not a limiting or pessimistic doctrine  --  it is an expansive one. It means that every waking moment in which we are not in pain is, by definition, a moment of pleasure. The philosopher who has achieved freedom from bodily suffering and mental disturbance is experiencing the full positive pleasure of a flourishing life, even if they are doing nothing more than sitting quietly in a garden. The common criticism that Epicurus reduced pleasure to "mere absence of pain" gets the logic exactly backwards: he was expanding the concept of pleasure to include all non-painful experience, insisting that the Stoic sage's "tranquility" and the Epicurean philosopher's "pleasure" name exactly the same positive condition.
@@ -906,6 +908,19 @@ The removal of all pain is the limit of the magnitude of pleasures. Wherever ple
 :TRANSCLUDE_ID: epicurus-principal-doctrine-18
 :END:
 The pleasure in the flesh is not increased when once the pain due to want is removed, but is only varied: and the limit as regards pleasure in the mind is begotten by the reasoned understanding of these very pleasures and of the emotions akin to them, which used to cause the greatest fear to the mind. (L&S-THP)
+*** /PLUTARCH, That it is not Possible…, 7, 1091 a [5]/
+:PROPERTIES:
+:TRANSCLUDE_ID: tc-uqzyh2cf
+:END:
+They therefore assign not only a treacherous and unsure ground of 
+their pleasurable living, but also one in all respects despicable and little, 
+if  the  escaping  of  evils  be  the  matter  of  their  complacence  and  last 
+good. But now they tell us, nothing else can be so much as imagined, 
+and nature hath no other place to bestow her good in but only that out 
+of which her evil hath been driven; as Metrodorus speaks in his book 
+Against the Sophists. So that this single thing, to escape evil, he says, 
+is the supreme good; _for there is no room to lodge this good in where 
+no more of what is painful and afflicting goes out._
 *** /Norman DeWitt, Epicurus and His Philosophy (1954), p. 240/ :Pleasure:
 The extension of the name of pleasure to this normal state of being was the major innovation of the new hedonism... nor that reason justified the application; nor that human beings would be the happier for so reasoning and believing.
 *** /David Sedley, "The Inferential Foundations of Epicurean Ethics" (in Ethics, ed. Stephen Everson, Cambridge University Press, 1998)/ :Pleasure:
@@ -1197,6 +1212,7 @@ It was Athens of glorious name that first long ago bestowed on feeble mortals th
 :TRANSCLUDE_ID: cicero-on-ends-1-29-torquatus-rackham
 :END:
 We are inquiring, then, into what is the final and ultimate Good, which as all philosophers are agreed must be of such a nature as to be the End to which all other things are means, while it is not itself a means to anything else. This Epicurus finds in Pleasure; Pleasure he holds to be the Chief Good, and Pain the Chief Evil. (Rackham)
+*** 
 *** /Cicero, On Ends 1.29 (Torquatus, Reid)/ :HappinessAsLifeOfPleasure:Pleasure:PleasureAsGuide:
 The problem before us then is, what is the climax and standard of things good... Epicurus places this standard in pleasure, which he lays down to be the supreme good, while pain is the supreme evil. Every creature, as soon as it is born, seeks after pleasure and delights therein as in its supreme good, while it recoils from pain as its supreme evil. (Reid)
 *** /Cicero, On Ends 1.40 (Torquatus)/ :HappinessAsLifeOfPleasure:Pleasure:
@@ -1208,6 +1224,7 @@ Let us imagine a man living in the continuous enjoyment of numerous and vivid pl
 :TRANSCLUDE_ID: cicero-on-ends-1-54-torquatus
 :END:
 If then even the glory of the Virtues, on which all the other philosophers love to expatiate so eloquently, has in the last resort no meaning unless it be based on pleasure, whereas pleasure is the only thing that is intrinsically attractive and alluring, it cannot be doubted that pleasure is the one supreme and final Good and that a life of happiness is nothing else than a life of pleasure. (Rackham)
+*** 
 *** /Epicurus, Vatican Saying 55/ :HappinessAsLifeOfPleasure:RoleOfPhilosophy:
 We must heal our misfortunes by the grateful recollection of what has been and by the recognition that it is impossible to make undone what has been done. (Bailey)
 *** /Diogenes of Oinoanda, Fragment 29/ :HappinessAsLifeOfPleasure:RoleOfPhilosophy:
@@ -1414,6 +1431,22 @@ The internal sensations they say are two, pleasure and pain, which occur to ever
 *** /Cicero, On Ends 2.23 (Adversarial)/ :AbsenceOfPainIsPleasure:KatastematicNotBestPleasure:
 The name of pleasure certainly has no dignity in it, and perhaps we do not exactly understand what is meant by it. Cannot we understand what pleasure is, a thing which is known to every sparrow? At another time you speak of some other highest pleasure, which is susceptible of no addition whatever, but that it is present when every sort of pain is absent, and you call it then a 'state,' not a 'motion.' Let that, then, be pleasure. (Yonge)
 For if that were the only pleasure which tickled the senses, as it were, if I may say so, and which overflowed and penetrated them with a certain agreeable feeling, then even a hand could not be content with freedom from pain without some pleasing motion of pleasure. But if the highest pleasure is, as Epicurus asserts, to be free from pain, then, O Chrysippus, the first admission was correctly made to you, that the hand, when it was in that condition, was in want of nothing; but the second admission was not equally correct, that if pleasure were a good it would wish for it. For it would not wish for it for this reason, inasmuch as whatever is free from pain is in pleasure. (L&S-THP)
+*** 
+:PROPERTIES:
+:TRANSCLUDE: tc-uqzyh2cf
+:END:
+** Is Katastematic Pleasure The Only Pleasure Or The Best Pleasure, Or is It Only One Type Of Pleasure? :KatastematicNotBestPleasure:
+*** _Commentary_
+Later commentary, especially hostile Stoic and Academic sources, sometimes claims that Epicurus recognized only static (katastematic) pleasure -- the mere absence of disturbance -- as legitimate, treating kinetic pleasures of motion (joy, delight, active enjoyment) as secondary. Diogenes Laertius reports Epicurus's own position directly: he admitted both kinds of pleasure, in both the body and the soul, and named each -- freedom from trouble and pain are static pleasures, while joy and exultation are kinetic ones. Neither kind is elevated as the only pleasure that counts; both are integrated into the full range of pleasurable experience that the complete Epicurean life includes. The static/kinetic distinction describes two different kinds of pleasure -- it is not a hierarchy between a superior and an inferior kind.
+Cicero's own writing supplies independent confirmation that this hierarchy was never Epicurus's actual position. Cicero repeatedly contrasts Epicurus with Hieronymus of Rhodes, a genuine "freedom-from-pain-is-the-only-good" philosopher -- a contrast that only makes rhetorical sense if Cicero understood the two men to hold different positions. If Epicurus himself had reduced the good to bare freedom from pain, Cicero's whole device of naming Hieronymus as the separate, more extreme case would collapse.
+*** /Diogenes Laertius X.136/ :KatastematicNotBestPleasure:
+Epicurus disagrees with the Cyrenaics on pleasure: they do not admit static pleasure but only the kinetic type, whereas he accepts both types, for soul and for body, as he says in his book On Choice and Avoidance and in On The End and in Book 1 of On Lives. In On Choices he speaks as follows: 'Freedom from disturbance and absence of pain are static pleasures; but joy and delight are regarded as kinetic activities.' He has a further disagreement with the Cyrenaics: they take bodily pains to be worse than mental ones, but he takes the mental ones to be worse, since the flesh is storm-tossed only in the present, but the soul in past, present and future. (L&S-THP)
+*** /Cicero, Tusculan Disputations Book V (Yonge)/ :KatastematicNotBestPleasure:
+'Nothing good but pleasure,' as Epicurus maintains: 'nothing good but a freedom from pain,' as Hieronymus asserts.
+*** /Cicero, De Finibus Book II (Yonge)/ :KatastematicNotBestPleasure:
+Why does he prefer using the term 'pleasure' rather than freedom from pain, as Hieronymus does... he never even reckons pleasure at all among the things which are desirable.
+*** /Diogenes of Oinoanda, Fragment 34/ :PleasureNotTranquilityIsHighestGood:
+When the emotions which disturb the soul are removed, those which produce pleasure enter into it to take their place.
 ** Is Epicurean Philosophy Straightforward About What It Advocates, or Does It Advocate Something Not Visible On The Surface?
 *** _Commentary_
 Epicurus deliberately built a philosophy that ordinary people could grasp without technical education: the goal (pleasure), the method (trust the senses, anticipations, and feelings), and the practical guidance (examine your desires; secure the natural and necessary ones first) require no specialized training to understand or to act on. Cicero's own testimony below is the most persuasive evidence for this point precisely because it is hostile: he complains that Epicureans recruit uneducated villagers who somehow grasp Epicurus's meaning while he, a trained orator, professes confusion. The plainness of the philosophy was never a defect in Epicurus's eyes -- it was the point. A system of ethics that requires decades of technical schooling before a person can act on it is useless to the great majority of human beings, who need to live well now.
@@ -1461,16 +1494,6 @@ Nor is there anything which can refute the sensations... From this it follows th
 It is sometimes claimed that desire itself is inherently a form of suffering, so that the only escape from pain is the extinguishing of desire altogether. Epicurus's own classification of desires refutes this directly: only some desires cause pain if left unfulfilled -- the natural and necessary ones; others, left unfulfilled, involve nothing worse than a craving that is easily dispelled, with no pain attached at all. Desire is not uniformly painful; whether an unfulfilled desire hurts depends on which category it falls into and how firmly it is examined. This is why Epicurus's answer to an unwanted desire was never simply "extinguish all desire," but "examine the desire and ask what will happen if it is, or is not, satisfied."
 *** /Epicurus, Principal Doctrine 26/ :AllDesireNotPainful:CalculatingDesires:
 Of desires, all that do not lead to a sense of pain, if they are not satisfied, are not necessary, but involve a craving which is easily dispelled, when the object is hard to procure or they seem likely to produce harm.
-** Does "Live Unknown" Mean To Live In Isolation?  If Not, What Does It Mean? :LiveUnknownDoesNotMeanIsolation:
-*** _Commentary_
-"Live unknown" (lathe biosas) is routinely quoted, especially by hostile ancient sources like Plutarch, as if it counseled total withdrawal from the world. But the advice was aimed at the pursuit of political careerism, reputation, and office specifically -- not at social or civic invisibility as such. The historical record contradicts the isolationist reading directly: the Garden sat on Athens's busiest ceremonial road, its gate carried a welcoming sign addressed to strangers, and Epicurus corresponded prolifically with students and friends across the Greek world. Declining to compete for political office and public fame is not the same thing as declining to engage with other human beings.
-*** /Epicurus, Vatican Saying 86 and Vatican Saying 58/ :LiveUnknownDoesNotMeanIsolation:
-Live unknown.
-We must release ourselves from the prison of affairs and politics.
-*** /Seneca, Letters to Lucilius 21.10/ :LiveUnknownDoesNotMeanIsolation:PleasureNotTranquilityIsHighestGood:
-:PROPERTIES:
-:TRANSCLUDE: seneca-letters-to-lucilius-21-10
-:END:
 ** Does Avoiding Politics Mean Passive Withdrawal From The World? :NoPoliticsDoesNotMeanQuietist:
 *** _Commentary_
 Epicurus's advice to avoid formal office-seeking is often mistaken for a blanket counsel of passivity. But Diogenes Laertius's own description of the Epicurean Wise Man shows an active life: he engages in lawsuits, writes and leaves behind treatises, gathers a school, and lectures in public when asked. What he avoids is the specific mechanism of formal political ambition -- competing for office, delivering set-piece political oratory -- because that mechanism ties one's happiness to the unstable opinions of a crowd. The historical example of Cassius Longinus, an open and self-identified Epicurean who organized armed resistance to Caesar's tyranny, along with other Epicurean figures in Roman public life, puts the passive-withdrawal caricature to rest.
@@ -1485,18 +1508,6 @@ And he bought the garden for eighty minae; ... Apollodorus in his Chronicles say
 Whatever may be the reason, no traveller ever beholds these scenes without being moved to think of Plato... Do you see that villa? It is the property now, indeed, of Rufus and formerly belonged to the elder Torquatus, a man of the highest character. It was there that I once heard Torquatus himself relate a story about his ancestor.
 *** /Cicero, On Ends 1.23-24 (Torquatus, recounting his ancestor's battlefield courage)/ :NoPoliticsDoesNotMeanQuietist:VirtueAsContextual:
 My own ancestor, Titus Manlius Torquatus... slew the Gaul who had challenged him to single combat on the bridge over the Anio, and took from his lifeless body the collar (torques) which gave him and his descendants their surname. That deed even won for him the friendship of a hero like yourself, Manlius Torquatus -- yet no one supposes that in performing it he was thinking of the pleasures involved, or of his own gratification, rather than the honor and glory that would follow.
-** Is Katastematic Pleasure The Only Pleasure Or The Best Pleasure, Or is It Only One Type Of Pleasure? :KatastematicNotBestPleasure:
-*** _Commentary_
-Later commentary, especially hostile Stoic and Academic sources, sometimes claims that Epicurus recognized only static (katastematic) pleasure -- the mere absence of disturbance -- as legitimate, treating kinetic pleasures of motion (joy, delight, active enjoyment) as secondary. Diogenes Laertius reports Epicurus's own position directly: he admitted both kinds of pleasure, in both the body and the soul, and named each -- freedom from trouble and pain are static pleasures, while joy and exultation are kinetic ones. Neither kind is elevated as the only pleasure that counts; both are integrated into the full range of pleasurable experience that the complete Epicurean life includes. The static/kinetic distinction describes two different kinds of pleasure -- it is not a hierarchy between a superior and an inferior kind.
-Cicero's own writing supplies independent confirmation that this hierarchy was never Epicurus's actual position. Cicero repeatedly contrasts Epicurus with Hieronymus of Rhodes, a genuine "freedom-from-pain-is-the-only-good" philosopher -- a contrast that only makes rhetorical sense if Cicero understood the two men to hold different positions. If Epicurus himself had reduced the good to bare freedom from pain, Cicero's whole device of naming Hieronymus as the separate, more extreme case would collapse.
-*** /Diogenes Laertius X.136/ :KatastematicNotBestPleasure:
-Epicurus disagrees with the Cyrenaics on pleasure: they do not admit static pleasure but only the kinetic type, whereas he accepts both types, for soul and for body, as he says in his book On Choice and Avoidance and in On The End and in Book 1 of On Lives. In On Choices he speaks as follows: 'Freedom from disturbance and absence of pain are static pleasures; but joy and delight are regarded as kinetic activities.' He has a further disagreement with the Cyrenaics: they take bodily pains to be worse than mental ones, but he takes the mental ones to be worse, since the flesh is storm-tossed only in the present, but the soul in past, present and future. (L&S-THP)
-*** /Cicero, Tusculan Disputations Book V (Yonge)/ :KatastematicNotBestPleasure:
-'Nothing good but pleasure,' as Epicurus maintains: 'nothing good but a freedom from pain,' as Hieronymus asserts.
-*** /Cicero, De Finibus Book II (Yonge)/ :KatastematicNotBestPleasure:
-Why does he prefer using the term 'pleasure' rather than freedom from pain, as Hieronymus does... he never even reckons pleasure at all among the things which are desirable.
-*** /Diogenes of Oinoanda, Fragment 34/ :PleasureNotTranquilityIsHighestGood:
-When the emotions which disturb the soul are removed, those which produce pleasure enter into it to take their place.
 ** Does Happiness Require The Complete Absence Of All Pain, And If So How Could Epicurus Say He Was Happy While Dying Of Kidney Disease? :HappinessDoesNotRequireCompleteAbsenceOfPain:
 *** _Commentary_
 If happiness required the total absence of all pain, Epicurus's own deathbed testimony would be incoherent -- he was dying in severe pain from disease of the bladder and stomach, and he called it "this truly happy day of my life." The resolution is that happiness is a property of a whole, weighed life, not a fragile state destroyed by any pain whatsoever - even a severe one. Principal Doctrine 4 states plainly that chronic illness can still leave a predominance of pleasure over pain in the flesh. The limit of pleasure is reached when all pain is removed, but reaching that limit in the mind, through right understanding of what matters, does not require that the body and mind never experience pain at all.
@@ -1506,6 +1517,21 @@ On this truly happy day of my life, as I am at the point of death, I write this 
 Pain does not last continuously in the flesh, but the acutest pain is there for a very short time, and even that which just exceeds the pleasure in the flesh does not continue for many days at once. But chronic illnesses permit a predominance of pleasure over pain in the flesh.
 *** /Diogenes of Oinoanda, Fragment 44 (Lower Margin)/ :HappinessDoesNotRequireCompleteAbsenceOfPain:
 Pain in the flesh does not last continuously: extreme pain is present a very short time; pain which only just outweighs pleasure in the flesh does not last many days; and chronic illnesses permit a preponderance of pleasure over pain in the flesh. (Smith)
+** Does "Live Unknown" Mean To Live In Isolation?  If Not, What Does It Mean? :LiveUnknownDoesNotMeanIsolation:
+*** _Commentary_
+"Live unknown" (lathe biosas) is routinely quoted, especially by hostile ancient sources like Plutarch, as if it counseled total withdrawal from the world. But the advice was aimed at the pursuit of political careerism, reputation, and office specifically -- not at social or civic invisibility as such. The historical record contradicts the isolationist reading directly: the Garden sat on Athens's busiest ceremonial road, its gate carried a welcoming sign addressed to strangers, and Epicurus corresponded prolifically with students and friends across the Greek world. Declining to compete for political office and public fame is not the same thing as declining to engage with other human beings.
+*** /Epicurus, Vatican Saying 86 and Vatican Saying 58/ :LiveUnknownDoesNotMeanIsolation:
+Live unknown.
+We must release ourselves from the prison of affairs and politics.
+*** /Seneca, Letters to Lucilius 21.10/ :LiveUnknownDoesNotMeanIsolation:PleasureNotTranquilityIsHighestGood:
+:PROPERTIES:
+:TRANSCLUDE: seneca-letters-to-lucilius-21-10
+:END:
+** Did Epicurus Live On Bread And Water And Limit Himself To An Ascetic Diet?
+*** Commentary
+*** /Seneca, Epist. ad Luc, 18, 9 [11]/
+Even Epicurus, the teacher of pleasure, used to observe _stated intervals,_ during which he satisfied his hunger in niggardly fashion; he wished to see whether he thereby fell short of full and complete happiness, and, if so, by what amount he fell short, and whether this amount was worth purchasing at the price of great effort. At any rate, he makes such a statement in the well known letter written to Polyaenus in the archonship of Charinus. Indeed, he boasts that he himself lived on less than a penny, but that Metrodorus, whose progress was not yet so great, needed a whole penny.
+**** Even Epicurus, the teacher of pleasure, used to observe _stated intervals,_ during which he satisfied his hunger in niggardly fashion; he wished to see whether he thereby fell short of full and complete happiness, and, if so, by what amount he fell short, and whether this amount was worth purchasing at the price of great effort. At any rate, he makes such a statement in the well known letter written to Polyaenus in the archonship of Charinus. Indeed, he boasts that he himself lived on less than a penny, but that Metrodorus, whose progress was not yet so great, needed a whole penny.
 ** Does An Epicurean Limit Himself Only To Desires That Are Natural And Necessary, Or Can He Pursue "Unnecessary" Desires That Lead To More Pleasure Than Pain? :NotLimitedToNaturalAndNecessaryDesires:
 *** _Commentary_
 A persistent misreading reduces Epicurus to a philosopher of minimalism, as if only the bare natural-and-necessary desires -- food, shelter, basic security -- are legitimate to pursue. Epicurus's own words say otherwise: Vatican Saying 21 explicitly endorses fulfilling "the physical" desires -- natural but not strictly necessary -- so long as they cause no harm, which is best understood as more pain than pleasure.  The Letter to Menoeceus praises the ability to enjoy luxury when it is available without becoming dependent on it. The three-category classification of desires (natural-and-necessary, natural-but-unnecessary, neither natural nor necessary) is a tool for judging which desires are worth pursuing and at what cost -- not a fence restricting the good life to only the first category.
