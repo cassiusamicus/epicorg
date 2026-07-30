@@ -276,6 +276,21 @@ function triggerLinkPicker(textarea, e, isBody) {
   }));
 }
 
+// Value to store from a title/body onChange: normally re-run through
+// orgifyPaths so a bare file path typed character-by-character turns into a
+// clickable link as you go. A paste skips that — orgifyPaths re-scans the
+// *entire* field on every keystroke, so pasting in a multi-line block (a
+// shell tutorial, a code snippet) full of incidental /looks/like/a/path
+// segments would silently rewrite them all into [[file:...]] links,
+// corrupting the very shell commands being pasted. A single bare path or URL
+// pasted alone is still handled — see the onPaste handlers below, which
+// intercept that specific case before the browser's default paste (and this
+// onChange) ever runs.
+function pastedRawValue(e) {
+  if (e.nativeEvent?.inputType === "insertFromPaste") return e.target.value;
+  return tree.orgifyPaths(e.target.value);
+}
+
 // Clamps a fixed-position popup menu so it always renders fully on
 // screen. (x, y) is the requested spawn point (click/cursor location);
 // after the menu mounts, its actual rendered size is measured via menuRef
@@ -874,7 +889,7 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
             value=${node.body || ""}
             placeholder="Add notes..."
             readOnly=${isReadOnlyContent}
-            onChange=${(e) => { dispatch(contentTargetId, "change-body", tree.orgifyPaths(e.target.value)); triggerLinkPicker(e.target, e, true); }}
+            onChange=${(e) => { dispatch(contentTargetId, "change-body", pastedRawValue(e)); triggerLinkPicker(e.target, e, true); }}
             onContextMenu=${(e) => {
               if (isReadOnlyContent) return;
               e.preventDefault();
@@ -1185,7 +1200,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                 }
                 handleKey(e, node.id, contentTargetId, dispatch, linkifySelectionFromClipboard);
               }}
-              onChange=${(e) => { setIsEditing(true); dispatch(contentTargetId, "change", tree.orgifyPaths(e.target.value)); triggerLinkPicker(e.target, e); }}
+              onChange=${(e) => { setIsEditing(true); dispatch(contentTargetId, "change", pastedRawValue(e)); triggerLinkPicker(e.target, e); }}
             />
           `}
         ${showOverlay && html`
@@ -5805,13 +5820,31 @@ function App() {
       ta.setSelectionRange(start + link.length, start + link.length);
     };
 
+    // Block-selecting across several headings selects the plain-text
+    // .node-title-preview divs (formatted-titles mode), but whichever node
+    // was last focused/edited keeps an invisible <textarea> focused offscreen
+    // for keystroke capture (see the titleFormatMode overlay above). Browsers
+    // give a focused editable field's own internal selection priority over
+    // the page selection on copy, so without this the clipboard silently
+    // gets just that one node's title instead of everything the user
+    // highlighted. Override with the real page selection whenever one exists.
+    const onCopy = (e) => {
+      const sel = window.getSelection();
+      const text = sel && !sel.isCollapsed ? sel.toString() : "";
+      if (!text || !e.clipboardData) return;
+      e.preventDefault();
+      e.clipboardData.setData("text/plain", text);
+    };
+
     document.addEventListener("dragover", onDragOver);
     document.addEventListener("drop", onDrop);
     document.addEventListener("paste", onPaste);
+    document.addEventListener("copy", onCopy);
     return () => {
       document.removeEventListener("dragover", onDragOver);
       document.removeEventListener("drop", onDrop);
       document.removeEventListener("paste", onPaste);
+      document.removeEventListener("copy", onCopy);
     };
   }, []);
 
