@@ -316,7 +316,7 @@ function useFixedMenuPosition(menuRef, x, y) {
 // being edited, so empty items don't clutter the outline. Mirrors the
 // title's formatted-preview/edit-textarea split, governed by the same
 // titleFormatMode toggle.
-function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onInsertFootnote, onInsertImage, onInsertTable, onClose }) {
+function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onInsertFootnote, onInsertImage, onInsertTable, onWrapAsCodeBlock, onClose }) {
   const menuRef = useRef(null);
   const hasSel = sel.start !== sel.end;
   const hasBody = !!sel.value;
@@ -365,6 +365,14 @@ function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onIn
   const doInsertFootnote = () => { onInsertFootnote(); onClose(); };
   const doInsertImage = () => { onInsertImage(); onClose(); };
   const doInsertTable = () => { onInsertTable(); onClose(); };
+  // Deliberately bypasses commit()/onCommit — that path always re-runs
+  // orgifyPaths on the result, which has no idea where #+begin_example
+  // boundaries are and would immediately re-corrupt the very bare paths
+  // this wrap is meant to protect (see onWrapAsCodeBlock below).
+  const doWrapAsCodeBlock = () => {
+    onWrapAsCodeBlock(sel.start, sel.end, sel.value);
+    onClose();
+  };
 
   const pos = useFixedMenuPosition(menuRef, x, y);
   const style = { position: "fixed", left: pos.left, top: pos.top, zIndex: 9999 };
@@ -383,6 +391,7 @@ function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onIn
       <button className="note-ctx-item" onClick=${doInsertFootnote}>Insert Footnote</button>
       <button className="note-ctx-item" onClick=${doInsertImage}>Insert Image</button>
       <button className="note-ctx-item" onClick=${doInsertTable}>Insert Table</button>
+      <button className="note-ctx-item" disabled=${!hasBody} onClick=${doWrapAsCodeBlock}>Wrap as Code Block</button>
     </div>
   `;
 }
@@ -804,6 +813,29 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
     setTableEdit({ tableIndex: newTableIndex, rows: blankRows, headerCount: 1 });
   };
 
+  // Wraps [start, end) of the note (or, if collapsed, the whole note) in
+  // #+begin_example — the right-click menu's Wrap as Code Block. Reads
+  // node.body directly rather than trusting the ctxMenu.sel.value snapshot
+  // from when the menu opened, same reason insertTableAtCursor above takes
+  // just a cursor position instead of a captured value. Deliberately does
+  // NOT go through onCommit/orgifyPaths (see doWrapAsCodeBlock in
+  // NoteContextMenu) — orgifyPaths has no idea where #+begin_example
+  // boundaries are and would immediately re-corrupt the very bare paths
+  // this wrap exists to protect from auto-linkification.
+  const wrapAsCodeBlockAtCursor = (start, end) => {
+    const body = node.body || "";
+    const collapsed = start === end;
+    const from = collapsed ? 0 : start;
+    const to = collapsed ? body.length : end;
+    const before = body.slice(0, from);
+    const inner = body.slice(from, to);
+    const after = body.slice(to);
+    const pre = before.length > 0 && !before.endsWith("\n") ? "\n" : "";
+    const post = after.length > 0 && !after.startsWith("\n") ? "\n" : "";
+    const block = "#+begin_example\n" + inner + "\n#+end_example";
+    dispatch(contentTargetId, "change-body", before + pre + block + post + after);
+  };
+
   useEffect(() => {
     adjustTextareaHeight(localRef.current);
   }, [node.body, isEditing]);
@@ -956,6 +988,7 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
         }));
       }}
       onInsertTable=${() => insertTableAtCursor(ctxMenu.sel.start)}
+      onWrapAsCodeBlock=${(start, end) => wrapAsCodeBlockAtCursor(start, end)}
       onClose=${() => setCtxMenu(null)} />`}
     ${imgPopup && (() => {
       const blocks = tree.parseImageBlocks(node.body);
@@ -8025,6 +8058,38 @@ function App() {
     requestAnimationFrame(() => { if (document.body.contains(el)) el.setSelectionRange(cursor, cursor); });
   }, [dispatch, showToast]);
 
+  // Command-palette form of the note right-click menu's "Wrap as Code
+  // Block" — wraps whichever NOTE field was last focused, at its current
+  // selection (or its whole text, with no selection), in #+begin_example so
+  // pasted shell/code text renders verbatim (see renderOrgBody) instead of
+  // having bare paths turned into clickable links or *,/,= markup
+  // reinterpreted as emphasis. Deliberately skips orgifyPaths on the result,
+  // unlike the sibling commands above — it has no idea where #+begin_example
+  // boundaries are, and would happily corrupt the very paths this is meant to
+  // protect. Title fields are single-line org headlines and can't hold a
+  // multi-line block, so this only ever acts on notes (field === "change-body").
+  const wrapAsCodeBlockAtFocus = useCallback(() => {
+    const isLive = document.activeElement?.tagName === "TEXTAREA";
+    const el = isLive ? document.activeElement : _lastOutlineTextarea;
+    if (!el || el.tagName !== "TEXTAREA") return;
+    const meta = isLive ? fieldMetaForTextarea(el) : _lastOutlineTextareaMeta;
+    if (!meta || meta.field !== "change-body") { showToast("Place the cursor in a note first"); return; }
+    const value = el.value;
+    const collapsed = el.selectionStart === el.selectionEnd;
+    const from = collapsed ? 0 : el.selectionStart;
+    const to = collapsed ? value.length : el.selectionEnd;
+    const before = value.slice(0, from);
+    const inner = value.slice(from, to);
+    const after = value.slice(to);
+    const pre = before.length > 0 && !before.endsWith("\n") ? "\n" : "";
+    const post = after.length > 0 && !after.startsWith("\n") ? "\n" : "";
+    const block = "#+begin_example\n" + inner + "\n#+end_example";
+    const newVal = before + pre + block + post + after;
+    const cursor = (before + pre + block).length;
+    dispatch(meta.nodeId, meta.field, newVal);
+    requestAnimationFrame(() => { if (document.body.contains(el)) el.setSelectionRange(cursor, cursor); });
+  }, [dispatch, showToast]);
+
   const onNodeHandleMouseDown = useCallback((nodeId, e) => {
     dragStateRef.current = { nodeId, startX: e.clientX, startY: e.clientY, pending: true };
   }, []);
@@ -8562,7 +8627,7 @@ function App() {
           copyAsFormatted, copyAsPlain,
           clearRecentFiles,
           setFindOpen, findInputRef,
-          cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus, convertNodeToNoteAtFocus, linkifySelectionFromClipboard,
+          cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus, convertNodeToNoteAtFocus, linkifySelectionFromClipboard, wrapAsCodeBlockAtFocus,
         })} onClose=${() => setShowHelp(false)} />`}
       ${showShortcutEditor && html`
         <${ShortcutEditor}
@@ -11460,7 +11525,7 @@ function buildCommands(ctx) {
     copyAsFormatted, copyAsPlain,
     clearRecentFiles,
     setFindOpen, findInputRef,
-    cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus, convertNodeToNoteAtFocus, linkifySelectionFromClipboard,
+    cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus, convertNodeToNoteAtFocus, linkifySelectionFromClipboard, wrapAsCodeBlockAtFocus,
   } = ctx;
 
   return [
@@ -11516,6 +11581,7 @@ function buildCommands(ctx) {
     { category: "Edit", label: "Convert Note To Node",    desc: "Turn the focused note into a new first-child node", keys: "", action: convertNoteToNodeAtFocus },
     { category: "Edit", label: "Convert Node To Note",    desc: "Fold the focused node into a note on the node immediately above it", keys: "", action: convertNodeToNoteAtFocus },
     { category: "Edit", label: "Link Selection From Clipboard", desc: "Wrap the selected text as a link to the URL currently on the clipboard", keys: displayCombo(getShortcutCombo("linkifySelection")), action: linkifySelectionFromClipboard },
+    { category: "Edit", label: "Wrap as Code Block",      desc: "Wrap the selected note text (or the whole note) in #+begin_example so it renders verbatim — no auto-links, no markup", keys: "", action: wrapAsCodeBlockAtFocus },
     { category: "Edit", label: "Hoist / Unhoist",         desc: isHoisted ? "Unhoist — show full tree" : "Hoist focused item", keys: displayCombo(getShortcutCombo("hoist")), action: toggleHoist },
     // Search
     { category: "Search", label: "Full-text Search…",    desc: "Search across all org files",    keys: displayCombo(getShortcutCombo("textSearch")),      action: () => setShowTextSearch(true) },
