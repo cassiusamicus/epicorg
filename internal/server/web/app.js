@@ -3340,6 +3340,18 @@ const TOOLBAR_ITEMS = [
 const TOOLBAR_DEFAULTS = { home: true, quickSwitcher: true, navArrows: true, foldLevels: true, moveGroup: true, undoRedo: true, viewTabs: true, modeToggle: true };
 const TOOLBAR_CONFIG_KEY = "epicorg.toolbarConfig";
 
+// Order the auto width-collapse (see the Header component) hides toolbar
+// groups in when there isn't room for all of them — first entry goes first.
+// Least-essential/most-replaceable first: the outline-only power tools have
+// keyboard shortcuts (Alt+1..4/9 for fold levels, Ctrl+Shift+H for hoist,
+// etc.) and are contextual to one view. Quick Switcher and Home are last —
+// they're the two one-click "get me somewhere" affordances, and Quick
+// Switcher in particular was added to this toolbar specifically because it
+// was easy to forget existed, so hiding it early would recreate that problem.
+const TOOLBAR_DROP_ORDER = [
+  "modeToggle", "foldLevels", "moveGroup", "undoRedo", "viewTabs", "navArrows", "quickSwitcher", "home",
+];
+
 // Module-level shortcut overrides — mutated directly so key handlers
 // (which are module-level functions) can always read the current bindings
 // without needing them threaded through props/context.
@@ -11249,46 +11261,58 @@ function OutlineActionsPanel({ onAction, focusedId, onClose }) {
 }
 
 function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, filterExpanded, setFilterExpanded, rawFindMatches, rawFindIdx, onRawFindNavigate, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat, globalFont, onSetGlobalFont, levelFonts, onSetLevelFont, globalColor, onSetGlobalColor, levelColors, onSetLevelColor, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, onOpenSearchPanel, searchPanelOpen, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer, onExportToOrg, onExportToHtml, onOpenSettings, onOpenQuickSwitcher }) {
-  // Whether the toolbar/search/etc. actually fit is measured, not
-  // guessed from viewport width — a long filename or a pile of tags
-  // eats into the same space a phone-width media query would assume is
-  // free. `probeRef` is a never-shown, never-constrained clone of the
-  // fully-expanded header; comparing its natural width against the real
-  // header's available width tells us whether to collapse, and a
-  // ResizeObserver re-checks both whenever either one's size changes
-  // (window resize, filename edited, tag added, etc.) — no fixed
-  // breakpoint anywhere.
-  const [collapsed, setCollapsed] = useState(false);
+  // Whether the toolbar/search/etc. actually fit is measured, not guessed
+  // from viewport width — a long filename or a pile of tags eats into the
+  // same space a phone-width media query would assume is free. Rather than
+  // an all-or-nothing collapse (which throws away the whole toolbar the
+  // moment ANY one thing doesn't fit, wasting a lot of usable space on a
+  // small-but-still-reasonable screen), this measures TOOLBAR_DROP_ORDER.length+1
+  // candidate configurations — "hide the first N lowest-priority groups,
+  // for N = 0, 1, 2, ..." — via invisible probe clones (`stageProbeRefs`),
+  // and picks the smallest N whose probe actually fits. If even hiding every
+  // group in TOOLBAR_DROP_ORDER still doesn't fit (a genuinely tiny/handheld
+  // width), `stage` goes one past the end and the toolbar+search area is
+  // dropped entirely, falling back to just a back-navigation arrow — the
+  // floor this was never meant to go below.
+  const [stage, setStage] = useState(0);
   const [openHamburgerSection, setOpenHamburgerSection] = useState(null);
   const headerRef = useRef(null);
-  const probeRef = useRef(null);
+  const stageProbeRefs = useRef([]);
   const headerRightRef = useRef(null);
 
   useLayoutEffect(() => {
     const header = headerRef.current;
-    const probe = probeRef.current;
-    if (!header || !probe || typeof ResizeObserver === "undefined") return;
+    if (!header || typeof ResizeObserver === "undefined") return;
+    const probes = stageProbeRefs.current;
     // header.clientWidth is inflated by 64px from the tinted-header bleed
-    // margins, so compare probe width against the parent's (true) content width.
-    // Small buffer pre-emptively collapses just before the toolbar would
-    // actually overflow, without giving up the extra ~1300px+ of screen
-    // width a 100px buffer used to sacrifice.
+    // margins, so compare probe width against the parent's (true) content
+    // width. This buffer is a pre-emptive safety margin, not a comfort
+    // margin: the bigger it is, the MORE eagerly a stage gets rejected in
+    // favor of hiding more. Kept small and positive only to absorb
+    // sub-pixel rounding jitter between a probe and the real header, not to
+    // react to a window merely being "kind of narrow".
     const check = () => {
       const parentW = header.parentElement.clientWidth;
-      setCollapsed(probe.scrollWidth + 24 > parentW);
+      let chosen = TOOLBAR_DROP_ORDER.length + 1; // fallback: hide toolbar+search entirely
+      for (let i = 0; i < probes.length; i++) {
+        const probe = probes[i];
+        if (probe && probe.scrollWidth + 4 <= parentW) { chosen = i; break; }
+      }
+      setStage(chosen);
     };
     check();
     const ro = new ResizeObserver(check);
     ro.observe(header);
-    ro.observe(probe);
+    probes.forEach((p) => p && ro.observe(p));
     // Also watch header-right: its button count changes when a file is opened,
     // altering available space without a probe width change.
     if (headerRightRef.current) ro.observe(headerRightRef.current);
     return () => ro.disconnect();
   }, []);
 
-  function renderInner(expanded) {
-    const showFull = expanded || !collapsed;
+  function renderInner(hiddenIds, isProbe) {
+    const hide = (id) => hiddenIds.has(id);
+    const showToolbarAndSearch = isProbe || stage <= TOOLBAR_DROP_ORDER.length;
     return html`
       ${currentFile && html`
         <div className="header-left-icons">
@@ -11305,30 +11329,30 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
           </button>
         `}
       </div>
-      ${currentFile && !showFull && html`
+      ${currentFile && !showToolbarAndSearch && html`
         <div className="header-collapsed-nav">
           ${canGoBack && html`
             <button className="view-tab" onClick=${onGoBack} title="Go back (Alt+←)"><${IconNavBack} /></button>
           `}
         </div>
       `}
-      ${currentFile && showFull && html`
+      ${currentFile && showToolbarAndSearch && html`
         <div className="toolbar-and-search">
         <div className="toolbar">
-          ${toolbarConfig.home && html`
+          ${toolbarConfig.home && !hide("home") && html`
             <div className="view-toggle">
               <button className=${"view-tab" + (homeFile && currentFile === homeFile ? " active" : "") + (!homeFile ? " toolbar-home-unset" : "")}
                       onClick=${() => homeFile ? onGoHome() : onOpenSettings?.("workspace")}
                       title=${homeFile ? "Go home: " + homeFile : "No home file set — click to configure"}><${IconHome} /></button>
             </div>
           `}
-          ${toolbarConfig.quickSwitcher && html`
+          ${toolbarConfig.quickSwitcher && !hide("quickSwitcher") && html`
             <div className="view-toggle">
               <button className="view-tab" onClick=${onOpenQuickSwitcher}
                       title="Quick switcher (Ctrl+K)"><${IconLightning} /></button>
             </div>
           `}
-          ${toolbarConfig.navArrows && html`
+          ${toolbarConfig.navArrows && !hide("navArrows") && html`
             <div className="view-toggle">
               <button className="view-tab" onClick=${onGoBack} disabled=${!canGoBack}
                       title="Go back (Alt+←)"><${IconNavBack} /></button>
@@ -11336,7 +11360,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
                       title="Go forward (Alt+→)"><${IconNavForward} /></button>
             </div>
           `}
-          ${view === "outline" && toolbarConfig.foldLevels && html`
+          ${view === "outline" && toolbarConfig.foldLevels && !hide("foldLevels") && html`
             <div className="view-toggle">
               ${FOLD_LEVELS.map((lvl) => html`
                 <button key=${lvl} className="view-tab"
@@ -11350,7 +11374,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
                       title=${textMode ? "Not available in reveal codes mode" : "Expand all levels (Alt+9)"}>∞</button>
             </div>
           `}
-          ${view === "outline" && toolbarConfig.moveGroup && html`
+          ${view === "outline" && toolbarConfig.moveGroup && !hide("moveGroup") && html`
             <div className="view-toggle">
               <button className="view-tab"
                       onClick=${onShowOutlineActions}
@@ -11369,7 +11393,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
               </button>
             </div>
           `}
-          ${toolbarConfig.undoRedo && html`
+          ${toolbarConfig.undoRedo && !hide("undoRedo") && html`
             <div className="view-toggle">
               <button className="view-tab" onClick=${onUndo} disabled=${!canUndo || textMode}
                       title=${textMode ? "Not available in text mode" : "Undo (Ctrl+Z)"}><${IconUndo} /></button>
@@ -11377,7 +11401,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
                       title=${textMode ? "Not available in text mode" : "Redo (Ctrl+Shift+Z)"}><${IconRedo} /></button>
             </div>
           `}
-          ${toolbarConfig.viewTabs && html`
+          ${toolbarConfig.viewTabs && !hide("viewTabs") && html`
             <div className="view-toggle">
               <button className=${"view-tab" + (view === "outline" ? " active" : "")}
                       onClick=${() => setView("outline")} title="Outline view"><${IconOutline} /></button>
@@ -11389,7 +11413,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
                       onClick=${() => setView("journal")} title="Daily journal"><${IconJournal} /></button>
             </div>
           `}
-          ${view === "outline" && toolbarConfig.modeToggle && html`
+          ${view === "outline" && toolbarConfig.modeToggle && !hide("modeToggle") && html`
             <div className="view-toggle">
               <button className=${"view-tab" + (titleFormatMode || textMode ? " active" : "")}
                       onClick=${onCycleViewMode}
@@ -11414,11 +11438,11 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
         <div className=${"search-box" + ((filterExpanded || searchQuery) ? " search-box-expanded" : "") + (textMode ? " search-box-textmode" : "")}>
           ${(filterExpanded || searchQuery) ? html`
             <input
-              ref=${expanded ? null : searchInputRef}
+              ref=${isProbe ? null : searchInputRef}
               type="text"
               className="search-input"
               placeholder=${textMode ? "Find in text…" : "Filter… (Ctrl+K)"}
-              autoFocus=${!expanded}
+              autoFocus=${!isProbe}
               value=${searchQuery || ""}
               onChange=${(e) => setSearchQuery(e.target.value)}
               onBlur=${() => { if (!searchQuery) setFilterExpanded(false); }}
@@ -11489,14 +11513,22 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
   }
 
   const headerBg = resolveTopBarColor(topBarColor);
+  const realHiddenIds = new Set(TOOLBAR_DROP_ORDER.slice(0, Math.min(stage, TOOLBAR_DROP_ORDER.length)));
   return html`
     <header ref=${headerRef}
             className=${topBarColor ? "header-tinted" : ""}
             style=${headerBg ? { background: headerBg } : {}}>
-      ${renderInner(false)}
+      ${renderInner(realHiddenIds, false)}
     </header>
-    <div className="header-probe" ref=${probeRef} aria-hidden="true">
-      ${renderInner(true)}
+    ${TOOLBAR_DROP_ORDER.map((_, i) => html`
+      <div className="header-probe" key=${i}
+           ref=${(el) => { stageProbeRefs.current[i] = el; }} aria-hidden="true">
+        ${renderInner(new Set(TOOLBAR_DROP_ORDER.slice(0, i)), true)}
+      </div>
+    `)}
+    <div className="header-probe" key="full-drop"
+         ref=${(el) => { stageProbeRefs.current[TOOLBAR_DROP_ORDER.length] = el; }} aria-hidden="true">
+      ${renderInner(new Set(TOOLBAR_DROP_ORDER), true)}
     </div>
   `;
 }
