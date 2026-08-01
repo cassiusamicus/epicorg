@@ -4007,15 +4007,24 @@ function SidebarBookmarkRow({ entry, onNavigate, onDelete, onDragStart, onDragOv
   `;
 }
 
-function SidebarFileRow({ name, active, isFavorite, onSelect, onToggleFavorite, onRenameStart }) {
+function SidebarFileRow({ name, active, isFavorite, onSelect, onToggleFavorite, onRenameStart, onDeleteStart }) {
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
   const inputRef = useRef(null);
+  const menuRef = useRef(null);
   const isExternal = name.startsWith("/");
   const displayName = isExternal ? pathBasename(name) : name;
 
-  const startRename = (e) => {
-    e.stopPropagation();
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [menuOpen]);
+
+  const startRename = () => {
+    setMenuOpen(false);
     setRenameValue(name);
     setRenaming(true);
     requestAnimationFrame(() => { inputRef.current?.focus(); inputRef.current?.select(); });
@@ -4044,7 +4053,19 @@ function SidebarFileRow({ name, active, isFavorite, onSelect, onToggleFavorite, 
             <span className="sidebar-item-icon"><${IconDoc}/></span>
             <span className="sidebar-item-name">${displayName}</span>
           </span>
-          ${!isExternal && html`<button className="sidebar-file-rename" onClick=${startRename} title="Rename file">✎</button>`}
+          ${!isExternal && html`
+            <div className="sidebar-file-menu-wrap" ref=${menuRef}>
+              <button className="sidebar-file-rename" onClick=${(e) => { e.stopPropagation(); setMenuOpen((o) => !o); }}
+                      title="Rename or delete file">⋯</button>
+              ${menuOpen && html`
+                <div className="sidebar-file-menu">
+                  <button className="sidebar-file-menu-item" onClick=${(e) => { e.stopPropagation(); startRename(); }}>Rename</button>
+                  <button className="sidebar-file-menu-item sidebar-file-menu-item-danger"
+                          onClick=${(e) => { e.stopPropagation(); setMenuOpen(false); onDeleteStart?.(name); }}>Delete</button>
+                </div>
+              `}
+            </div>
+          `}
           <button className=${"sidebar-star" + (isFavorite ? " sidebar-star-active" : "")}
                   onClick=${(e) => { e.stopPropagation(); onToggleFavorite(name); }}
                   title=${isFavorite ? "Remove from favorites" : "Add to favorites"}>
@@ -4055,7 +4076,7 @@ function SidebarFileRow({ name, active, isFavorite, onSelect, onToggleFavorite, 
   `;
 }
 
-function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavorite, bookmarks, onNavigateToBookmark, onDeleteBookmark, onReorderBookmarks, bookmarkPanelVisible, onToggleBookmarkPanel, textMode, onToggleSidebar, onOpenTodayJournal, onOpenJournalList, onRenameFile, onClearRecentFiles, onOpenQuickSwitcher, onOpenTextSearch, onOpenWorkspace, savedSearches, onRunSavedSearch, onDeleteSavedSearch, navPanelVisible, onToggleNavPanel }) {
+function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavorite, bookmarks, onNavigateToBookmark, onDeleteBookmark, onReorderBookmarks, bookmarkPanelVisible, onToggleBookmarkPanel, textMode, onToggleSidebar, onOpenTodayJournal, onOpenJournalList, onRenameFile, onDeleteFile, onClearRecentFiles, onOpenQuickSwitcher, onOpenTextSearch, onOpenWorkspace, savedSearches, onRunSavedSearch, onDeleteSavedSearch, navPanelVisible, onToggleNavPanel }) {
   const dragIndexRef = useRef(null);
   const [renameConfirm, setRenameConfirm] = useState(null); // { oldName, newName }
   const [renameBusy, setRenameBusy] = useState(false);
@@ -4165,7 +4186,7 @@ function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavori
           : favorites.map((name) => html`
               <${SidebarFileRow} key=${"fav-" + name} name=${name} active=${name === currentFile}
                 isFavorite=${true} onSelect=${onSelect} onToggleFavorite=${onToggleFavorite}
-                onRenameStart=${handleRenameStart} />
+                onRenameStart=${handleRenameStart} onDeleteStart=${onDeleteFile} />
             `)}
       </div>
       <div className="sidebar-section">
@@ -4181,7 +4202,7 @@ function Sidebar({ favorites, recentFiles, currentFile, onSelect, onToggleFavori
           : recentFiles.map((name) => html`
               <${SidebarFileRow} key=${"recent-" + name} name=${name} active=${name === currentFile}
                 isFavorite=${favorites.includes(name)} onSelect=${onSelect} onToggleFavorite=${onToggleFavorite}
-                onRenameStart=${handleRenameStart} />
+                onRenameStart=${handleRenameStart} onDeleteStart=${onDeleteFile} />
             `)}
       </div>
       ${renameResult && html`
@@ -6759,7 +6780,11 @@ function App() {
   }, []);
 
   const changeHomeDir = useCallback(async (dir) => {
-    await api.post("/api/homedir", { dir });
+    try {
+      await api.post("/api/homedir", { dir });
+    } catch {
+      throw new Error("Couldn't use \"" + dir + "\" — make sure it's a real, readable folder.");
+    }
     setHomeDir(dir);
     setShowFolderPicker(false);
     setTagSearch(null);
@@ -6799,7 +6824,11 @@ function App() {
   }, []);
 
   const changeJournalDir = useCallback(async (dir) => {
-    await api.post("/api/journaldir", { dir });
+    try {
+      await api.post("/api/journaldir", { dir });
+    } catch {
+      throw new Error("Couldn't use \"" + dir + "\" — make sure it's a real, readable folder.");
+    }
     setJournalDir(dir);
     setShowJournalFolderPicker(false);
   }, []);
@@ -7069,6 +7098,154 @@ function App() {
     };
     reader.readAsText(file);
   }, [setNodes, setPreamble, markDirty]);
+
+  // Import Markdown as a brand-new file, rather than overwriting whatever's
+  // currently open. Two-step: browse/type a source .md path (FileSystemPicker,
+  // triggered by showImportFilePicker), then confirm a destination filename
+  // (ImportMarkdownSaveDialog, driven by pendingMdImport) — nothing is
+  // written to disk until both steps are done. Both /api/browse and
+  // /api/raw resolve absolute paths anywhere on disk, not just inside the
+  // workspace, so the source file doesn't need to already be in it.
+  const [showImportFilePicker, setShowImportFilePicker] = useState(false);
+  const [pendingMdImport, setPendingMdImport] = useState(null); // { suggestedName, nodes, preamble }
+
+  const importSingleFileFromPath = useCallback(async (path) => {
+    let data;
+    try {
+      data = await api.get("/api/raw?file=" + encodeURIComponent(path));
+    } catch {
+      throw new Error("Couldn't read \"" + path + "\" — make sure it's a file, not a folder.");
+    }
+    let result;
+    try {
+      result = parseMdToNodes(data.content);
+    } catch (e) {
+      // Belt and suspenders: parseMdToNodes shouldn't throw on any real
+      // file, but if it somehow does, this must still surface as a visible
+      // error in the (still-open) picker rather than as an unhandled
+      // rejection that leaves the picker sitting there looking like
+      // nothing happened.
+      throw new Error("Couldn't convert \"" + path + "\": " + (e?.message || "unknown error"));
+    }
+    const base = path.split("/").pop().replace(/\.md$/i, "");
+    setShowImportFilePicker(false);
+    setPendingMdImport({ suggestedName: base + ".org", nodes: result.nodes, preamble: result.preamble });
+  }, []);
+
+  const confirmImportMarkdownAsNewFile = useCallback(async (filename) => {
+    if (!pendingMdImport) return;
+    try {
+      await api.post("/api/files", { filename });
+    } catch {
+      showToast("Couldn't create \"" + filename + "\" — it may already exist");
+      return;
+    }
+    const data = await api.get("/api/files").catch(() => null);
+    if (data) setFiles(data.files || []);
+    await loadFile(filename);
+    setNodes(pendingMdImport.nodes);
+    if (pendingMdImport.preamble) setPreamble(pendingMdImport.preamble);
+    markDirty();
+    setPendingMdImport(null);
+    setShowSettings(false);
+    showToast("Imported as " + filename);
+  }, [pendingMdImport, loadFile, markDirty, showToast]);
+
+  // Import Folder: a source folder of .md files, converted and written into
+  // a destination folder *inside the current workspace* (so they show up in
+  // the file list) — a three-step flow: pick source, pick destination, then
+  // run. The destination is validated against homeDir rather than fenced
+  // off in the picker UI itself, so FileSystemPicker stays a generic,
+  // unrestricted browser and a bad destination just re-opens the same step
+  // with an explanation instead of silently doing something unexpected.
+  const [showImportFolderSourcePicker, setShowImportFolderSourcePicker] = useState(false);
+  const [importFolderSourcePath, setImportFolderSourcePath] = useState(null);
+  const [showImportFolderDestPicker, setShowImportFolderDestPicker] = useState(false);
+
+  const chooseImportFolderSource = useCallback(async (path) => {
+    let listing;
+    try {
+      listing = await api.get("/api/browse?path=" + encodeURIComponent(path) + "&ext=.md");
+    } catch {
+      throw new Error("Couldn't read \"" + path + "\" — make sure it's a folder.");
+    }
+    if ((listing.files || []).length === 0) {
+      throw new Error("No .md files found directly inside that folder.");
+    }
+    setShowImportFolderSourcePicker(false);
+    setImportFolderSourcePath(listing.path);
+    setShowImportFolderDestPicker(true);
+  }, []);
+
+  const runFolderImport = useCallback(async (sourcePath, destPath) => {
+    let listing;
+    try {
+      listing = await api.get("/api/browse?path=" + encodeURIComponent(sourcePath) + "&ext=.md");
+    } catch {
+      showToast("Couldn't read \"" + sourcePath + "\"");
+      return;
+    }
+    const mdFiles = listing.files || [];
+    if (mdFiles.length === 0) {
+      showToast("No .md files found in that folder");
+      return;
+    }
+    const root = (homeDir || "").replace(/\/+$/, "");
+    const dest = destPath.replace(/\/+$/, "");
+    const relDir = (!root || dest === root) ? "" : dest.slice(root.length).replace(/^\//, "");
+    const existingNames = new Set((files || []).map((f) => f.name));
+    let imported = 0, skipped = 0;
+    for (const mdName of mdFiles) {
+      const base = mdName.replace(/\.md$/i, "");
+      const targetName = (relDir ? relDir + "/" : "") + base + ".org";
+      if (existingNames.has(targetName)) { skipped++; continue; }
+      try {
+        const raw = await api.get("/api/raw?file=" + encodeURIComponent(listing.path + "/" + mdName));
+        const { nodes, preamble } = parseMdToNodes(raw.content);
+        await api.post("/api/files", { filename: targetName });
+        await api.put(docUrl(targetName), { preamble, nodes });
+        existingNames.add(targetName);
+        imported++;
+      } catch {
+        skipped++;
+      }
+    }
+    const data = await api.get("/api/files").catch(() => null);
+    if (data) setFiles(data.files || []);
+    showToast(`Imported ${imported} file${imported === 1 ? "" : "s"}` + (skipped ? `, skipped ${skipped} (name conflict or read error)` : ""));
+  }, [homeDir, files, showToast]);
+
+  const chooseImportFolderDestination = useCallback(async (destPath) => {
+    const root = (homeDir || "").replace(/\/+$/, "");
+    const dest = destPath.replace(/\/+$/, "");
+    if (root && dest !== root && !dest.startsWith(root + "/")) {
+      throw new Error("Destination must be inside your current workspace folder (" + homeDir + ")");
+    }
+    setShowImportFolderDestPicker(false);
+    setShowSettings(false);
+    await runFolderImport(importFolderSourcePath, destPath);
+    setImportFolderSourcePath(null);
+  }, [homeDir, importFolderSourcePath, runFolderImport]);
+
+  // Closes Settings before opening the picker — same reason
+  // onChangeHomeDir does (see the App-level wiring passed as
+  // onChangeHomeDir=${...}): .folder-picker-overlay's z-index sits below
+  // .stg-overlay's, so a picker opened while Settings is still up would
+  // render behind it. Only one modal open at a time sidesteps that
+  // entirely rather than juggling z-index ordering between them.
+  const triggerImportFile = useCallback(() => { setShowSettings(false); setShowImportFilePicker(true); }, []);
+  const triggerImportFolder = useCallback(() => { setShowSettings(false); setShowImportFolderSourcePicker(true); }, []);
+
+  // Command-palette form of the "Import from Markdown (Replace Current
+  // File)" menu row, which normally fires off a native <input type=file>
+  // click via a <label> — the palette has no file-input element of its own
+  // to click, so this triggers a dedicated hidden one instead. (This one
+  // action is left on the native OS file dialog rather than
+  // FileSystemPicker: it's an immediate, no-second-step replace, so the
+  // extra "type a path" affordance the browse picker exists for doesn't
+  // add much here.)
+  const importMdReplaceFileInputRef = useRef(null);
+  const triggerImportMarkdownReplaceCurrent = useCallback(() => { importMdReplaceFileInputRef.current?.click(); }, []);
 
   const exportToOrg = useCallback(async () => {
     if (!currentFile || !nodesRef.current) return;
@@ -7358,6 +7535,25 @@ function App() {
       } catch {}
     }
   }, []);
+
+  // Deleting a file was previously only reachable from the "Choose a file"
+  // screen's per-row menu (FilePicker) — there was no way to delete
+  // whichever file you actually have open right now without first
+  // navigating away from it. confirmDeleteFile holds the filename pending
+  // confirmation (used by both the command palette's "Delete Current File"
+  // and the sidebar's per-row Rename/Delete menu), reusing handleDeleteFile
+  // above either way.
+  const [confirmDeleteFile, setConfirmDeleteFile] = useState(null);
+  const triggerDeleteCurrentFile = useCallback(() => {
+    if (currentFileRef.current) setConfirmDeleteFile(currentFileRef.current);
+  }, []);
+  const confirmDeleteFileNow = useCallback(async () => {
+    if (!confirmDeleteFile) return;
+    const name = confirmDeleteFile;
+    setConfirmDeleteFile(null);
+    await handleDeleteFile(name);
+    showToast("Deleted \"" + name + "\"");
+  }, [confirmDeleteFile, handleDeleteFile, showToast]);
 
   const handleRenameFile = useCallback(async (oldName, newName) => {
     const result = await api.put("/api/files/" + encodeURIComponent(oldName), { newName });
@@ -8637,6 +8833,8 @@ function App() {
           joinFocusedWithNext,
                 exportToHtml, exportToPdf, exportToOrg, exportToMarkdown, currentFile,
           copyAsFormatted, copyAsPlain,
+          triggerImportFile, triggerImportFolder, triggerImportMarkdownReplaceCurrent,
+          triggerDeleteCurrentFile,
           clearRecentFiles,
           setFindOpen, findInputRef,
           cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus, convertNodeToNoteAtFocus, linkifySelectionFromClipboard, wrapAsCodeBlockAtFocus,
@@ -8669,15 +8867,21 @@ function App() {
           onDismiss=${(it) => dismissReminder(it._key)} />
       `}
       ${showFolderPicker && html`
-        <${FolderPicker}
+        <${FileSystemPicker}
+          mode="folder"
+          title="Select Home Folder"
+          actionLabel="Select This Folder"
           initialPath=${homeDir || "/"}
-          onSelect=${changeHomeDir}
+          onConfirm=${changeHomeDir}
           onCancel=${() => setShowFolderPicker(false)} />
       `}
       ${showJournalFolderPicker && html`
-        <${FolderPicker}
+        <${FileSystemPicker}
+          mode="folder"
+          title="Select Journal Folder"
+          actionLabel="Select This Folder"
           initialPath=${journalDir || homeDir || "/"}
-          onSelect=${changeJournalDir}
+          onConfirm=${changeJournalDir}
           onCancel=${() => setShowJournalFolderPicker(false)} />
       `}
       ${showTagListFilePicker && html`
@@ -8703,6 +8907,50 @@ function App() {
           homeDir=${homeDir}
           onSave=${saveWorkspace}
           onCancel=${() => setShowWorkspaceModal(false)} />
+      `}
+      <input ref=${importMdReplaceFileInputRef} type="file" accept=".md,text/markdown" style=${{ display: "none" }}
+             onChange=${(e) => { const f = e.target.files?.[0]; if (f) importFromMarkdown(f); e.target.value = ""; }} />
+      ${showImportFilePicker && html`
+        <${FileSystemPicker}
+          mode="file" ext=".md"
+          title="Choose a Markdown File to Import"
+          actionLabel="Import This File"
+          initialPath=${homeDir || "/"}
+          onConfirm=${importSingleFileFromPath}
+          onCancel=${() => setShowImportFilePicker(false)} />
+      `}
+      ${pendingMdImport && html`
+        <${ImportMarkdownSaveDialog}
+          suggestedName=${pendingMdImport.suggestedName}
+          existingNames=${(files || []).map((f) => f.name)}
+          onConfirm=${confirmImportMarkdownAsNewFile}
+          onCancel=${() => setPendingMdImport(null)} />
+      `}
+      ${confirmDeleteFile && html`
+        <${ConfirmDialog}
+          title="Delete File"
+          message=${html`Delete <strong>${confirmDeleteFile}</strong>? It's removed from disk immediately — not recoverable from within epicorg. If it's been opened before, look for numbered backups next to it (${confirmDeleteFile}.~1~, .~2~, …); git history may have a copy too, if a commit identity is configured.`}
+          confirmLabel="Delete"
+          onConfirm=${confirmDeleteFileNow}
+          onCancel=${() => setConfirmDeleteFile(null)} />
+      `}
+      ${showImportFolderSourcePicker && html`
+        <${FileSystemPicker}
+          mode="folder"
+          title="Choose a Folder of Markdown Files to Import"
+          actionLabel="Choose This Folder"
+          initialPath=${homeDir || "/"}
+          onConfirm=${chooseImportFolderSource}
+          onCancel=${() => setShowImportFolderSourcePicker(false)} />
+      `}
+      ${showImportFolderDestPicker && html`
+        <${FileSystemPicker}
+          mode="folder"
+          title="Choose a Destination Folder in Your Workspace"
+          actionLabel="Import Here"
+          initialPath=${homeDir || "/"}
+          onConfirm=${chooseImportFolderDestination}
+          onCancel=${() => { setShowImportFolderDestPicker(false); setImportFolderSourcePath(null); }} />
       `}
       ${showLinkPicker && html`
         <${FileLinkPicker}
@@ -8747,6 +8995,7 @@ function App() {
             }}
             onOpenJournalList=${() => setView("journal")}
             onRenameFile=${handleRenameFile}
+            onDeleteFile=${setConfirmDeleteFile}
             onClearRecentFiles=${clearRecentFiles}
             onOpenQuickSwitcher=${() => setShowQuickSwitcher(true)}
             onOpenTextSearch=${() => setShowTextSearch(true)}
@@ -9015,6 +9264,8 @@ function App() {
           filterShowFullSubtree=${filterShowFullSubtree} onToggleFilterShowFullSubtree=${toggleFilterShowFullSubtree}
           onFoldToLevel=${foldToLevel}
           onExportToOrg=${exportToOrg} onExportToHtml=${exportToHtml} onExportToPdf=${exportToPdf} onExportToMarkdown=${exportToMarkdown} onImportFromMarkdown=${importFromMarkdown}
+          onTriggerImportFile=${triggerImportFile} onTriggerImportFolder=${triggerImportFolder}
+          onCopyFormatted=${copyAsFormatted} onCopyPlain=${copyAsPlain}
           tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${toggleTagPanel}
           bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${toggleBookmarkPanel}
           workspaceConfig=${workspaceConfig}
@@ -9839,6 +10090,81 @@ function FileLinkPicker({ files, onSelect, onCreate, onCancel }) {
   `;
 }
 
+// Generic destructive-action confirmation — currently just file deletion,
+// but written to take arbitrary title/message/confirmLabel so it isn't
+// re-invented for the next one.
+function ConfirmDialog({ title, message, confirmLabel, onConfirm, onCancel }) {
+  useEffect(() => {
+    const h = (e) => { if (e.key === "Escape") onCancel(); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [onCancel]);
+
+  return html`
+    <div className="confirm-overlay" onMouseDown=${(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="confirm-dialog">
+        <div className="confirm-title">${title}</div>
+        <div className="confirm-msg">${message}</div>
+        <div className="confirm-actions">
+          <button className="confirm-btn-cancel" onClick=${onCancel}>Cancel</button>
+          <button className="confirm-btn-danger" onClick=${onConfirm}>${confirmLabel || "Delete"}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Filename prompt shown after a Markdown file is picked for "Import as New
+// File" — asks where to save the converted result rather than silently
+// creating it or (worse) overwriting whatever's currently open.
+function ImportMarkdownSaveDialog({ suggestedName, existingNames, onConfirm, onCancel }) {
+  const [name, setName] = useState(suggestedName);
+  const [error, setError] = useState("");
+  const inputRef = useRef(null);
+
+  useEffect(() => { inputRef.current?.focus(); inputRef.current?.select(); }, []);
+
+  const trimmed = name.trim();
+  const normalized = trimmed ? (trimmed.toLowerCase().endsWith(".org") ? trimmed : trimmed + ".org") : "";
+  const conflict = normalized && (existingNames || []).includes(normalized);
+
+  const confirm = () => {
+    if (!normalized) return;
+    if (conflict) { setError(`"${normalized}" already exists — choose a different name.`); return; }
+    onConfirm(normalized);
+  };
+
+  return html`
+    <div className="folder-picker-overlay"
+         onMouseDown=${(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="file-link-picker" style=${{ width: "420px" }}>
+        <div className="text-search-header">
+          <span className="text-search-title">Save Imported Markdown As</span>
+          <button className="folder-picker-close" onClick=${onCancel}>×</button>
+        </div>
+        <div className="file-link-picker-body">
+          <input
+            ref=${inputRef}
+            className="text-search-input"
+            type="text"
+            value=${name}
+            onInput=${(e) => { setName(e.target.value); setError(""); }}
+            onKeyDown=${(e) => {
+              if (e.key === "Escape") { e.preventDefault(); onCancel(); }
+              if (e.key === "Enter") { e.preventDefault(); confirm(); }
+            }} />
+          ${error && html`<div className="file-link-empty" style=${{ color: "#d33" }}>${error}</div>`}
+          <div className="file-link-hint">Enter to create · Esc to cancel</div>
+        </div>
+        <div className="te-footer">
+          <button className="te-footer-btn" onClick=${onCancel}>Cancel</button>
+          <button className="te-footer-btn te-save-btn" disabled=${!normalized} onClick=${confirm}>Create</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 // Full-text search modal — input + syntax hint; submitting kicks off the
 // search and shows results in the main panel.
 function TextSearchDialog({ onSearch, onCancel }) {
@@ -10160,60 +10486,187 @@ function OrgFilePicker({ initialPath, onSelect, onCancel }) {
   `;
 }
 
-function FolderPicker({ initialPath, onSelect, onCancel }) {
+// Replaced by FileSystemPicker (mode="folder") below — same overlay/dialog
+// classes, plus typing a path directly, sorting, and recently-visited
+// folders, which this didn't have. Kept as one component rather than two
+// near-duplicates; Home Folder and Journal Folder now use it too.
+const FS_RECENT_FOLDERS_KEY = "epicorg.fsPickerRecentFolders";
+const FS_RECENT_FOLDERS_LIMIT = 8;
+
+function rememberRecentFolder(path) {
+  try {
+    const prev = JSON.parse(localStorage.getItem(FS_RECENT_FOLDERS_KEY) || "[]");
+    const next = [path, ...prev.filter((p) => p !== path)].slice(0, FS_RECENT_FOLDERS_LIMIT);
+    localStorage.setItem(FS_RECENT_FOLDERS_KEY, JSON.stringify(next));
+  } catch {}
+}
+
+// General-purpose filesystem browser modal, used for both "Import
+// File"/"Import Folder" and (mode="folder") Home Folder/Journal Folder
+// selection — one picker rather than several near-duplicates. The path
+// field is editable directly (type a full path and hit Enter/click the
+// action button — no need to click through the tree), it lists
+// recently-visited folders for quick navigation, supports sorting by name
+// or date, and in file mode also lists files matching `ext` as selectable
+// entries alongside subfolders. Both /api/browse and /api/raw already
+// resolve absolute paths anywhere on disk (not just inside the workspace —
+// see resolveFilePath in orgfile.go), so no backend changes were needed for
+// browsing/reading outside the current workspace folder.
+//
+// Clicking a row only highlights/selects it (single source of truth: the
+// row's full path, held in `selected`, which drives both the highlight and
+// pathInput) — it does NOT close the picker. Only double-clicking a file,
+// double-clicking into a folder, or clicking the action button does
+// anything irreversible. onConfirm is awaited and expected to throw/reject
+// on failure (with a human-readable message); the picker only calls
+// onCancel-equivalent cleanup itself once onConfirm actually resolves, so a
+// bad selection (e.g. confirming a folder in file mode) shows an inline
+// error and leaves the picker open to try again, rather than vanishing
+// silently.
+function FileSystemPicker({ mode, ext, title, actionLabel, initialPath, onConfirm, onCancel }) {
   const [browsePath, setBrowsePath] = useState(initialPath || "/");
-  const [dirs, setDirs] = useState([]);
+  const [pathInput, setPathInput] = useState(initialPath || "/");
+  const [selected, setSelected] = useState(null); // full path of the highlighted row, or null
+  const [dirs, setDirs] = useState([]); // [{name, mtime}]
+  const [entryFiles, setEntryFiles] = useState([]); // [{name, mtime}]
   const [parent, setParent] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [confirming, setConfirming] = useState(false);
+  const [confirmError, setConfirmError] = useState(null);
+  const [sortKey, setSortKey] = useState("name"); // "name" | "date"
+  const [recentFolders, setRecentFolders] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(FS_RECENT_FOLDERS_KEY) || "[]"); } catch { return []; }
+  });
+  const listRef = useRef(null);
 
-  const fetchDirs = useCallback(async (path) => {
+  const forgetRecentFolder = (path) => {
+    setRecentFolders((prev) => {
+      const next = prev.filter((p) => p !== path);
+      try { localStorage.setItem(FS_RECENT_FOLDERS_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const zipEntries = (names, times) => (names || []).map((name, i) => ({ name, mtime: (times || [])[i] || 0 }));
+
+  const fetchDir = useCallback(async (path) => {
     setLoading(true);
     setError(null);
+    setSelected(null);
     try {
-      const data = await api.get("/api/browse?path=" + encodeURIComponent(path));
+      const url = "/api/browse?path=" + encodeURIComponent(path) + (mode === "file" && ext ? "&ext=" + encodeURIComponent(ext) : "");
+      const data = await api.get(url);
       setBrowsePath(data.path);
-      setDirs(data.dirs || []);
+      setPathInput(data.path);
+      setDirs(zipEntries(data.dirs, data.dirTimes));
+      setEntryFiles(mode === "file" ? zipEntries(data.files, data.fileTimes) : []);
       setParent(data.parent || null);
-    } catch (e) {
-      setError("Cannot read directory.");
+      rememberRecentFolder(data.path);
+      setRecentFolders((prev) => {
+        const next = [data.path, ...prev.filter((p) => p !== data.path)].slice(0, FS_RECENT_FOLDERS_LIMIT);
+        return next;
+      });
+    } catch {
+      setError("Cannot read that path.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [mode, ext]);
 
-  useEffect(() => { fetchDirs(initialPath || "/"); }, []);
+  useEffect(() => { fetchDir(initialPath || "/"); }, []);
+
+  const sortedDirs = [...dirs].sort((a, b) => sortKey === "date" ? b.mtime - a.mtime : a.name.localeCompare(b.name));
+  const sortedFiles = [...entryFiles].sort((a, b) => sortKey === "date" ? b.mtime - a.mtime : a.name.localeCompare(b.name));
+
+  const navigateToTyped = () => { if (pathInput.trim()) fetchDir(pathInput.trim()); };
+
+  const select = (path) => { setSelected(path); setPathInput(path); setConfirmError(null); };
+
+  const doConfirm = async (pathOverride) => {
+    const p = (pathOverride ?? pathInput).trim();
+    if (!p || confirming) return;
+    setConfirmError(null);
+    setConfirming(true);
+    try {
+      await onConfirm(p);
+      // Success — the parent is responsible for unmounting this picker
+      // (it flips whatever state controls its visibility); nothing left to
+      // do here except stop showing a spinner in the unlikely case it's
+      // still mounted next render.
+      setConfirming(false);
+    } catch (e) {
+      setConfirmError((e && e.message) || "Couldn't import that — check the path and try again.");
+      setConfirming(false);
+    }
+  };
 
   return html`
     <div className="folder-picker-overlay" onMouseDown=${(e) => { if (e.target === e.currentTarget) onCancel(); }}>
       <div className="folder-picker-dialog">
         <div className="folder-picker-header">
-          <span className="folder-picker-title">Select Home Folder</span>
+          <span className="folder-picker-title">${title}</span>
           <button className="folder-picker-close" onClick=${onCancel}>×</button>
         </div>
         <div className="folder-picker-path">
           ${parent !== null && html`
-            <button className="folder-picker-up" onClick=${() => fetchDirs(parent)}>↑ Up</button>
+            <button className="folder-picker-up" onClick=${() => fetchDir(parent)}>↑ Up</button>
           `}
-          <span className="folder-picker-path-text" title=${browsePath}>${browsePath}</span>
+          <input className="text-search-input" style=${{ flex: 1 }}
+                 value=${pathInput}
+                 placeholder="Type a full path, or browse below"
+                 onInput=${(e) => { setPathInput(e.target.value); setSelected(null); }}
+                 onKeyDown=${(e) => { if (e.key === "Enter") { e.preventDefault(); navigateToTyped(); } }} />
         </div>
-        <div className="folder-picker-list">
+        ${recentFolders.length > 0 && html`
+          <div className="import-picker-recents">
+            ${recentFolders.map((p) => html`
+              <span key=${p} className="import-picker-recent-chip">
+                <button className="import-picker-recent-btn" onClick=${() => fetchDir(p)}>${p}</button>
+                <button className="import-picker-recent-remove" title="Forget this folder" onClick=${() => forgetRecentFolder(p)}>×</button>
+              </span>
+            `)}
+          </div>
+        `}
+        <div className="import-picker-sort">
+          <span style=${{ fontSize: "11px", color: "var(--text-dim)", alignSelf: "center", marginRight: "2px" }}>Sort:</span>
+          <button className=${"import-picker-sort-btn" + (sortKey === "name" ? " active" : "")} onClick=${() => setSortKey("name")}>Name</button>
+          <button className=${"import-picker-sort-btn" + (sortKey === "date" ? " active" : "")} onClick=${() => setSortKey("date")}>Date</button>
+        </div>
+        <div className="folder-picker-list" ref=${listRef}>
           ${loading && html`<div className="folder-picker-loading">Loading…</div>`}
           ${error && html`<div className="folder-picker-error">${error}</div>`}
-          ${!loading && !error && dirs.length === 0 && html`
-            <div className="folder-picker-empty">No subdirectories</div>
+          ${!loading && !error && sortedDirs.length === 0 && sortedFiles.length === 0 && html`
+            <div className="folder-picker-empty">${mode === "file" ? "No subfolders or matching files" : "No subdirectories"}</div>
           `}
-          ${!loading && dirs.map((d) => html`
-            <div key=${d} className="folder-picker-dir" onDoubleClick=${() => fetchDirs(browsePath + "/" + d)}>
+          ${!loading && sortedDirs.map((d) => {
+            const full = browsePath + "/" + d.name;
+            return html`
+            <div key=${"d-" + d.name}
+                 className=${"folder-picker-dir" + (selected === full ? " highlighted" : "")}
+                 onClick=${() => select(full)}
+                 onDoubleClick=${() => fetchDir(full)}>
               <span className="folder-picker-dir-icon">📁</span>
-              <span className="folder-picker-dir-name" onClick=${() => fetchDirs(browsePath + "/" + d)}>${d}</span>
+              <span className="folder-picker-dir-name">${d.name}</span>
             </div>
-          `)}
+          `; })}
+          ${!loading && mode === "file" && sortedFiles.map((f) => {
+            const full = browsePath + "/" + f.name;
+            return html`
+            <div key=${"f-" + f.name}
+                 className=${"folder-picker-dir file-picker-file" + (selected === full ? " highlighted" : "")}
+                 onClick=${() => select(full)}
+                 onDoubleClick=${() => doConfirm(full)}>
+              <span className="folder-picker-dir-icon">📄</span>
+              <span className="folder-picker-dir-name">${f.name}</span>
+            </div>
+          `; })}
         </div>
+        ${confirmError && html`<div className="folder-picker-error" style=${{ padding: "6px 12px" }}>${confirmError}</div>`}
         <div className="folder-picker-footer">
           <button className="folder-picker-cancel" onClick=${onCancel}>Cancel</button>
-          <button className="folder-picker-select" onClick=${() => onSelect(browsePath)}>
-            Select This Folder
+          <button className="folder-picker-select" disabled=${!pathInput.trim() || confirming} onClick=${() => doConfirm()}>
+            ${confirming ? "Working…" : actionLabel}
           </button>
         </div>
       </div>
@@ -10571,6 +11024,8 @@ function SettingsModal({
   filterShowFullSubtree, onToggleFilterShowFullSubtree,
   onFoldToLevel,
   onExportToOrg, onExportToHtml, onExportToPdf, onExportToMarkdown, onImportFromMarkdown,
+  onTriggerImportFile, onTriggerImportFolder,
+  onCopyFormatted, onCopyPlain,
   tagPanelVisible, onToggleTagPanel,
   bookmarkPanelVisible, onToggleBookmarkPanel,
   workspaceConfig, onConfigureWorkspace,
@@ -10592,6 +11047,8 @@ function SettingsModal({
     { id: "appearance", label: "Appearance" },
     { id: "editor",     label: "Editor" },
     { id: "workspace",  label: "Workspace" },
+    { id: "import",     label: "Import" },
+    { id: "export",     label: "Export" },
     { id: "backups",    label: "Versioning/Backups" },
     { id: "keyboard",   label: "Keyboard" },
     { id: "about",      label: "About" },
@@ -10889,6 +11346,47 @@ function SettingsModal({
           ${bookmarkListFile && html`<button className="stg-btn stg-btn-clear" onClick=${onClearBookmarkListFile} title="Reset to default">×</button>`}
         </${StgRow}>
       </div>
+    `;
+    if (section === "import") return html`
+      <div className="stg-section">
+        <p className="stg-section-title">Import File</p>
+        <p className="stg-desc" style=${{ marginBottom: "10px" }}>
+          Convert a single Markdown file into a new .org file — headings become
+          outline levels, links and bold/italic/etc. convert to org markup.
+          Browse to it or type its full path; asks where to save before writing anything.
+        </p>
+        <${StgRow} label="Import File" desc="Pick a .md file anywhere on disk">
+          <button className="stg-btn" onClick=${() => { onTriggerImportFile?.(); }}>
+            Import…
+          </button>
+        </${StgRow}>
+      </div>
+      <div className="stg-section">
+        <p className="stg-section-title">Import Folder</p>
+        <p className="stg-desc" style=${{ marginBottom: "10px" }}>
+          Convert every .md file directly inside a folder into a matching .org
+          file (same name, new extension), saved into a folder you choose
+          inside the current workspace. Files that would collide with an
+          existing name are skipped, not overwritten.
+        </p>
+        <${StgRow} label="Import Folder" desc="Pick a folder of .md files anywhere on disk">
+          <button className="stg-btn" onClick=${() => { onTriggerImportFolder?.(); }}>
+            Import…
+          </button>
+        </${StgRow}>
+      </div>
+      <div className="stg-section">
+        <p className="stg-section-title">Replace Current File</p>
+        <${StgRow} label="Import from Markdown (Replace Current File)" desc="Overwrites the currently open document with a .md file's converted content">
+          <label className="stg-btn stg-file-label" title=${!currentFile ? "Open a file first" : "Import a Markdown file into this document"} style=${currentFile ? {} : { opacity: 0.45, pointerEvents: "none" }}>
+            Import…
+            <input type="file" accept=".md,text/markdown" style=${{ display: "none" }}
+                   onChange=${(e) => { const f = e.target.files?.[0]; if (f) { onImportFromMarkdown?.(f); onClose(); } e.target.value = ""; }} />
+          </label>
+        </${StgRow}>
+      </div>
+    `;
+    if (section === "export") return html`
       <div className="stg-section">
         <p className="stg-section-title">Export</p>
         <${StgRow} label="Export to HTML" desc="Save a standalone HTML file of this document">
@@ -10919,12 +11417,22 @@ function SettingsModal({
             Export…
           </button>
         </${StgRow}>
-        <${StgRow} label="Import from Markdown" desc="Replace the current document with a .md file">
-          <label className="stg-btn stg-file-label" title=${!currentFile ? "Open a file first" : "Import a Markdown file into this document"} style=${currentFile ? {} : { opacity: 0.45, pointerEvents: "none" }}>
-            Import…
-            <input type="file" accept=".md,text/markdown" style=${{ display: "none" }}
-                   onChange=${(e) => { const f = e.target.files?.[0]; if (f) { onImportFromMarkdown?.(f); onClose(); } e.target.value = ""; }} />
-          </label>
+      </div>
+      <div className="stg-section">
+        <p className="stg-section-title">Copy</p>
+        <${StgRow} label="Copy as Formatted Text" desc="Copy a block-selected range of headings (titles only, no sub-items) — or the whole visible outline if nothing's selected — with bold/italic/links preserved">
+          <button className="stg-btn" disabled=${!currentFile}
+                  onClick=${() => { onCopyFormatted?.(); onClose(); }}
+                  title=${!currentFile ? "Open a file first" : "Copy to clipboard"}>
+            Copy
+          </button>
+        </${StgRow}>
+        <${StgRow} label="Copy as Plain Text" desc="Same as above, but with no *markup* characters — clean text for pasting anywhere">
+          <button className="stg-btn" disabled=${!currentFile}
+                  onClick=${() => { onCopyPlain?.(); onClose(); }}
+                  title=${!currentFile ? "Open a file first" : "Copy to clipboard"}>
+            Copy
+          </button>
         </${StgRow}>
       </div>
     `;
@@ -11555,6 +12063,8 @@ function buildCommands(ctx) {
     joinFocusedWithNext,
     exportToHtml, exportToPdf, exportToOrg, exportToMarkdown, currentFile,
     copyAsFormatted, copyAsPlain,
+    triggerImportFile, triggerImportFolder, triggerImportMarkdownReplaceCurrent,
+    triggerDeleteCurrentFile,
     clearRecentFiles,
     setFindOpen, findInputRef,
     cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus, convertNodeToNoteAtFocus, linkifySelectionFromClipboard, wrapAsCodeBlockAtFocus,
@@ -11623,7 +12133,12 @@ function buildCommands(ctx) {
     { category: "Settings", label: "Cycle View Mode",       desc: textMode ? "Reveal codes → Plain" : titleFormatMode ? "Formatted → Reveal codes" : "Plain → Formatted titles", keys: "", action: cycleViewMode },
     { category: "Settings", label: "Change Home Folder…",    desc: "Pick a new home org folder",  keys: "", action: () => setShowFolderPicker(true) },
     { category: "Settings", label: "Clear Recent File List", desc: "Remove all entries from the recent files list in the sidebar", keys: "", action: clearRecentFiles },
-    // Export / Copy
+    // File
+    { category: "File", label: "Delete Current File", desc: "Permanently remove the file you have open right now — recoverable from git history, but not from within epicorg", keys: "", action: triggerDeleteCurrentFile, disabled: !currentFile },
+    // Import / Export / Copy
+    { category: "Import", label: "Import File",              desc: "Browse to (or type the path of) a .md file anywhere on disk and save it as a new .org file — asks where to save before writing anything", keys: "", action: triggerImportFile },
+    { category: "Import", label: "Import Folder",             desc: "Browse to (or type the path of) a folder of .md files and convert them all into a destination folder inside the current workspace", keys: "", action: triggerImportFolder },
+    { category: "Import", label: "Import Markdown (Replace Current File)", desc: "Pick a .md file and replace the currently open document's content with it", keys: "", action: triggerImportMarkdownReplaceCurrent, disabled: !currentFile },
     { category: "Export", label: "Export to Local Org File", desc: "Use this option to save a local copy of the current org file for backup or other use.", keys: "", action: exportToOrg,        disabled: !currentFile },
     { category: "Export", label: "Export to HTML",           desc: "Save standalone HTML file of this document",                                           keys: "", action: exportToHtml,       disabled: !currentFile },
     { category: "Export", label: "Export to PDF",            desc: "Opens a print-formatted tab and triggers your browser's print dialog — choose \"Save as PDF\"", keys: "", action: exportToPdf, disabled: !currentFile },

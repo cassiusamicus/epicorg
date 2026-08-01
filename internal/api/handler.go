@@ -718,14 +718,26 @@ func (h *handlers) browseDir(w http.ResponseWriter, r *http.Request) {
 	}
 	ext := r.URL.Query().Get("ext") // e.g. ".org" to also list matching files
 	var dirs, files []string
+	// Parallel, index-aligned mod-time arrays — kept separate from dirs/files
+	// (rather than switching those to objects) so existing callers that
+	// treat them as plain string arrays (FolderPicker, FilePicker's nav,
+	// etc.) are unaffected; only callers that want to sort by date need to
+	// look at these.
+	var dirTimes, fileTimes []int64
 	for _, e := range entries {
 		if strings.HasPrefix(e.Name(), ".") || orgfile.IsBackupFile(e.Name()) {
 			continue
 		}
+		var mtime int64
+		if info, ierr := e.Info(); ierr == nil {
+			mtime = info.ModTime().Unix()
+		}
 		if e.IsDir() {
 			dirs = append(dirs, e.Name())
+			dirTimes = append(dirTimes, mtime)
 		} else if ext == "" || strings.HasSuffix(e.Name(), ext) {
 			files = append(files, e.Name())
+			fileTimes = append(fileTimes, mtime)
 		}
 	}
 	parent := filepath.Dir(path)
@@ -733,10 +745,12 @@ func (h *handlers) browseDir(w http.ResponseWriter, r *http.Request) {
 		parent = ""
 	}
 	writeJSON(w, map[string]interface{}{
-		"path":   path,
-		"parent": parent,
-		"dirs":   dirs,
-		"files":  files,
+		"path":      path,
+		"parent":    parent,
+		"dirs":      dirs,
+		"files":     files,
+		"dirTimes":  dirTimes,
+		"fileTimes": fileTimes,
 	})
 }
 

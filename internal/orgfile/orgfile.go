@@ -492,7 +492,16 @@ func (s *Store) DeleteFile(name string) error {
 		}
 	}
 
-	return git.CommitFile(s.dir, name, "epicorg: delete "+name)
+	// Best-effort, like the file-load snapshot commit above — the delete
+	// itself already succeeded (the file is gone from disk, which is what
+	// the caller actually asked for and what its response reports), so a
+	// git failure here (e.g. no user.name/user.email configured) must not
+	// come back as an overall failure. Doing so would make the caller think
+	// nothing happened and leave its own state stale, when in fact the file
+	// really is gone — the only thing lost is the recoverable-from-history
+	// safety net this commit provides.
+	git.CommitFile(s.dir, name, "epicorg: delete "+name)
+	return nil
 }
 
 // RenameFile renames name to newName on disk, carrying over its collapsed
@@ -530,7 +539,11 @@ func (s *Store) RenameFile(name, newName string) error {
 		}
 	}
 
-	return git.CommitFiles(s.dir, []string{name, newName}, "epicorg: rename "+name+" to "+newName)
+	// Best-effort, same reasoning as DeleteFile above: the rename on disk
+	// already succeeded, so a git failure shouldn't be reported as the
+	// whole operation failing.
+	git.CommitFiles(s.dir, []string{name, newName}, "epicorg: rename "+name+" to "+newName)
+	return nil
 }
 
 // SaveMeta writes collapsed state to the sidecar file.

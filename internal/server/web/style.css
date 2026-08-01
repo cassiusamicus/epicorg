@@ -1669,7 +1669,15 @@ header.header-tinted {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 200;
+  /* Above .cp-dialog (500, the command palette — many of these pickers are
+     triggered FROM the palette, and pinning it means it doesn't auto-close
+     on its own, so a picker opened underneath it would be invisible even
+     though it did open) and above .stg-overlay (9500, Settings — belt and
+     suspenders alongside explicitly closing Settings before opening one of
+     these, in case a future call site forgets to). Below .te-overlay
+     (9800), the one thing that can legitimately need to stack on top of
+     one of these (e.g. the table editor opened from Insert Table). */
+  z-index: 9700;
 }
 
 .folder-picker-dialog {
@@ -1771,8 +1779,74 @@ header.header-tinted {
 }
 
 .folder-picker-dir:hover { background: var(--focused-bg); }
+.folder-picker-dir.highlighted { background: color-mix(in srgb, var(--accent) 12%, var(--bg)); }
 .file-picker-file { cursor: pointer; }
 .file-picker-file .folder-picker-dir-name { color: var(--bullet-active); font-weight: 500; }
+
+.import-picker-sort {
+  display: flex;
+  gap: 4px;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.import-picker-sort-btn {
+  font-size: 11px;
+  font-family: inherit;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.import-picker-sort-btn.active { color: var(--text); border-color: var(--bullet-active); }
+
+.import-picker-recents {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  max-height: 96px;
+  overflow-y: auto;
+}
+/* Full path, never truncated — a shortened path is a useless recent-folder
+   entry, since the whole point is telling several similarly-named folders
+   apart at a glance. */
+.import-picker-recent-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--toggle-bg);
+}
+.import-picker-recent-btn {
+  font-size: 11px;
+  font-family: inherit;
+  padding: 3px 4px 3px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  white-space: normal;
+  word-break: break-all;
+  text-align: left;
+}
+.import-picker-recent-btn:hover { color: var(--text); }
+.import-picker-recent-remove {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-family: inherit;
+  line-height: 1;
+  padding: 3px 7px 3px 3px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-radius: 0 10px 10px 0;
+}
+.import-picker-recent-remove:hover { color: var(--danger, #d33); background: var(--focused-bg); }
 
 /* Dark-mode: explicit light text on every file picker surface */
 [data-theme="dark"] .folder-picker-dir { color: rgba(255,255,255,0.88); }
@@ -2465,7 +2539,7 @@ header.header-tinted {
   color: var(--warn);
 }
 
-/* Rename button — always visible in the sidebar */
+/* Rename/delete menu button — always visible in the sidebar */
 .sidebar-file-rename {
   flex-shrink: 0;
   background: transparent;
@@ -2479,6 +2553,35 @@ header.header-tinted {
 .sidebar-file-rename:hover { color: var(--accent); }
 .sidebar-item.active .sidebar-file-rename { color: rgba(255,255,255,0.6); }
 .sidebar-item.active .sidebar-file-rename:hover { color: #fff; }
+
+.sidebar-file-menu-wrap { position: relative; flex-shrink: 0; }
+.sidebar-file-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 100px;
+  padding: 4px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px var(--shadow);
+  z-index: 200;
+}
+.sidebar-file-menu-item {
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 12px;
+  font-family: inherit;
+  text-align: left;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+.sidebar-file-menu-item:hover { background: var(--focused-bg); }
+.sidebar-file-menu-item-danger { color: var(--danger, #d33); }
 
 /* Inline rename input replaces the file row content */
 .sidebar-rename-input {
@@ -5190,6 +5293,51 @@ a.org-file-link {
 }
 .rename-tag-btn-cancel:hover:not(:disabled) { background: var(--focused-bg); }
 .rename-tag-btn-cancel:disabled { opacity: 0.5; cursor: default; }
+
+/* Generic destructive-action confirmation — fixed/full-viewport (unlike
+   .rename-tag-overlay, which is absolute within one panel) so it can be
+   triggered from anywhere: command palette, sidebar, wherever. */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9750; /* above .folder-picker-overlay (9700) — see its comment */
+}
+.confirm-dialog {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 18px 20px 16px;
+  max-width: 420px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.confirm-title { font-weight: 600; font-size: 13px; margin-bottom: 10px; color: var(--text); }
+.confirm-msg { font-size: 12px; color: var(--text); line-height: 1.5; margin-bottom: 14px; }
+.confirm-msg strong { color: var(--accent); }
+.confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.confirm-btn-danger {
+  background: var(--danger, #d33);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.confirm-btn-danger:hover { opacity: 0.85; }
+.confirm-btn-cancel {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.confirm-btn-cancel:hover { background: var(--focused-bg); }
 
 /* Brief success notice below the tag list */
 .tag-rename-result {
