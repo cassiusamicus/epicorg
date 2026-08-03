@@ -277,18 +277,21 @@ function triggerLinkPicker(textarea, e, isBody) {
 }
 
 // Value to store from a title/body onChange: normally re-run through
-// orgifyPaths so a bare file path typed character-by-character turns into a
-// clickable link as you go. A paste skips that — orgifyPaths re-scans the
-// *entire* field on every keystroke, so pasting in a multi-line block (a
-// shell tutorial, a code snippet) full of incidental /looks/like/a/path
-// segments would silently rewrite them all into [[file:...]] links,
-// corrupting the very shell commands being pasted. A single bare path or URL
-// pasted alone is still handled — see the onPaste handlers below, which
-// intercept that specific case before the browser's default paste (and this
-// onChange) ever runs.
+// orgifyPathsNearCursor so a bare file path typed character-by-character
+// turns into a clickable link as you go, WITHOUT touching any other line —
+// a paste is scanned line-by-line just the same, except for the paste
+// event itself (skipped below), so pasting in a multi-line block (a shell
+// tutorial, a code snippet) full of incidental /looks/like/a/path segments
+// doesn't rewrite them into [[file:...]] links on the way in, and typing
+// so much as one more character anywhere else in that same field afterward
+// doesn't retroactively rewrite them either — only the line actually being
+// edited is ever rescanned. A single bare path or URL pasted alone is still
+// handled specially — see the onPaste handlers below, which intercept that
+// specific case before the browser's default paste (and this onChange)
+// ever runs.
 function pastedRawValue(e) {
   if (e.nativeEvent?.inputType === "insertFromPaste") return e.target.value;
-  return tree.orgifyPaths(e.target.value);
+  return tree.orgifyPathsNearCursor(e.target.value, e.target.selectionStart);
 }
 
 // Clamps a fixed-position popup menu so it always renders fully on

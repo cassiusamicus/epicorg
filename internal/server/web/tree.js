@@ -818,6 +818,28 @@ export function orgifyPaths(text) {
   return result;
 }
 
+// Same conversion as orgifyPaths, but scoped to only the line the cursor is
+// currently on, rather than the whole field. Re-scanning everything on
+// every keystroke (orgifyPaths' documented behavior above) meant a single
+// unrelated edit anywhere in a note — fixing a typo, pressing Enter, adding
+// a line — would retroactively linkify bare paths on OTHER lines that
+// arrived via an earlier, deliberately-protected paste (see pastedRawValue
+// in app.js), silently undoing that protection. A pasted block of code is
+// virtually always multi-line, so leaving every line but the one actually
+// being edited untouched is enough to protect it, while still converting a
+// bare path the moment you finish typing it on its own line — the whole
+// point of the live-linkify-while-typing feature.
+export function orgifyPathsNearCursor(text, cursorPos) {
+  if (!text) return text;
+  const lineStart = text.lastIndexOf("\n", cursorPos - 1) + 1;
+  let lineEnd = text.indexOf("\n", cursorPos);
+  if (lineEnd === -1) lineEnd = text.length;
+  const line = text.slice(lineStart, lineEnd);
+  const converted = orgifyPaths(line);
+  if (converted === line) return text;
+  return text.slice(0, lineStart) + converted + text.slice(lineEnd);
+}
+
 // Whether clipboard text pasted over a selection should be treated as a
 // single URL for the paste-creates-a-hyperlink feature: the whole trimmed
 // string, with no internal whitespace/newlines (a URL never contains

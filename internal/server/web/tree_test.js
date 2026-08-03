@@ -1120,6 +1120,41 @@ test("orgifyPaths: empty string returns empty string", () => {
   assertEqual(tree.orgifyPaths(""), "");
 });
 
+// --- orgifyPathsNearCursor ---
+test("orgifyPathsNearCursor: converts a bare path on the line being edited", () => {
+  const text = "See /home/user/notes.txt for details";
+  const result = tree.orgifyPathsNearCursor(text, text.length);
+  assertEqual(result, "See [[file:/home/user/notes.txt][notes.txt]] for details");
+});
+
+test("orgifyPathsNearCursor: leaves other lines' bare paths untouched — the core regression", () => {
+  // Simulates: a multi-line shell snippet was pasted in clean (protected by
+  // pastedRawValue's paste check), then a single keystroke elsewhere in the
+  // same field (e.g. pressing Enter at the end) must not retroactively
+  // linkify paths on lines the cursor never touched.
+  const text = "sudo rm -f /etc/resolv.conf\nsudo ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf\n";
+  const cursorAtEnd = text.length;
+  const result = tree.orgifyPathsNearCursor(text, cursorAtEnd);
+  assertEqual(result, text);
+});
+
+test("orgifyPathsNearCursor: only converts the specific line the cursor is on, in a multi-line field", () => {
+  const text = "/etc/resolv.conf\n/etc/hosts.conf\n/etc/passwd.conf";
+  const secondLineEnd = text.indexOf("\n/etc/passwd.conf"); // end of line 2
+  const result = tree.orgifyPathsNearCursor(text, secondLineEnd);
+  assertEqual(result, "/etc/resolv.conf\n[[file:/etc/hosts.conf][hosts.conf]]\n/etc/passwd.conf");
+});
+
+test("orgifyPathsNearCursor: cursor at the very start of the text still finds line 1", () => {
+  const text = "/etc/resolv.conf\nplain second line";
+  const result = tree.orgifyPathsNearCursor(text, 0);
+  assertEqual(result, "[[file:/etc/resolv.conf][resolv.conf]]\nplain second line");
+});
+
+test("orgifyPathsNearCursor: empty string returns empty string", () => {
+  assertEqual(tree.orgifyPathsNearCursor("", 0), "");
+});
+
 // --- splitBodyAtCursor ---
 test("splitBodyAtCursor: splits body into a new sibling directly after", () => {
   const t = [{ ...node("a", "Task"), body: "First half. Second half." }];
