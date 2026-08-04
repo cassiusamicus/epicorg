@@ -399,6 +399,41 @@ function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onIn
   `;
 }
 
+// Right-click menu for a note while it's showing as rendered/read-only
+// preview (not yet in edit mode) — separate from NoteContextMenu above,
+// which only ever mounts once the note is a <textarea>. A native
+// browser text selection lives in a DOM Range pointing into the
+// dangerouslySetInnerHTML'd preview node, which is fragile (any
+// re-render that touches that subtree collapses it), so the selected
+// text is captured as a plain string up front rather than re-read from
+// the live selection when Copy is actually clicked.
+function PreviewContextMenu({ x, y, text, onEditNote, onClose }) {
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const down = (e) => { if (!menuRef.current?.contains(e.target)) onClose(); };
+    const key  = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("mousedown", down);
+    document.addEventListener("keydown", key, true);
+    return () => { document.removeEventListener("mousedown", down); document.removeEventListener("keydown", key, true); };
+  }, [onClose]);
+
+  const doCopy = async () => {
+    await navigator.clipboard.writeText(text).catch(() => {});
+    onClose();
+  };
+
+  const pos = useFixedMenuPosition(menuRef, x, y);
+  const style = { position: "fixed", left: pos.left, top: pos.top, zIndex: 9999 };
+  return html`
+    <div ref=${menuRef} className="note-ctx-menu" style=${style}>
+      <button className="note-ctx-item" onClick=${doCopy}>Copy</button>
+      <div className="note-ctx-sep" />
+      <button className="note-ctx-item" onClick=${() => { onEditNote(); onClose(); }}>Edit Note</button>
+    </div>
+  `;
+}
+
 // Per-node action menu — opened by clicking or right-clicking the hover
 // handle to the left of a node's bullet (or right-clicking the bullet
 // itself). Reuses the note-ctx-* classes so it looks consistent with
@@ -785,6 +820,7 @@ function TableEditor({ rows: initRows, headerCount: initHeaderCount, onSave, onC
 function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notesVisible, depth, bodyRefs, linkifySelectionFromClipboard, showToast }) {
   const localRef = useRef(null);
   const [ctxMenu, setCtxMenu] = useState(null);
+  const [previewCtxMenu, setPreviewCtxMenu] = useState(null); // { x, y, text }
   const [imgPopup, setImgPopup] = useState(null); // { index, rect }
   const [tableEdit, setTableEdit] = useState(null); // { tableIndex, rows, headerCount }
 
@@ -895,6 +931,16 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
                  const pos = raw === null ? (node.body || "").length : Math.min(raw, (node.body || "").length);
                  dispatch(node.id, "edit-body", pos);
                }}
+               onContextMenu=${(e) => {
+                 // Only intercept when there's an actual selection inside this
+                 // note to copy — otherwise leave the native menu (and the
+                 // normal click-to-edit behavior) alone.
+                 const selection = window.getSelection();
+                 const text = selection ? selection.toString() : "";
+                 if (!text || !selection.anchorNode || !e.currentTarget.contains(selection.anchorNode)) return;
+                 e.preventDefault();
+                 setPreviewCtxMenu({ x: e.clientX, y: e.clientY, text });
+               }}
                onMouseOver=${(e) => {
                  const wikiEl = e.target.closest(".wiki-link");
                  if (!wikiEl) return;
@@ -929,8 +975,20 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
               if (isReadOnlyContent) return;
               e.preventDefault();
               const ta = e.target;
-              setCtxMenu({ x: e.clientX, y: e.clientY, textarea: ta,
-                sel: { start: ta.selectionStart, end: ta.selectionEnd, value: ta.value } });
+              // Prefer the last real selection the user actually made over
+              // whatever's live right now, if live is empty — see
+              // _trackBodySelection's comment for why a right-click can't
+              // always be trusted to have preserved it. Guarded by value
+              // match so a stale selection from before an edit changed the
+              // text (different indices, different meaning) is never used.
+              const remembered = _lastBodySelection;
+              const useRemembered = ta.selectionStart === ta.selectionEnd
+                && remembered && remembered.el === ta && remembered.value === ta.value
+                && remembered.start !== remembered.end;
+              const sel = useRemembered
+                ? { start: remembered.start, end: remembered.end, value: remembered.value }
+                : { start: ta.selectionStart, end: ta.selectionEnd, value: ta.value };
+              setCtxMenu({ x: e.clientX, y: e.clientY, textarea: ta, sel });
             }}
             onBlur=${() => {
               dispatch(node.id, "stop-edit-body");
@@ -956,10 +1014,9 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
               if (matchShortcut("splitNode", e)) { e.preventDefault(); dispatch(contentTargetId, "split-body-at-cursor", e.target.selectionStart); return; }
               // Same node-structural shortcuts as the title field (handleKey)
               // — a note is still editing this node, so Indent/Outdent/Move
-              // should reposition it too, not fall through to the browser's
-              // Alt+Left/Right back/forward navigation. These act on the
-              // wrapper's own tree position even for a live-synced
-              // transclusion — moving the copy shouldn't move the source.
+              // should reposition it too. These act on the wrapper's own
+              // tree position even for a live-synced transclusion — moving
+              // the copy shouldn't move the source.
               if (matchShortcut("moveUp", e))       { e.preventDefault(); dispatch(node.id, "move-up"); return; }
               if (matchShortcut("moveDown", e))     { e.preventDefault(); dispatch(node.id, "move-down"); return; }
               if (matchShortcut("indent", e))       { e.preventDefault(); dispatch(node.id, "indent"); return; }
@@ -993,6 +1050,10 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
       onInsertTable=${() => insertTableAtCursor(ctxMenu.sel.start)}
       onWrapAsCodeBlock=${(start, end) => wrapAsCodeBlockAtCursor(start, end)}
       onClose=${() => setCtxMenu(null)} />`}
+    ${previewCtxMenu && html`<${PreviewContextMenu}
+      x=${previewCtxMenu.x} y=${previewCtxMenu.y} text=${previewCtxMenu.text}
+      onEditNote=${() => dispatch(node.id, "edit-body", (node.body || "").length)}
+      onClose=${() => setPreviewCtxMenu(null)} />`}
     ${imgPopup && (() => {
       const blocks = tree.parseImageBlocks(node.body);
       const block = blocks[imgPopup.index];
@@ -3299,8 +3360,8 @@ const SHORTCUT_DEFS = [
   { id: "joinNode",        cat: "Outline",    label: "Join with Next Node",   def: "Ctrl+Shift+J" },
   { id: "moveUp",          cat: "Outline",    label: "Move Node Up",          def: "Alt+ArrowUp" },
   { id: "moveDown",        cat: "Outline",    label: "Move Node Down",        def: "Alt+ArrowDown" },
-  { id: "indent",          cat: "Outline",    label: "Indent Node",           def: "Alt+ArrowRight" },
-  { id: "outdent",         cat: "Outline",    label: "Outdent Node",          def: "Alt+ArrowLeft" },
+  { id: "indent",          cat: "Outline",    label: "Indent Node",           def: "Tab" },
+  { id: "outdent",         cat: "Outline",    label: "Outdent Node",          def: "Shift+Tab" },
   { id: "moveUpOnly",      cat: "Outline",    label: "Move Heading Up",       def: "Alt+Shift+ArrowUp" },
   { id: "moveDownOnly",    cat: "Outline",    label: "Move Heading Down",     def: "Alt+Shift+ArrowDown" },
   { id: "indentOnly",      cat: "Outline",    label: "Demote Heading",        def: "Alt+Shift+ArrowRight" },
@@ -3313,7 +3374,6 @@ const SHORTCUT_DEFS = [
   // Fixed: shown for reference, not rebindable
   { id: "newSibling",  cat: "Reference", label: "New Sibling Node",  def: "Enter",       fixed: true },
   { id: "editBody",    cat: "Reference", label: "Edit Body Note",    def: "Shift+Enter", fixed: true },
-  { id: "foldToggle",  cat: "Reference", label: "Fold / Unfold",     def: "Tab",         fixed: true },
   { id: "deleteEmpty", cat: "Reference", label: "Delete Empty Node", def: "Backspace",   fixed: true },
   { id: "navUp",       cat: "Reference", label: "Navigate Up",       def: "↑",           fixed: true },
   { id: "navDown",     cat: "Reference", label: "Navigate Down",     def: "↓",           fixed: true },
@@ -3423,6 +3483,24 @@ function formatMarkerForKey(e) {
 // runs, el.closest(...) can no longer walk up to find its owning node: the
 // element has already been detached from the tree. _lastOutlineTextareaMeta
 // captures the node id and field name right now, while el is still attached.
+// Tracks the most recent non-collapsed drag-selection made inside a note's
+// body textarea — a defensive fallback for the right-click context menu
+// (see its onContextMenu below). A right-click that lands inside an
+// existing selection is supposed to preserve it (standard OS/browser
+// convention: right-click within a selection keeps it, so you can act on
+// what you selected), but that's decided by the browser/OS during
+// mousedown, before any of our own code runs, and isn't something we can
+// fully control or that's guaranteed consistent everywhere — so rather
+// than trust the live selection at the moment the contextmenu event
+// fires, remember the last real one the user actually made and fall back
+// to it if what's live right then is unexpectedly empty.
+let _lastBodySelection = null; // { el, start, end, value }
+export function _trackBodySelection(el) {
+  if (!el || el.tagName !== "TEXTAREA" || !el.classList.contains("node-body-textarea")) return;
+  if (el.selectionStart === el.selectionEnd) return; // only remember real, non-empty selections
+  _lastBodySelection = { el, start: el.selectionStart, end: el.selectionEnd, value: el.value };
+}
+
 let _lastOutlineTextarea = null;
 let _lastOutlineTextareaMeta = null;
 export function _setLastOutlineTextarea(el) {
@@ -3596,7 +3674,6 @@ function handleKey(e, wrapperId, contentId, dispatch, linkifySelectionFromClipbo
   if (matchShortcut("indentOnly", e))   { e.preventDefault(); dispatch(wrapperId, "indent-only"); return; }
   if (matchShortcut("outdentOnly", e))  { e.preventDefault(); dispatch(wrapperId, "outdent-only"); return; }
   const key = e.key;
-  if (key === "Tab")       { e.preventDefault(); dispatch(wrapperId, "toggle"); return; }
   if (key === "ArrowUp")   { e.preventDefault(); dispatch(wrapperId, "nav-up"); return; }
   if (key === "ArrowDown") { e.preventDefault(); dispatch(wrapperId, "nav-down"); return; }
   if (key === "Enter" && e.shiftKey) { e.preventDefault(); dispatch(wrapperId, "focus-body"); return; }
@@ -6320,17 +6397,14 @@ function App() {
       if (matchShortcut("hoist", e)) {
         e.preventDefault(); toggleHoistRef.current?.(); return;
       }
-      // Alt+Left/Right double as Outdent/Indent while actively editing a
-      // node's title or note — those fields' own key handlers (handleKey,
-      // and the body textarea's onKeyDown) already act on them and call
-      // preventDefault, but that doesn't stop the native event from still
-      // bubbling up to this document-level listener afterward, so without
-      // this check Go Back/Forward would *also* fire on the same keypress.
-      const activeEl = document.activeElement;
-      const inOutlineField = activeEl?.tagName === "TEXTAREA" &&
-        (activeEl.classList.contains("node-title") || activeEl.classList.contains("node-body-textarea"));
-      if (e.altKey && e.key === "ArrowLeft" && !inOutlineField) { e.preventDefault(); goBackRef.current?.(); return; }
-      if (e.altKey && e.key === "ArrowRight" && !inOutlineField) { e.preventDefault(); goForwardRef.current?.(); return; }
+      // Indent/Outdent moved to Tab/Shift+Tab (see the "indent"/"outdent"
+      // SHORTCUT_DEFS) specifically so Alt+Left/Right would be free to mean
+      // just one thing — Go Back/Forward — with no per-field disambiguation
+      // needed here anymore. (They used to double as Outdent/Indent while
+      // editing a title/note, which meant this listener had to check
+      // document.activeElement to avoid stepping on that.)
+      if (e.altKey && e.key === "ArrowLeft") { e.preventDefault(); goBackRef.current?.(); return; }
+      if (e.altKey && e.key === "ArrowRight") { e.preventDefault(); goForwardRef.current?.(); return; }
       if (e.altKey && e.key >= "1" && e.key <= "9" && !textModeRef.current) {
         e.preventDefault(); foldToLevel(parseInt(e.key));
       }
@@ -7765,6 +7839,16 @@ function App() {
     };
     document.addEventListener("focusin", onFocusIn);
     return () => document.removeEventListener("focusin", onFocusIn);
+  }, []);
+
+  // Remember the last real (non-collapsed) selection made in a note body —
+  // see _trackBodySelection's own comment for why the note right-click menu
+  // needs this fallback rather than trusting the live selection at the
+  // moment the browser's contextmenu event actually fires.
+  useEffect(() => {
+    const onSelectionChange = () => _trackBodySelection(document.activeElement);
+    document.addEventListener("selectionchange", onSelectionChange);
+    return () => document.removeEventListener("selectionchange", onSelectionChange);
   }, []);
 
   // Keep a stable ref to loadFile so the delegated link handler below always
