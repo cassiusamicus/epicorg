@@ -1018,10 +1018,10 @@ export function replaceTableBlockInBody(body, blockIndex, newOrgLines) {
 const ATTR_ORG_LINE_RE = /^#\+ATTR_ORG:\s*(.+)$/i;
 const ATTR_HTML_LINE_RE = /^#\+ATTR_HTML:\s*(.+)$/i;
 const IMAGE_LINK_LINE_RE = /^\[\[file:([^\]]+)\]\]$/i;
-const QUOTE_BEGIN_RE = /^\s*#\+begin_quote\s*$/i;
-const QUOTE_END_RE = /^\s*#\+end_quote\s*$/i;
-const VERSE_BEGIN_RE = /^\s*#\+begin_verse\s*$/i;
-const VERSE_END_RE = /^\s*#\+end_verse\s*$/i;
+export const QUOTE_BEGIN_RE = /^\s*#\+begin_quote\s*$/i;
+export const QUOTE_END_RE = /^\s*#\+end_quote\s*$/i;
+export const VERSE_BEGIN_RE = /^\s*#\+begin_verse\s*$/i;
+export const VERSE_END_RE = /^\s*#\+end_verse\s*$/i;
 const SRC_BEGIN_RE = /^\s*#\+begin_src(?:\s+(\S+))?\s*$/i;
 const SRC_END_RE = /^\s*#\+end_src\s*$/i;
 const EXAMPLE_BEGIN_RE = /^\s*#\+begin_example\s*$/i;
@@ -1034,7 +1034,7 @@ const CENTER_END_RE = /^\s*#\+end_center\s*$/i;
 // end of body, for an unterminated block) and returns { lang, contentLines,
 // nextIndex }; otherwise returns null. lang is beginRe's capture group 1
 // (used for #+begin_src's language tag), empty string if the block has none.
-function scanBlock(lines, i, beginRe, endRe) {
+export function scanBlock(lines, i, beginRe, endRe) {
   const m = beginRe.exec(lines[i]);
   if (!m) return null;
   const contentLines = [];

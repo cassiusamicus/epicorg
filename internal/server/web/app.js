@@ -2,7 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMe
 import { createRoot } from "react-dom/client";
 import htm from "htm";
 import * as tree from "./tree.js";
-import { generateExportHtml, generateMarkdown, parseMdToNodes } from "./export.js";
+import { generateExportHtml, generateMarkdown, parseMdToNodes, generateRevealHtml, REVEAL_THEMES, REVEAL_TRANSITIONS } from "./export.js";
 
 const html = htm.bind(React.createElement);
 
@@ -319,7 +319,7 @@ function useFixedMenuPosition(menuRef, x, y) {
 // being edited, so empty items don't clutter the outline. Mirrors the
 // title's formatted-preview/edit-textarea split, governed by the same
 // titleFormatMode toggle.
-function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onInsertFootnote, onInsertImage, onInsertTable, onWrapAsCodeBlock, onClose }) {
+function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onInsertFootnote, onInsertImage, onInsertTable, onWrapAsCodeBlock, onWrapAsQuoteBlock, onWrapAsVerseBlock, onClose }) {
   const menuRef = useRef(null);
   const hasSel = sel.start !== sel.end;
   const hasBody = !!sel.value;
@@ -376,6 +376,14 @@ function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onIn
     onWrapAsCodeBlock(sel.start, sel.end, sel.value);
     onClose();
   };
+  const doWrapAsQuoteBlock = () => {
+    onWrapAsQuoteBlock(sel.start, sel.end, sel.value);
+    onClose();
+  };
+  const doWrapAsVerseBlock = () => {
+    onWrapAsVerseBlock(sel.start, sel.end, sel.value);
+    onClose();
+  };
 
   const pos = useFixedMenuPosition(menuRef, x, y);
   const style = { position: "fixed", left: pos.left, top: pos.top, zIndex: 9999 };
@@ -395,6 +403,8 @@ function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onIn
       <button className="note-ctx-item" onClick=${doInsertImage}>Insert Image</button>
       <button className="note-ctx-item" onClick=${doInsertTable}>Insert Table</button>
       <button className="note-ctx-item" disabled=${!hasBody} onClick=${doWrapAsCodeBlock}>Wrap as Code Block</button>
+      <button className="note-ctx-item" disabled=${!hasBody} onClick=${doWrapAsQuoteBlock}>Wrap as Quote Block</button>
+      <button className="note-ctx-item" disabled=${!hasBody} onClick=${doWrapAsVerseBlock}>Wrap as Verse Block</button>
     </div>
   `;
 }
@@ -875,6 +885,44 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
     dispatch(contentTargetId, "change-body", before + pre + block + post + after);
   };
 
+  // Same as wrapAsCodeBlockAtCursor above, but for #+begin_quote — the
+  // right-click menu's Wrap as Quote Block. Renders as a left-bordered
+  // italic blockquote in-app (see .org-quote in style.css) and as a real
+  // <blockquote> in both the plain HTML export and the reveal.js slide export.
+  const wrapAsQuoteBlockAtCursor = (start, end) => {
+    const body = node.body || "";
+    const collapsed = start === end;
+    const from = collapsed ? 0 : start;
+    const to = collapsed ? body.length : end;
+    const before = body.slice(0, from);
+    const inner = body.slice(from, to);
+    const after = body.slice(to);
+    const pre = before.length > 0 && !before.endsWith("\n") ? "\n" : "";
+    const post = after.length > 0 && !after.startsWith("\n") ? "\n" : "";
+    const block = "#+begin_quote\n" + inner + "\n#+end_quote";
+    dispatch(contentTargetId, "change-body", before + pre + block + post + after);
+  };
+
+  // Same as wrapAsQuoteBlockAtCursor above, but for #+begin_verse — the
+  // right-click menu's Wrap as Verse Block. For poetry/lyrics, where line
+  // breaks and indentation are significant and must be preserved exactly
+  // rather than reflowed like a normal paragraph (see .org-verse in
+  // style.css, and the inline white-space:pre-wrap used for it in the
+  // reveal.js slide export).
+  const wrapAsVerseBlockAtCursor = (start, end) => {
+    const body = node.body || "";
+    const collapsed = start === end;
+    const from = collapsed ? 0 : start;
+    const to = collapsed ? body.length : end;
+    const before = body.slice(0, from);
+    const inner = body.slice(from, to);
+    const after = body.slice(to);
+    const pre = before.length > 0 && !before.endsWith("\n") ? "\n" : "";
+    const post = after.length > 0 && !after.startsWith("\n") ? "\n" : "";
+    const block = "#+begin_verse\n" + inner + "\n#+end_verse";
+    dispatch(contentTargetId, "change-body", before + pre + block + post + after);
+  };
+
   useEffect(() => {
     adjustTextareaHeight(localRef.current);
   }, [node.body, isEditing]);
@@ -1049,6 +1097,8 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
       }}
       onInsertTable=${() => insertTableAtCursor(ctxMenu.sel.start)}
       onWrapAsCodeBlock=${(start, end) => wrapAsCodeBlockAtCursor(start, end)}
+      onWrapAsQuoteBlock=${(start, end) => wrapAsQuoteBlockAtCursor(start, end)}
+      onWrapAsVerseBlock=${(start, end) => wrapAsVerseBlockAtCursor(start, end)}
       onClose=${() => setCtxMenu(null)} />`}
     ${previewCtxMenu && html`<${PreviewContextMenu}
       x=${previewCtxMenu.x} y=${previewCtxMenu.y} text=${previewCtxMenu.text}
@@ -1273,6 +1323,22 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                   const ta = e.target;
                   const posBefore = ta.selectionStart;
                   const dir = e.key === "ArrowUp" ? "nav-up" : "nav-down";
+                  requestAnimationFrame(() => {
+                    if (ta.selectionStart === posBefore) dispatch(node.id, dir);
+                  });
+                  return;
+                }
+                // Same boundary-check technique, for ArrowLeft/Right: the browser
+                // only fails to move the cursor when it's already at position 0
+                // (ArrowLeft) or the end of the text (ArrowRight), so this only
+                // ever fires there — continuing to hold the key then keeps
+                // stepping into each next node in turn, since every repeated
+                // keydown re-runs the same check against whichever node now
+                // has focus.
+                if (isEditing && (e.key === "ArrowLeft" || e.key === "ArrowRight") && !e.altKey) {
+                  const ta = e.target;
+                  const posBefore = ta.selectionStart;
+                  const dir = e.key === "ArrowLeft" ? "nav-left" : "nav-right";
                   requestAnimationFrame(() => {
                     if (ta.selectionStart === posBefore) dispatch(node.id, dir);
                   });
@@ -3676,6 +3742,13 @@ function handleKey(e, wrapperId, contentId, dispatch, linkifySelectionFromClipbo
   const key = e.key;
   if (key === "ArrowUp")   { e.preventDefault(); dispatch(wrapperId, "nav-up"); return; }
   if (key === "ArrowDown") { e.preventDefault(); dispatch(wrapperId, "nav-down"); return; }
+  // Fallback for when the title isn't in the isEditing boundary-check state
+  // above (still in overlay/preview mode, focused but untouched) — mirrors
+  // ArrowUp/Down's unconditional jump immediately above. altKey is excluded
+  // so Alt+Left/Right still reaches the document-level Go Back/Forward
+  // listener instead of being swallowed here.
+  if (key === "ArrowLeft"  && !e.altKey) { e.preventDefault(); dispatch(wrapperId, "nav-left"); return; }
+  if (key === "ArrowRight" && !e.altKey) { e.preventDefault(); dispatch(wrapperId, "nav-right"); return; }
   if (key === "Enter" && e.shiftKey) { e.preventDefault(); dispatch(wrapperId, "focus-body"); return; }
   if (key === "Enter") {
     e.preventDefault();
@@ -5343,6 +5416,32 @@ function App() {
     setSidebarVisible((p) => {
       const next = !p;
       try { localStorage.setItem("epicorg.sidebarVisible", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  }, []);
+  const REVEAL_SETTINGS_DEFAULTS = {
+    theme: "mattropolis",
+    transition: "fade",
+    notes: true,
+    menu: true,
+    zoom: true,
+    highlight: true,
+    math: true,
+    pdfExport: true,
+    scrollView: false,
+    verticalSlides: true,
+    overview: true,
+  };
+  const [revealSettings, setRevealSettingsState] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("epicorg.revealExportSettings") || "null");
+      return { ...REVEAL_SETTINGS_DEFAULTS, ...(stored || {}) };
+    } catch { return { ...REVEAL_SETTINGS_DEFAULTS }; }
+  });
+  const setRevealSettings = useCallback((updates) => {
+    setRevealSettingsState((prev) => {
+      const next = { ...prev, ...updates };
+      try { localStorage.setItem("epicorg.revealExportSettings", JSON.stringify(next)); } catch {}
       return next;
     });
   }, []);
@@ -7164,6 +7263,85 @@ function App() {
     URL.revokeObjectURL(url);
   }, [nodes, preamble, currentFile, resolveTranscludedNodesForExport]);
 
+  // Every file here is served from epicorg's own embedded web/ assets (see
+  // internal/server/web/reveal-assets/) and fetched as text, then embedded
+  // inline into the generated file — never linked — so the exported
+  // slideshow is a single, fully self-contained HTML document that never
+  // needs epicorg's server (or the network) again to be viewed. Only
+  // fetches what the current settings actually enable.
+  const fetchRevealAssets = useCallback(async (cfg) => {
+    const get = (path) => fetch(path).then((r) => r.text());
+    const jobs = {
+      revealCss: get("/reveal-assets/dist/reveal.css"),
+      revealJs: get("/reveal-assets/dist/reveal.js"),
+      themeCss: get(`/reveal-assets/dist/theme/${cfg.theme || "mattropolis"}.css`),
+      layoutCss: get("/reveal-assets/layout.css"),
+    };
+    if (cfg.notes) jobs.notesJs = get("/reveal-assets/plugin/notes/notes.js");
+    if (cfg.zoom) jobs.zoomJs = get("/reveal-assets/plugin/zoom/zoom.js");
+    if (cfg.highlight) {
+      jobs.highlightJs = get("/reveal-assets/plugin/highlight/highlight.js");
+      jobs.highlightCss = get("/reveal-assets/plugin/highlight/zenburn.css");
+    }
+    if (cfg.math) jobs.mathJs = get("/reveal-assets/plugin/math/math.js");
+    if (cfg.menu) {
+      jobs.menuJs = get("/reveal-assets/plugin/menu/menu.js");
+      jobs.menuCss = get("/reveal-assets/plugin/menu/menu.css");
+    }
+    const keys = Object.keys(jobs);
+    const values = await Promise.all(keys.map((k) => jobs[k]));
+    const assets = {};
+    keys.forEach((k, i) => { assets[k] = values[i]; });
+    return assets;
+  }, []);
+
+  const exportToReveal = useCallback(async () => {
+    if (!currentFile) return;
+    const resolved = await resolveTranscludedNodesForExport(nodes);
+    const assets = await fetchRevealAssets(revealSettings);
+    const html = generateRevealHtml(resolved, preamble, currentFile, assets, revealSettings);
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = currentFile.replace(/\.org$/, "") + "-slides.html";
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [nodes, preamble, currentFile, resolveTranscludedNodesForExport, fetchRevealAssets, revealSettings]);
+
+  // Reveal.js's PDF print layout only activates when "print-pdf" is in the
+  // URL *before* Reveal.initialize() runs (it's read once at startup, not
+  // reactively) — so unlike exportToPdf above, this can't write the page
+  // via document.write and flip a query param afterward. Instead it loads
+  // the generated file as a blob: URL with ?print-pdf already attached,
+  // which Reveal picks up on its very first read of location.search.
+  const exportToRevealPdf = useCallback(async () => {
+    if (!currentFile) return;
+    const win = window.open("", "_blank");
+    if (!win) { showToast("Pop-up blocked — allow pop-ups for epicorg to export to PDF"); return; }
+    win.document.write('<p style="font-family:sans-serif;padding:2rem;">Preparing export…</p>');
+    const resolved = await resolveTranscludedNodesForExport(nodes);
+    const assets = await fetchRevealAssets(revealSettings);
+    const html = generateRevealHtml(resolved, preamble, currentFile, assets, revealSettings);
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob) + "?print-pdf";
+    win.onafterprint = () => { win.close(); URL.revokeObjectURL(url); };
+    win.location.href = url;
+    // Reveal needs to finish initializing and lay out every slide (fonts,
+    // images) before print — poll for its "ready" state rather than
+    // guessing a fixed delay.
+    const waitAndPrint = () => {
+      if (win.closed) return;
+      if (win.Reveal && win.Reveal.isReady && win.Reveal.isReady()) {
+        win.focus();
+        setTimeout(() => win.print(), 500);
+      } else {
+        setTimeout(waitAndPrint, 200);
+      }
+    };
+    setTimeout(waitAndPrint, 500);
+  }, [nodes, preamble, currentFile, showToast, resolveTranscludedNodesForExport, fetchRevealAssets, revealSettings]);
+
   const importFromMarkdown = useCallback((file) => {
     if (!file) return;
     const reader = new FileReader();
@@ -7978,6 +8156,20 @@ function App() {
     }
     if (action === "nav-up" && idx > 0) { focusNode(flat[idx - 1].id); return; }
     if (action === "nav-down" && idx < flat.length - 1) { focusNode(flat[idx + 1].id); return; }
+    // Unlike nav-up/down (which just land at the end, ignoring column), left/
+    // right continue the reading direction: right lands at the very start of
+    // the next title, left at the very end of the previous one.
+    if (action === "nav-left" && idx > 0) {
+      const prev = flat[idx - 1];
+      pendingCursorPosRef.current = (prev.title || "").length;
+      focusNode(prev.id);
+      return;
+    }
+    if (action === "nav-right" && idx < flat.length - 1) {
+      pendingCursorPosRef.current = 0;
+      focusNode(flat[idx + 1].id);
+      return;
+    }
 
     if (nodeId === "preamble") {
       if (action === "change-preamble") { setPreamble(value); markDirty(); }
@@ -8379,6 +8571,54 @@ function App() {
     const pre = before.length > 0 && !before.endsWith("\n") ? "\n" : "";
     const post = after.length > 0 && !after.startsWith("\n") ? "\n" : "";
     const block = "#+begin_example\n" + inner + "\n#+end_example";
+    const newVal = before + pre + block + post + after;
+    const cursor = (before + pre + block).length;
+    dispatch(meta.nodeId, meta.field, newVal);
+    requestAnimationFrame(() => { if (document.body.contains(el)) el.setSelectionRange(cursor, cursor); });
+  }, [dispatch, showToast]);
+
+  // Command-palette form of "Wrap as Quote Block" — same mechanics as
+  // wrapAsCodeBlockAtFocus above, but with #+begin_quote/#+end_quote.
+  const wrapAsQuoteBlockAtFocus = useCallback(() => {
+    const isLive = document.activeElement?.tagName === "TEXTAREA";
+    const el = isLive ? document.activeElement : _lastOutlineTextarea;
+    if (!el || el.tagName !== "TEXTAREA") return;
+    const meta = isLive ? fieldMetaForTextarea(el) : _lastOutlineTextareaMeta;
+    if (!meta || meta.field !== "change-body") { showToast("Place the cursor in a note first"); return; }
+    const value = el.value;
+    const collapsed = el.selectionStart === el.selectionEnd;
+    const from = collapsed ? 0 : el.selectionStart;
+    const to = collapsed ? value.length : el.selectionEnd;
+    const before = value.slice(0, from);
+    const inner = value.slice(from, to);
+    const after = value.slice(to);
+    const pre = before.length > 0 && !before.endsWith("\n") ? "\n" : "";
+    const post = after.length > 0 && !after.startsWith("\n") ? "\n" : "";
+    const block = "#+begin_quote\n" + inner + "\n#+end_quote";
+    const newVal = before + pre + block + post + after;
+    const cursor = (before + pre + block).length;
+    dispatch(meta.nodeId, meta.field, newVal);
+    requestAnimationFrame(() => { if (document.body.contains(el)) el.setSelectionRange(cursor, cursor); });
+  }, [dispatch, showToast]);
+
+  // Command-palette form of "Wrap as Verse Block" — same mechanics as
+  // wrapAsQuoteBlockAtFocus above, but with #+begin_verse/#+end_verse.
+  const wrapAsVerseBlockAtFocus = useCallback(() => {
+    const isLive = document.activeElement?.tagName === "TEXTAREA";
+    const el = isLive ? document.activeElement : _lastOutlineTextarea;
+    if (!el || el.tagName !== "TEXTAREA") return;
+    const meta = isLive ? fieldMetaForTextarea(el) : _lastOutlineTextareaMeta;
+    if (!meta || meta.field !== "change-body") { showToast("Place the cursor in a note first"); return; }
+    const value = el.value;
+    const collapsed = el.selectionStart === el.selectionEnd;
+    const from = collapsed ? 0 : el.selectionStart;
+    const to = collapsed ? value.length : el.selectionEnd;
+    const before = value.slice(0, from);
+    const inner = value.slice(from, to);
+    const after = value.slice(to);
+    const pre = before.length > 0 && !before.endsWith("\n") ? "\n" : "";
+    const post = after.length > 0 && !after.startsWith("\n") ? "\n" : "";
+    const block = "#+begin_verse\n" + inner + "\n#+end_verse";
     const newVal = before + pre + block + post + after;
     const cursor = (before + pre + block).length;
     dispatch(meta.nodeId, meta.field, newVal);
@@ -8918,13 +9158,13 @@ function App() {
           setShowPicker, setShowTextSearch, setShowFolderPicker,
           setShowHelp, insertFootnote, insertDateStamp,
           joinFocusedWithNext,
-                exportToHtml, exportToPdf, exportToOrg, exportToMarkdown, currentFile,
+                exportToHtml, exportToPdf, exportToOrg, exportToMarkdown, exportToReveal, exportToRevealPdf, revealSettings, currentFile,
           copyAsFormatted, copyAsPlain,
           triggerImportFile, triggerImportFolder, triggerImportMarkdownReplaceCurrent,
           triggerDeleteCurrentFile,
           clearRecentFiles,
           setFindOpen, findInputRef,
-          cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus, convertNodeToNoteAtFocus, linkifySelectionFromClipboard, wrapAsCodeBlockAtFocus,
+          cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus, convertNodeToNoteAtFocus, linkifySelectionFromClipboard, wrapAsCodeBlockAtFocus, wrapAsQuoteBlockAtFocus, wrapAsVerseBlockAtFocus,
         })} onClose=${() => setShowHelp(false)} />`}
       ${showShortcutEditor && html`
         <${ShortcutEditor}
@@ -9351,6 +9591,8 @@ function App() {
           filterShowFullSubtree=${filterShowFullSubtree} onToggleFilterShowFullSubtree=${toggleFilterShowFullSubtree}
           onFoldToLevel=${foldToLevel}
           onExportToOrg=${exportToOrg} onExportToHtml=${exportToHtml} onExportToPdf=${exportToPdf} onExportToMarkdown=${exportToMarkdown} onImportFromMarkdown=${importFromMarkdown}
+          onExportToReveal=${exportToReveal} onExportToRevealPdf=${exportToRevealPdf}
+          revealSettings=${revealSettings} onSetRevealSettings=${setRevealSettings}
           onTriggerImportFile=${triggerImportFile} onTriggerImportFolder=${triggerImportFolder}
           onCopyFormatted=${copyAsFormatted} onCopyPlain=${copyAsPlain}
           tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${toggleTagPanel}
@@ -11111,6 +11353,8 @@ function SettingsModal({
   filterShowFullSubtree, onToggleFilterShowFullSubtree,
   onFoldToLevel,
   onExportToOrg, onExportToHtml, onExportToPdf, onExportToMarkdown, onImportFromMarkdown,
+  onExportToReveal, onExportToRevealPdf,
+  revealSettings, onSetRevealSettings,
   onTriggerImportFile, onTriggerImportFolder,
   onCopyFormatted, onCopyPlain,
   tagPanelVisible, onToggleTagPanel,
@@ -11503,6 +11747,73 @@ function SettingsModal({
                   title=${!currentFile ? "Open a file first" : "Download Markdown file"}>
             Export…
           </button>
+        </${StgRow}>
+        <${StgRow} label="Export to Reveal.js Slideshow" desc="Save a standalone HTML presentation, with slide transitions and step-through bullets">
+          <button className="stg-btn" disabled=${!currentFile}
+                  onClick=${() => { onExportToReveal?.(); onClose(); }}
+                  title=${!currentFile ? "Open a file first" : "Export current file as a Reveal.js slideshow"}>
+            Export…
+          </button>
+        </${StgRow}>
+        ${revealSettings?.pdfExport !== false && html`
+        <${StgRow} label="Export Slideshow to PDF" desc="Opens the slideshow in print layout and your browser's print dialog — choose 'Save as PDF'">
+          <button className="stg-btn" disabled=${!currentFile}
+                  onClick=${() => { onExportToRevealPdf?.(); onClose(); }}
+                  title=${!currentFile ? "Open a file first" : "Open print dialog for the slideshow"}>
+            Export…
+          </button>
+        </${StgRow}>
+        `}
+      </div>
+      <div className="stg-section">
+        <p className="stg-section-title">Slideshow Export Settings</p>
+        <${StgRow} label="Theme" desc="Visual theme applied to the exported Reveal.js slideshow">
+          <select className="stg-select" value=${revealSettings?.theme || "mattropolis"}
+                  onChange=${(e) => onSetRevealSettings?.({ theme: e.target.value })}>
+            ${REVEAL_THEMES.map((t) => html`<option value=${t}>${t}</option>`)}
+          </select>
+        </${StgRow}>
+        <${StgRow} label="Transition" desc="Animation played between slides — overridden per-file by a #+REVEAL_TRANSITION: keyword">
+          <select className="stg-select" value=${revealSettings?.transition || "fade"}
+                  onChange=${(e) => onSetRevealSettings?.({ transition: e.target.value })}>
+            ${REVEAL_TRANSITIONS.map((t) => html`<option value=${t}>${t}</option>`)}
+          </select>
+        </${StgRow}>
+        <${StgRow} label="Speaker Notes" desc="Press S in the exported slideshow to pop out a speaker-notes view">
+          <input type="checkbox" checked=${revealSettings?.notes !== false}
+                 onChange=${(e) => onSetRevealSettings?.({ notes: e.target.checked })} />
+        </${StgRow}>
+        <${StgRow} label="Slide Menu" desc="Left-side panel listing every slide, for quick jumping">
+          <input type="checkbox" checked=${revealSettings?.menu !== false}
+                 onChange=${(e) => onSetRevealSettings?.({ menu: e.target.checked })} />
+        </${StgRow}>
+        <${StgRow} label="Zoom" desc="Alt/Option-click any part of a slide to zoom in on it">
+          <input type="checkbox" checked=${revealSettings?.zoom !== false}
+                 onChange=${(e) => onSetRevealSettings?.({ zoom: e.target.checked })} />
+        </${StgRow}>
+        <${StgRow} label="Code Highlighting" desc="Syntax-highlight fenced code blocks">
+          <input type="checkbox" checked=${revealSettings?.highlight !== false}
+                 onChange=${(e) => onSetRevealSettings?.({ highlight: e.target.checked })} />
+        </${StgRow}>
+        <${StgRow} label="Math" desc="Render LaTeX-style math notation (via MathJax)">
+          <input type="checkbox" checked=${revealSettings?.math !== false}
+                 onChange=${(e) => onSetRevealSettings?.({ math: e.target.checked })} />
+        </${StgRow}>
+        <${StgRow} label="PDF Export" desc="Offer the separate 'Export Slideshow to PDF' command">
+          <input type="checkbox" checked=${revealSettings?.pdfExport !== false}
+                 onChange=${(e) => onSetRevealSettings?.({ pdfExport: e.target.checked })} />
+        </${StgRow}>
+        <${StgRow} label="Scroll View" desc="Present the whole deck as one continuously scrollable page, instead of one slide at a time">
+          <input type="checkbox" checked=${!!revealSettings?.scrollView}
+                 onChange=${(e) => onSetRevealSettings?.({ scrollView: e.target.checked })} />
+        </${StgRow}>
+        <${StgRow} label="Vertical Slides" desc="Let a heading's substantial children nest as vertical sub-slides beneath it, instead of flattening everything into one horizontal sequence">
+          <input type="checkbox" checked=${revealSettings?.verticalSlides !== false}
+                 onChange=${(e) => onSetRevealSettings?.({ verticalSlides: e.target.checked })} />
+        </${StgRow}>
+        <${StgRow} label="Overview Mode" desc="Let Esc / O show a zoomed-out grid of every slide">
+          <input type="checkbox" checked=${revealSettings?.overview !== false}
+                 onChange=${(e) => onSetRevealSettings?.({ overview: e.target.checked })} />
         </${StgRow}>
       </div>
       <div className="stg-section">
@@ -12148,13 +12459,13 @@ function buildCommands(ctx) {
     setShowPicker, setShowTextSearch, setShowFolderPicker, setShowHelp,
     insertFootnote, insertDateStamp,
     joinFocusedWithNext,
-    exportToHtml, exportToPdf, exportToOrg, exportToMarkdown, currentFile,
+    exportToHtml, exportToPdf, exportToOrg, exportToMarkdown, exportToReveal, exportToRevealPdf, revealSettings, currentFile,
     copyAsFormatted, copyAsPlain,
     triggerImportFile, triggerImportFolder, triggerImportMarkdownReplaceCurrent,
     triggerDeleteCurrentFile,
     clearRecentFiles,
     setFindOpen, findInputRef,
-    cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus, convertNodeToNoteAtFocus, linkifySelectionFromClipboard, wrapAsCodeBlockAtFocus,
+    cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus, convertNodeToNoteAtFocus, linkifySelectionFromClipboard, wrapAsCodeBlockAtFocus, wrapAsQuoteBlockAtFocus, wrapAsVerseBlockAtFocus,
   } = ctx;
 
   return [
@@ -12211,6 +12522,8 @@ function buildCommands(ctx) {
     { category: "Edit", label: "Convert Node To Note",    desc: "Fold the focused node into a note on the node immediately above it", keys: "", action: convertNodeToNoteAtFocus },
     { category: "Edit", label: "Link Selection From Clipboard", desc: "Wrap the selected text as a link to the URL currently on the clipboard", keys: displayCombo(getShortcutCombo("linkifySelection")), action: linkifySelectionFromClipboard },
     { category: "Edit", label: "Wrap as Code Block",      desc: "Wrap the selected note text (or the whole note) in #+begin_example so it renders verbatim — no auto-links, no markup", keys: "", action: wrapAsCodeBlockAtFocus },
+    { category: "Edit", label: "Wrap as Quote Block",     desc: "Wrap the selected note text (or the whole note) in #+begin_quote so it renders as a bordered, italicized blockquote", keys: "", action: wrapAsQuoteBlockAtFocus },
+    { category: "Edit", label: "Wrap as Verse Block",     desc: "Wrap the selected note text (or the whole note) in #+begin_verse so line breaks and indentation are preserved exactly, for poetry/lyrics", keys: "", action: wrapAsVerseBlockAtFocus },
     { category: "Edit", label: "Hoist / Unhoist",         desc: isHoisted ? "Unhoist — show full tree" : "Hoist focused item", keys: displayCombo(getShortcutCombo("hoist")), action: toggleHoist },
     // Search
     { category: "Search", label: "Full-text Search…",    desc: "Search across all org files",    keys: displayCombo(getShortcutCombo("textSearch")),      action: () => setShowTextSearch(true) },
@@ -12230,6 +12543,8 @@ function buildCommands(ctx) {
     { category: "Export", label: "Export to HTML",           desc: "Save standalone HTML file of this document",                                           keys: "", action: exportToHtml,       disabled: !currentFile },
     { category: "Export", label: "Export to PDF",            desc: "Opens a print-formatted tab and triggers your browser's print dialog — choose \"Save as PDF\"", keys: "", action: exportToPdf, disabled: !currentFile },
     { category: "Export", label: "Export to Markdown",       desc: "Save as GitHub-flavoured Markdown (.md) file",                                         keys: "", action: exportToMarkdown,   disabled: !currentFile },
+    { category: "Export", label: "Export to Reveal.js Slideshow", desc: "Save a standalone HTML presentation, with slide transitions and step-through bullets", keys: "", action: exportToReveal,    disabled: !currentFile },
+    { category: "Export", label: "Export Slideshow to PDF",  desc: "Opens the slideshow in print layout and triggers your browser's print dialog — choose \"Save as PDF\"", keys: "", action: exportToRevealPdf, disabled: !currentFile || revealSettings?.pdfExport === false },
     { category: "Export", label: "Copy as Formatted Text",   desc: "Copy visible outline to clipboard with bold/italic/links preserved (paste into Word, email, etc.)", keys: displayCombo(getShortcutCombo("copyFormatted")), action: copyAsFormatted, disabled: !currentFile },
     { category: "Export", label: "Copy as Plain Text",       desc: "Copy visible outline to clipboard as clean text — no *markup* characters",                        keys: displayCombo(getShortcutCombo("copyPlain")),     action: copyAsPlain,      disabled: !currentFile },
     // Help

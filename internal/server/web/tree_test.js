@@ -38,7 +38,7 @@ function report() {
       html += `<div style="color:red;margin:4px 0"><b>${f.name}</b>: ${f.error}</div>`;
     }
     if (_fail === 0) html += `<div style="color:green;margin-top:8px">All tests passed.</div>`;
-    el.innerHTML = html;
+    el.innerHTML += html;
   }
 }
 
