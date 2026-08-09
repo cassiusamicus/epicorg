@@ -795,6 +795,40 @@ function barePathToLink(_, path) {
   return `[[file:${path}][${filename}]]`;
 }
 
+// Matches #+begin_example/#+begin_src ... #+end_example/#+end_src marker
+// lines (case-insensitive, optional leading whitespace, SRC may carry a
+// language suffix like "#+begin_src bash"). Used to keep bare-path
+// linkification out of code/example blocks, whose contents are verbatim by
+// definition — a shell command's /etc/resolv.conf is not a cross-reference.
+const BLOCK_BOUNDARY_RE = /^[ \t]*#\+(begin|end)_(example|src)\b/gim;
+
+// Returns [start, end) character ranges (line-aligned) that fall inside a
+// #+begin_example/#+begin_src ... #+end_... block, so orgifyPaths can skip
+// bare-path conversion there. An unterminated block runs to the end of text.
+function codeBlockRanges(text) {
+  const ranges = [];
+  let blockStart = -1;
+  BLOCK_BOUNDARY_RE.lastIndex = 0;
+  let m;
+  while ((m = BLOCK_BOUNDARY_RE.exec(text))) {
+    const lineStart = text.lastIndexOf("\n", m.index - 1) + 1;
+    if (m[1].toLowerCase() === "begin") {
+      if (blockStart === -1) blockStart = lineStart;
+    } else if (blockStart !== -1) {
+      let lineEnd = text.indexOf("\n", m.index);
+      if (lineEnd === -1) lineEnd = text.length;
+      ranges.push([blockStart, lineEnd]);
+      blockStart = -1;
+    }
+  }
+  if (blockStart !== -1) ranges.push([blockStart, text.length]);
+  return ranges;
+}
+
+function insideRanges(ranges, pos) {
+  return ranges.some(([start, end]) => pos >= start && pos < end);
+}
+
 // Runs on every keystroke in a title/body field (see onChange in app.js),
 // re-scanning the whole field each time — so it must never touch text
 // already inside an existing [[...]] link. BARE_PATH_ORG_RE's lookbehind
@@ -805,16 +839,20 @@ function barePathToLink(_, path) {
 // [[file:...]] link inside the real one and corrupting it on every edit.
 export function orgifyPaths(text) {
   if (!text) return text;
+  const blockRanges = codeBlockRanges(text);
+  const convert = (segment, base) => segment.replace(BARE_PATH_ORG_RE, (match, path, offset) =>
+    insideRanges(blockRanges, base + offset) ? match : barePathToLink(match, path)
+  );
   let result = "";
   let lastIndex = 0;
   LINK_RE.lastIndex = 0;
   let m;
   while ((m = LINK_RE.exec(text))) {
-    result += text.slice(lastIndex, m.index).replace(BARE_PATH_ORG_RE, barePathToLink);
+    result += convert(text.slice(lastIndex, m.index), lastIndex);
     result += m[0];
     lastIndex = LINK_RE.lastIndex;
   }
-  result += text.slice(lastIndex).replace(BARE_PATH_ORG_RE, barePathToLink);
+  result += convert(text.slice(lastIndex), lastIndex);
   return result;
 }
 
@@ -834,6 +872,7 @@ export function orgifyPathsNearCursor(text, cursorPos) {
   const lineStart = text.lastIndexOf("\n", cursorPos - 1) + 1;
   let lineEnd = text.indexOf("\n", cursorPos);
   if (lineEnd === -1) lineEnd = text.length;
+  if (insideRanges(codeBlockRanges(text), lineStart)) return text;
   const line = text.slice(lineStart, lineEnd);
   const converted = orgifyPaths(line);
   if (converted === line) return text;

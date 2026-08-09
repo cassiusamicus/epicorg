@@ -1155,6 +1155,45 @@ test("orgifyPathsNearCursor: empty string returns empty string", () => {
   assertEqual(tree.orgifyPathsNearCursor("", 0), "");
 });
 
+test("orgifyPaths: leaves bare paths inside a #+begin_example block untouched", () => {
+  const text = "#+BEGIN_EXAMPLE\nsudo rm -f /etc/resolv.conf\nsudo ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf\n#+END_EXAMPLE";
+  assertEqual(tree.orgifyPaths(text), text);
+});
+
+test("orgifyPaths: leaves bare paths inside a #+begin_src block untouched, language suffix included", () => {
+  const text = "#+begin_src bash\ncat /etc/hosts.conf\n#+end_src";
+  assertEqual(tree.orgifyPaths(text), text);
+});
+
+test("orgifyPaths: still converts bare paths outside a block, even with a block elsewhere in the text", () => {
+  const text = "See /home/user/notes.txt\n#+BEGIN_EXAMPLE\ncat /etc/hosts.conf\n#+END_EXAMPLE\nAlso /home/user/readme.md";
+  assertEqual(
+    tree.orgifyPaths(text),
+    "See [[file:/home/user/notes.txt][notes.txt]]\n#+BEGIN_EXAMPLE\ncat /etc/hosts.conf\n#+END_EXAMPLE\nAlso [[file:/home/user/readme.md][readme.md]]"
+  );
+});
+
+test("orgifyPaths: an unterminated block protects everything after it", () => {
+  const text = "#+begin_example\ncat /etc/hosts.conf";
+  assertEqual(tree.orgifyPaths(text), text);
+});
+
+test("orgifyPathsNearCursor: typing on a line inside an existing #+begin_example block does not linkify it", () => {
+  // Regression: typing directly into an already-open example block (as
+  // opposed to pasting the whole block in at once) used to still run
+  // orgifyPathsNearCursor line-by-line and linkify bare paths there.
+  const text = "#+BEGIN_EXAMPLE\nsudo rm -f /etc/resolv.conf\n#+END_EXAMPLE";
+  const cursorOnMiddleLine = text.indexOf("/etc/resolv.conf") + "/etc/resolv.conf".length;
+  const result = tree.orgifyPathsNearCursor(text, cursorOnMiddleLine);
+  assertEqual(result, text);
+});
+
+test("orgifyPathsNearCursor: still linkifies a line outside any block", () => {
+  const text = "#+BEGIN_EXAMPLE\ncat /etc/hosts.conf\n#+END_EXAMPLE\nSee /home/user/notes.txt";
+  const result = tree.orgifyPathsNearCursor(text, text.length);
+  assertEqual(result, "#+BEGIN_EXAMPLE\ncat /etc/hosts.conf\n#+END_EXAMPLE\nSee [[file:/home/user/notes.txt][notes.txt]]");
+});
+
 // --- splitBodyAtCursor ---
 test("splitBodyAtCursor: splits body into a new sibling directly after", () => {
   const t = [{ ...node("a", "Task"), body: "First half. Second half." }];
