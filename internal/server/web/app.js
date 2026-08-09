@@ -1073,6 +1073,30 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
               if (matchShortcut("moveDownOnly", e)) { e.preventDefault(); dispatch(node.id, "move-down-only"); return; }
               if (matchShortcut("indentOnly", e))   { e.preventDefault(); dispatch(node.id, "indent-only"); return; }
               if (matchShortcut("outdentOnly", e))  { e.preventDefault(); dispatch(node.id, "outdent-only"); return; }
+              // Same boundary-check technique as the title field (see there
+              // for why): let the browser try to move the cursor first, and
+              // only navigate away if it didn't, so normal multi-line
+              // movement within the note is completely unaffected. A note
+              // reads as coming right after its own node's title, so from
+              // the note's start, left continues backward into that same
+              // title's end (not the previous node's) — nav-left/right on
+              // the title itself already picks up the chain from there.
+              if (e.key === "ArrowRight" && !e.altKey) {
+                const ta = e.target;
+                const posBefore = ta.selectionStart;
+                requestAnimationFrame(() => {
+                  if (ta.selectionStart === posBefore) dispatch(node.id, "nav-right");
+                });
+                return;
+              }
+              if (e.key === "ArrowLeft" && !e.altKey) {
+                const ta = e.target;
+                const posBefore = ta.selectionStart;
+                requestAnimationFrame(() => {
+                  if (ta.selectionStart === posBefore) dispatch(node.id, "edit-title", (node.title || "").length);
+                });
+                return;
+              }
               if (e.key === "Escape") { e.preventDefault(); dispatch(node.id, "focus-outline"); }
             }}
           />
@@ -1334,13 +1358,21 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                 // ever fires there — continuing to hold the key then keeps
                 // stepping into each next node in turn, since every repeated
                 // keydown re-runs the same check against whichever node now
-                // has focus.
+                // has focus. Right reads as one continuous document: if this
+                // node's own note is exposed (visible and non-empty), step
+                // into its start rather than jumping straight past it to the
+                // next node's title — nav-left/right otherwise. (Left's
+                // mirror-image case — the *previous* node's exposed note —
+                // can't be decided here, since this component has no access
+                // to sibling nodes; that's handled inside nav-left itself.)
                 if (isEditing && (e.key === "ArrowLeft" || e.key === "ArrowRight") && !e.altKey) {
                   const ta = e.target;
                   const posBefore = ta.selectionStart;
-                  const dir = e.key === "ArrowLeft" ? "nav-left" : "nav-right";
+                  const enterOwnNote = e.key === "ArrowRight" && notesVisible && !!node.body;
                   requestAnimationFrame(() => {
-                    if (ta.selectionStart === posBefore) dispatch(node.id, dir);
+                    if (ta.selectionStart !== posBefore) return;
+                    if (enterOwnNote) dispatch(node.id, "edit-body", 0);
+                    else dispatch(node.id, e.key === "ArrowLeft" ? "nav-left" : "nav-right");
                   });
                   return;
                 }
@@ -1361,7 +1393,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                   showToast?.("Detach this transclusion first to split it");
                   return;
                 }
-                handleKey(e, node.id, contentTargetId, dispatch, linkifySelectionFromClipboard);
+                handleKey(e, node.id, contentTargetId, dispatch, linkifySelectionFromClipboard, notesVisible && !!node.body);
               }}
               onChange=${(e) => { setIsEditing(true); dispatch(contentTargetId, "change", pastedRawValue(e)); triggerLinkPicker(e.target, e); }}
             />
@@ -3725,7 +3757,7 @@ function wrapSelectionWithMarker(e, marker, onChange) {
 // too, so pressing Enter on a transcluded copy inserted the new sibling
 // next to the source somewhere else in the file instead of where you were
 // looking — see the "Insert new sibling..." fix.
-function handleKey(e, wrapperId, contentId, dispatch, linkifySelectionFromClipboard) {
+function handleKey(e, wrapperId, contentId, dispatch, linkifySelectionFromClipboard, hasExposedNote) {
   const marker = formatMarkerForKey(e);
   if (marker) { e.preventDefault(); wrapSelectionWithMarker(e, marker, (v) => dispatch(contentId, "change", v)); return; }
   if (matchShortcut("linkifySelection", e)) { e.preventDefault(); linkifySelectionFromClipboard?.(); return; }
@@ -3748,7 +3780,7 @@ function handleKey(e, wrapperId, contentId, dispatch, linkifySelectionFromClipbo
   // so Alt+Left/Right still reaches the document-level Go Back/Forward
   // listener instead of being swallowed here.
   if (key === "ArrowLeft"  && !e.altKey) { e.preventDefault(); dispatch(wrapperId, "nav-left"); return; }
-  if (key === "ArrowRight" && !e.altKey) { e.preventDefault(); dispatch(wrapperId, "nav-right"); return; }
+  if (key === "ArrowRight" && !e.altKey) { e.preventDefault(); dispatch(wrapperId, hasExposedNote ? "edit-body" : "nav-right", hasExposedNote ? 0 : undefined); return; }
   if (key === "Enter" && e.shiftKey) { e.preventDefault(); dispatch(wrapperId, "focus-body"); return; }
   if (key === "Enter") {
     e.preventDefault();
@@ -5595,6 +5627,10 @@ function App() {
   const [notesVisible, setNotesVisible] = useState(() => {
     try { return localStorage.getItem("epicorg.notesVisible") !== "0"; } catch { return true; }
   });
+  // Read inside dispatch (a stable useCallback not in notesVisible's deps),
+  // for the nav-left "step into the previous node's exposed note" check.
+  const notesVisibleRef = useRef(notesVisible);
+  useEffect(() => { notesVisibleRef.current = notesVisible; }, [notesVisible]);
   const toggleNotesVisible = useCallback(() => {
     setNotesVisible((p) => {
       const next = !p;
@@ -8161,6 +8197,23 @@ function App() {
     // the next title, left at the very end of the previous one.
     if (action === "nav-left" && idx > 0) {
       const prev = flat[idx - 1];
+      // Continuous-document reading order: if the previous node's own note
+      // is exposed, land at its end rather than skipping straight to that
+      // node's title (only nav-left needs this check — nav-right's mirror
+      // case is decided by the title itself, which already knows its own
+      // note's state; this one needs a sibling's, only available here).
+      if (notesVisibleRef.current && prev.body) {
+        setBodyPreviewId(null);
+        setBodyEditingId(prev.id);
+        pendingFocusRef.current = null;
+        requestAnimationFrame(() => {
+          const el = bodyRefs.current[prev.id];
+          if (!el) return;
+          el.focus();
+          el.selectionStart = el.selectionEnd = prev.body.length;
+        });
+        return;
+      }
       pendingCursorPosRef.current = (prev.title || "").length;
       focusNode(prev.id);
       return;
