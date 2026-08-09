@@ -198,6 +198,13 @@ test("generateRevealHtml: #+begin_quote/#+end_quote becomes a real <blockquote>"
   assert(!html.includes("#+begin_quote") && !html.includes("#+end_quote"), "quote marker lines should not leak into the output");
 });
 
+test("generateRevealHtml: blockquote gets a left-border-bar override instead of the theme's default centered/shaded box", () => {
+  const html = generateRevealHtml([makeNode({ title: "X" })], "", "test.org", makeAssets(), {});
+  assert(html.includes("blockquote.org-quote{"), "expected a blockquote.org-quote CSS override rule");
+  assert(html.includes("border-left:4px solid var(--r-link-color"), "expected a left-border bar using the theme's link-color accent");
+  assert(html.includes("box-shadow:none"), "expected the theme's default box-shadow to be cleared");
+});
+
 test("generateRevealHtml: #+begin_verse/#+end_verse preserves line breaks (reveal.js has no native concept of this, so it's carried as an inline style)", () => {
   const node = makeNode({ title: "X", body: "Before.\n#+begin_verse\nLine one of the poem\nLine two of the poem\n#+end_verse\nAfter." });
   const html = generateRevealHtml([node], "", "test.org", makeAssets(), {});
