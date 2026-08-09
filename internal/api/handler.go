@@ -207,8 +207,9 @@ func (h *handlers) renameFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// Update [[file:oldName...]] links across all org files in the workspace.
-	filesChanged, replacements, _ := orgfile.RenameFileLinks(h.store.Dir(), name, newName)
+	// Update [[file:oldName...]] links across all org files in the workspace,
+	// including the separate journal directory.
+	filesChanged, replacements, _ := orgfile.RenameFileLinks(h.store.Dir(), h.store.GetJournalDir(), name, newName)
 	writeJSON(w, map[string]any{
 		"filename":     newName,
 		"filesChanged": filesChanged,
