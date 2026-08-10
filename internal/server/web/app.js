@@ -950,6 +950,15 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
           <div className="node-body-preview"
                data-node-id=${node.id}
                onClick=${(e) => {
+                 // A click-drag to select text fires this same click on
+                 // mouseup — without this guard, the selection was destroyed
+                 // on the spot (collapsed into an edit-mode cursor at the
+                 // release point) before the user could ever right-click
+                 // Copy on it. Leave an active selection alone here; the
+                 // onContextMenu handler below already has its own path for
+                 // copying it.
+                 const selection = window.getSelection();
+                 if (selection && selection.toString() && e.currentTarget.contains(selection.anchorNode)) return;
                  const wikiEl = e.target.closest(".wiki-link");
                  if (wikiEl) {
                    e.preventDefault();
