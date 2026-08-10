@@ -272,4 +272,115 @@ test("generateRevealHtml: theme is read from assets.themeCss regardless of which
   assert(html.includes(".dracula-marker{}"), "expected the caller-provided theme CSS to be embedded");
 });
 
+test("generateRevealHtml: theme:'none' omits the theme CSS entirely, even if the caller supplied one", () => {
+  const html = generateRevealHtml([makeNode({ title: "X" })], "", "test.org", makeAssets({ themeCss: ".dracula-marker{}" }), { theme: "none" });
+  assert(!html.includes(".dracula-marker{}"), "theme CSS should not appear when theme is 'none'");
+});
+
+test("generateRevealHtml: theme:'epicorg' also omits the theme CSS (colors come entirely from themeColors)", () => {
+  const html = generateRevealHtml([makeNode({ title: "X" })], "", "test.org", makeAssets({ themeCss: ".dracula-marker{}" }), { theme: "epicorg" });
+  assert(!html.includes(".dracula-marker{}"), "theme CSS should not appear when theme is 'epicorg'");
+});
+
+test("generateRevealHtml: themeColors overrides only the specified CSS custom properties, and includes the rules that actually consume them", () => {
+  // Bundled theme files are the only thing that normally *reads* these
+  // variables (reveal.css core never references them) — with no theme
+  // file loaded (theme:'none'/'epicorg'), an override that set only the
+  // custom property and not a consuming rule would silently do nothing.
+  const html = generateRevealHtml([makeNode({ title: "X" })], "", "test.org", makeAssets(), {
+    theme: "none",
+    themeColors: { background: "#123456", link: "#abcdef" },
+  });
+  assert(html.includes("--r-background-color:#123456"), "expected background override");
+  assert(html.includes("--r-link-color:#abcdef"), "expected link override");
+  assert(!html.includes("--r-main-color:"), "main color was never overridden, so its property should not appear");
+  assert(html.includes(".reveal-viewport{background-color:var(--r-background-color)}"), "expected the background-consuming rule");
+  assert(html.includes(".reveal a{color:var(--r-link-color)}"), "expected the link-consuming rule");
+});
+
+test("generateRevealHtml: themeColors.font sets font-family directly (reveal.css core has no --r-main-font consumer to override)", () => {
+  const html = generateRevealHtml([makeNode({ title: "X" })], "", "test.org", makeAssets(), {
+    theme: "epicorg",
+    themeColors: { font: '"Inter", sans-serif' },
+  });
+  assert(html.includes('.reveal{font-family:"Inter", sans-serif}'), "expected the font to be set directly on .reveal");
+  assert(html.includes('.reveal h1,.reveal h2,.reveal h3,.reveal h4,.reveal h5,.reveal h6{font-family:"Inter", sans-serif}'), "expected the font to also apply to headings");
+});
+
+test("generateRevealHtml: themeColors:null (default) adds no color-override block", () => {
+  const html = generateRevealHtml([makeNode({ title: "X" })], "", "test.org", makeAssets(), {});
+  assert(!/:root\{--r-/.test(html), "no themeColors set, so no :root override block should be emitted");
+});
+
+test("generateRevealHtml: sizer maps to Reveal's margin config (100=no margin, 0=max margin)", () => {
+  const htmlFull = generateRevealHtml([makeNode({ title: "X" })], "", "test.org", makeAssets(), { sizer: 100 });
+  assert(htmlFull.includes('"margin":0'), "sizer 100 should produce margin 0");
+  const htmlMin = generateRevealHtml([makeNode({ title: "X" })], "", "test.org", makeAssets(), { sizer: 0 });
+  assert(htmlMin.includes('"margin":0.4'), "sizer 0 should produce margin 0.4");
+  const htmlDefault = generateRevealHtml([makeNode({ title: "X" })], "", "test.org", makeAssets(), {});
+  assert(htmlDefault.includes('"margin":0.04'), "default sizer (90) should reproduce reveal.js's own default margin (0.04)");
+});
+
+test("generateRevealHtml: breadcrumbs off adds no data-breadcrumb attributes or breadcrumb bar", () => {
+  const nodes = [makeNode({ title: "Parent", children: [makeNode({ title: "Child", body: "x".repeat(150) })] })];
+  const html = generateRevealHtml(nodes, "", "test.org", makeAssets(), { breadcrumbs: false });
+  assert(!html.includes("data-breadcrumb"), "no data-breadcrumb attributes expected when breadcrumbs is off");
+  assert(!html.includes("epic-breadcrumb-bar"), "no breadcrumb bar expected when breadcrumbs is off");
+});
+
+test("generateRevealHtml: breadcrumbs on adds a data-breadcrumb trail per slide, including nested vertical slides", () => {
+  // A body over 140 chars keeps the child from collapsing into a fragment
+  // bullet (see isLeafBullet), so it renders as its own nested <section>.
+  const child = makeNode({ title: "Child", body: "x".repeat(150) });
+  const nodes = [makeNode({ title: "Parent", children: [child] })];
+  const html = generateRevealHtml(nodes, "", "test.org", makeAssets(), { breadcrumbs: true });
+  assert(html.includes('data-breadcrumb="Parent"'), "top-level slide should have its own title as breadcrumb");
+  assert(html.includes('data-breadcrumb="Parent › Child"'), "nested slide should have the full ancestor chain as breadcrumb");
+  assert(html.includes('id="epic-breadcrumb-bar"'), "breadcrumb bar element should be present");
+  assert(html.includes("Reveal.on(\"slidechanged\""), "breadcrumb sync script should be wired to slidechanged");
+});
+
+test("generateRevealHtml: breadcrumbPosition switches between top and left layout CSS", () => {
+  const html = generateRevealHtml([makeNode({ title: "X" })], "", "test.org", makeAssets(), { breadcrumbs: true, breadcrumbPosition: "left" });
+  assert(html.includes("bottom:0;width:200px"), "left position should use the vertical-sidebar CSS");
+  const htmlTop = generateRevealHtml([makeNode({ title: "X" })], "", "test.org", makeAssets(), { breadcrumbs: true, breadcrumbPosition: "top" });
+  assert(htmlTop.includes("height:36px"), "top position should use the horizontal-bar CSS");
+});
+
+test("generateRevealHtml: fontZoom on (default) adds the −/+ buttons and click handlers", () => {
+  const html = generateRevealHtml([makeNode({ title: "X" })], "", "test.org", makeAssets(), {});
+  assert(html.includes('id="epic-font-minus"'), "expected the shrink button");
+  assert(html.includes('id="epic-font-plus"'), "expected the grow button");
+  assert(html.includes('el.style.fontSize'), "expected the click handlers to set .reveal's font-size directly");
+});
+
+test("generateRevealHtml: fontZoom:false omits the control entirely", () => {
+  const html = generateRevealHtml([makeNode({ title: "X" })], "", "test.org", makeAssets(), { fontZoom: false });
+  assert(!html.includes("epic-fontzoom"), "no fontZoom control expected when fontZoom is off");
+});
+
+test("generateRevealHtml: fontZoom control is nudged below a top breadcrumb bar, not overlapping it", () => {
+  const htmlWithTopCrumbs = generateRevealHtml([makeNode({ title: "X" })], "", "test.org", makeAssets(), { fontZoom: true, breadcrumbs: true, breadcrumbPosition: "top" });
+  assert(htmlWithTopCrumbs.includes(".epic-fontzoom{position:fixed;top:44px"), "expected the control to sit below a top breadcrumb bar");
+  const htmlNoCrumbs = generateRevealHtml([makeNode({ title: "X" })], "", "test.org", makeAssets(), { fontZoom: true, breadcrumbs: false });
+  assert(htmlNoCrumbs.includes(".epic-fontzoom{position:fixed;top:8px"), "expected the control back at its default position with no breadcrumb bar");
+});
+
+test("generateRevealHtml: nav arrows are always forced to the theme's link/accent color, not left to reveal.js's own light/dark auto-detection", () => {
+  // reveal.js only adds has-dark-background/has-light-background when it
+  // can read a per-slide background color — which falls back to a
+  // transparent default with no per-slide background set (the common
+  // case), silently never firing either way and leaving reveal.css
+  // core's hardcoded color:#000 in effect regardless of theme. This must
+  // not depend on cfg.theme/themeColors — it's a fix for every export.
+  const html = generateRevealHtml([makeNode({ title: "X" })], "", "test.org", makeAssets(), {});
+  assert(html.includes(".reveal .controls{color:var(--r-link-color,#2a76dd) !important}"), "expected the controls color to be forced to the accent color");
+});
+
+test("generateRevealHtml: fontZoom buttons and the menu button use the same accent (link) color as the nav arrows", () => {
+  const html = generateRevealHtml([makeNode({ title: "X" })], "", "test.org", makeAssets(), { fontZoom: true, menu: true });
+  assert(html.includes(".epic-fontzoom button{") && /\.epic-fontzoom button\{[^}]*color:var\(--r-link-color/.test(html), "expected the zoom buttons to use --r-link-color");
+  assert(/fa-bars::before\{[^}]*color:var\(--r-link-color/.test(html), "expected the hamburger icon to use --r-link-color");
+});
+
 report();

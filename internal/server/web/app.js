@@ -2,7 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMe
 import { createRoot } from "react-dom/client";
 import htm from "htm";
 import * as tree from "./tree.js";
-import { generateExportHtml, generateMarkdown, parseMdToNodes, generateRevealHtml, REVEAL_THEMES, REVEAL_TRANSITIONS } from "./export.js";
+import { generateExportHtml, generateMarkdown, parseMdToNodes, generateRevealHtml, REVEAL_THEMES, REVEAL_THEME_INFO, REVEAL_TRANSITIONS, REVEAL_SETTINGS_DEFAULTS } from "./export.js";
 
 const html = htm.bind(React.createElement);
 
@@ -5434,6 +5434,23 @@ function SearchPanel({ nodes, currentFile, homeDir,
   `;
 }
 
+// epicorg's own light/dark colors (see :root / [data-theme="dark"] in
+// style.css) — used by the "Match Epicorg" reveal.js export theme so the
+// slideshow looks like the outliner itself, in whichever mode was active
+// when it was exported. Hardcoded rather than read via getComputedStyle so
+// it's not dependent on DOM timing; keep in sync with style.css if those
+// colors ever change.
+function epicorgThemeColors(currentTheme) {
+  const dark = currentTheme === "dark";
+  return {
+    background: dark ? "#1c1c1e" : "#ffffff",
+    main: dark ? "#e6e6e6" : "#222222",
+    heading: dark ? "#e6e6e6" : "#222222",
+    link: dark ? "#5b9bf7" : "#1a73e8",
+    font: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  };
+}
+
 function App() {
   const [files, setFiles] = useState(null);
   const [favorites, setFavorites] = useState([]);
@@ -5460,19 +5477,6 @@ function App() {
       return next;
     });
   }, []);
-  const REVEAL_SETTINGS_DEFAULTS = {
-    theme: "mattropolis",
-    transition: "fade",
-    notes: true,
-    menu: true,
-    zoom: true,
-    highlight: true,
-    math: true,
-    pdfExport: true,
-    scrollView: false,
-    verticalSlides: true,
-    overview: true,
-  };
   const [revealSettings, setRevealSettingsState] = useState(() => {
     try {
       const stored = JSON.parse(localStorage.getItem("epicorg.revealExportSettings") || "null");
@@ -5484,6 +5488,35 @@ function App() {
       const next = { ...prev, ...updates };
       try { localStorage.setItem("epicorg.revealExportSettings", JSON.stringify(next)); } catch {}
       return next;
+    });
+  }, []);
+  // A named preset bundling exactly the theme-designer knobs (base theme,
+  // color overrides, sizer, breadcrumbs) — everything else in
+  // revealSettings (plugins, transition, etc.) is left alone when applying
+  // one, since those aren't part of "the theme."
+  const [customRevealThemes, setCustomRevealThemes] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("epicorg.customRevealThemes") || "[]"); } catch { return []; }
+  });
+  const saveCustomRevealTheme = useCallback((name) => {
+    setRevealSettingsState((current) => {
+      setCustomRevealThemes((prev) => {
+        const entry = {
+          id: Date.now(), name,
+          theme: current.theme, themeColors: current.themeColors,
+          sizer: current.sizer, breadcrumbs: current.breadcrumbs, breadcrumbPosition: current.breadcrumbPosition,
+        };
+        const updated = [...prev.filter((t) => t.name !== name), entry];
+        try { localStorage.setItem("epicorg.customRevealThemes", JSON.stringify(updated)); } catch {}
+        return updated;
+      });
+      return current;
+    });
+  }, []);
+  const deleteCustomRevealTheme = useCallback((id) => {
+    setCustomRevealThemes((prev) => {
+      const updated = prev.filter((t) => t.id !== id);
+      try { localStorage.setItem("epicorg.customRevealThemes", JSON.stringify(updated)); } catch {}
+      return updated;
     });
   }, []);
   const [navPanelVisible, setNavPanelVisible] = useState(() => {
@@ -7319,9 +7352,15 @@ function App() {
     const jobs = {
       revealCss: get("/reveal-assets/dist/reveal.css"),
       revealJs: get("/reveal-assets/dist/reveal.js"),
-      themeCss: get(`/reveal-assets/dist/theme/${cfg.theme || "mattropolis"}.css`),
       layoutCss: get("/reveal-assets/layout.css"),
     };
+    // Neither "none" nor "epicorg" (colors/font layered onto the same bare
+    // base via themeColors — see computeEpicorgThemeColors) has a theme
+    // file on disk — generateRevealHtml already treats a missing themeCss
+    // as "use reveal.css core's own plain fallback."
+    if (cfg.theme && cfg.theme !== "none" && cfg.theme !== "epicorg") {
+      jobs.themeCss = get(`/reveal-assets/dist/theme/${cfg.theme}.css`);
+    }
     if (cfg.notes) jobs.notesJs = get("/reveal-assets/plugin/notes/notes.js");
     if (cfg.zoom) jobs.zoomJs = get("/reveal-assets/plugin/zoom/zoom.js");
     if (cfg.highlight) {
@@ -7340,11 +7379,23 @@ function App() {
     return assets;
   }, []);
 
+  // "Match Epicorg" always tracks whichever mode (light/dark) is live right
+  // now, rather than whatever it happened to be when the theme was picked
+  // — recomputed fresh on every export, not stored. Any color the theme
+  // designer explicitly overrides still wins (same as for any other base
+  // theme), so tweaking one color while "Match Epicorg" is selected doesn't
+  // stop the rest from tracking live.
+  const resolveRevealSettings = useCallback((cfg) => {
+    if (cfg.theme !== "epicorg") return cfg;
+    return { ...cfg, themeColors: { ...epicorgThemeColors(theme), ...(cfg.themeColors || {}) } };
+  }, [theme]);
+
   const exportToReveal = useCallback(async () => {
     if (!currentFile) return;
     const resolved = await resolveTranscludedNodesForExport(nodes);
-    const assets = await fetchRevealAssets(revealSettings);
-    const html = generateRevealHtml(resolved, preamble, currentFile, assets, revealSettings);
+    const effective = resolveRevealSettings(revealSettings);
+    const assets = await fetchRevealAssets(effective);
+    const html = generateRevealHtml(resolved, preamble, currentFile, assets, effective);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -7352,7 +7403,7 @@ function App() {
     a.download = currentFile.replace(/\.org$/, "") + "-slides.html";
     a.click();
     URL.revokeObjectURL(url);
-  }, [nodes, preamble, currentFile, resolveTranscludedNodesForExport, fetchRevealAssets, revealSettings]);
+  }, [nodes, preamble, currentFile, resolveTranscludedNodesForExport, fetchRevealAssets, revealSettings, resolveRevealSettings]);
 
   // Reveal.js's PDF print layout only activates when "print-pdf" is in the
   // URL *before* Reveal.initialize() runs (it's read once at startup, not
@@ -7366,8 +7417,9 @@ function App() {
     if (!win) { showToast("Pop-up blocked — allow pop-ups for epicorg to export to PDF"); return; }
     win.document.write('<p style="font-family:sans-serif;padding:2rem;">Preparing export…</p>');
     const resolved = await resolveTranscludedNodesForExport(nodes);
-    const assets = await fetchRevealAssets(revealSettings);
-    const html = generateRevealHtml(resolved, preamble, currentFile, assets, revealSettings);
+    const effective = resolveRevealSettings(revealSettings);
+    const assets = await fetchRevealAssets(effective);
+    const html = generateRevealHtml(resolved, preamble, currentFile, assets, effective);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob) + "?print-pdf";
     win.onafterprint = () => { win.close(); URL.revokeObjectURL(url); };
@@ -7385,7 +7437,7 @@ function App() {
       }
     };
     setTimeout(waitAndPrint, 500);
-  }, [nodes, preamble, currentFile, showToast, resolveTranscludedNodesForExport, fetchRevealAssets, revealSettings]);
+  }, [nodes, preamble, currentFile, showToast, resolveTranscludedNodesForExport, fetchRevealAssets, revealSettings, resolveRevealSettings]);
 
   const importFromMarkdown = useCallback((file) => {
     if (!file) return;
@@ -9655,6 +9707,8 @@ function App() {
           onExportToOrg=${exportToOrg} onExportToHtml=${exportToHtml} onExportToPdf=${exportToPdf} onExportToMarkdown=${exportToMarkdown} onImportFromMarkdown=${importFromMarkdown}
           onExportToReveal=${exportToReveal} onExportToRevealPdf=${exportToRevealPdf}
           revealSettings=${revealSettings} onSetRevealSettings=${setRevealSettings}
+          customRevealThemes=${customRevealThemes} onSaveCustomRevealTheme=${saveCustomRevealTheme}
+          onDeleteCustomRevealTheme=${deleteCustomRevealTheme}
           onTriggerImportFile=${triggerImportFile} onTriggerImportFolder=${triggerImportFolder}
           onCopyFormatted=${copyAsFormatted} onCopyPlain=${copyAsPlain}
           tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${toggleTagPanel}
@@ -11384,6 +11438,78 @@ function ColorPickerRow({ color, onChange, disabled }) {
   `;
 }
 
+// Effective swatch colors for a theme selection: a built-in theme's own
+// REVEAL_THEME_INFO entry (or, for "epicorg", the *live* colors for
+// whichever mode is active right now — not the static light-mode fallback
+// entry, so the preview always matches what an actual export would
+// produce), with any themeColors overrides (from the designer, or baked
+// into a saved custom theme) layered on top — the same precedence
+// generateRevealHtml applies when actually rendering the export.
+function revealSwatchColors(themeId, overrides, liveEpicorgColors) {
+  const base = themeId === "epicorg" && liveEpicorgColors ? liveEpicorgColors : (REVEAL_THEME_INFO[themeId] || REVEAL_THEME_INFO.none);
+  return { ...base, ...(overrides || {}) };
+}
+
+function RevealThemeSwatch({ colors, label, active, onClick, onDelete }) {
+  return html`
+    <button type="button" className=${"reveal-theme-swatch" + (active ? " active" : "")} onClick=${onClick} title=${label}>
+      <span className="reveal-theme-swatch-preview" style=${{ background: colors.background }}>
+        <span className="reveal-theme-swatch-heading" style=${{ color: colors.heading }}>Aa</span>
+        <span className="reveal-theme-swatch-body" style=${{ color: colors.main }}>Slide text</span>
+        <span className="reveal-theme-swatch-bar" style=${{ background: colors.link }} />
+      </span>
+      <span className="reveal-theme-swatch-label">${label}</span>
+      ${onDelete && html`
+        <span className="reveal-theme-swatch-delete" title="Delete this saved theme"
+              onClick=${(e) => { e.stopPropagation(); onDelete(); }}>×</span>
+      `}
+    </button>
+  `;
+}
+
+function RevealThemePicker({ x, y, revealSettings, customThemes, liveEpicorgColors, onSelectBuiltin, onSelectCustom, onDeleteCustom, onClose }) {
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const down = (e) => { if (!menuRef.current?.contains(e.target)) onClose(); };
+    const key  = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("mousedown", down);
+    document.addEventListener("keydown", key, true);
+    return () => { document.removeEventListener("mousedown", down); document.removeEventListener("keydown", key, true); };
+  }, [onClose]);
+
+  const pos = useFixedMenuPosition(menuRef, x, y);
+  const style = { position: "fixed", left: pos.left, top: pos.top, zIndex: 9999 };
+
+  const customBundleKeys = ["theme", "themeColors", "sizer", "breadcrumbs", "breadcrumbPosition"];
+  const isCustomActive = (t) => customBundleKeys.every((k) => JSON.stringify(t[k] ?? null) === JSON.stringify(revealSettings?.[k] ?? null));
+
+  return html`
+    <div ref=${menuRef} className="reveal-theme-picker" style=${style}>
+      <div className="reveal-theme-picker-grid">
+        ${REVEAL_THEMES.map((id) => html`
+          <${RevealThemeSwatch} key=${id}
+            colors=${id === "epicorg" && liveEpicorgColors ? liveEpicorgColors : REVEAL_THEME_INFO[id]} label=${REVEAL_THEME_INFO[id].label}
+            active=${revealSettings?.theme === id}
+            onClick=${() => onSelectBuiltin(id)} />
+        `)}
+      </div>
+      ${customThemes.length > 0 && html`
+        <div className="reveal-theme-picker-sep">Your Saved Themes</div>
+        <div className="reveal-theme-picker-grid">
+          ${customThemes.map((t) => html`
+            <${RevealThemeSwatch} key=${t.id}
+              colors=${revealSwatchColors(t.theme, t.themeColors, liveEpicorgColors)} label=${t.name}
+              active=${isCustomActive(t)}
+              onClick=${() => onSelectCustom(t)}
+              onDelete=${() => onDeleteCustom(t.id)} />
+          `)}
+        </div>
+      `}
+    </div>
+  `;
+}
+
 function SettingsModal({
   onClose,
   initialSection,
@@ -11417,6 +11543,7 @@ function SettingsModal({
   onExportToOrg, onExportToHtml, onExportToPdf, onExportToMarkdown, onImportFromMarkdown,
   onExportToReveal, onExportToRevealPdf,
   revealSettings, onSetRevealSettings,
+  customRevealThemes, onSaveCustomRevealTheme, onDeleteCustomRevealTheme,
   onTriggerImportFile, onTriggerImportFolder,
   onCopyFormatted, onCopyPlain,
   tagPanelVisible, onToggleTagPanel,
@@ -11428,6 +11555,9 @@ function SettingsModal({
   const colorInputRef = useRef(null);
   const isCustomTopBarColor = topBarColor && topBarColor.startsWith("#");
   const [newWorkspaceProfileName, setNewWorkspaceProfileName] = useState("");
+  const [themePickerPos, setThemePickerPos] = useState(null);
+  const [saveThemeFormOpen, setSaveThemeFormOpen] = useState(false);
+  const [saveThemeName, setSaveThemeName] = useState("");
 
   useEffect(() => {
     const h = (e) => { if (e.key === "Escape") onClose(); };
@@ -11442,6 +11572,7 @@ function SettingsModal({
     { id: "workspace",  label: "Workspace" },
     { id: "import",     label: "Import" },
     { id: "export",     label: "Export" },
+    { id: "slideshow",  label: "Slideshow Export" },
     { id: "backups",    label: "Versioning/Backups" },
     { id: "keyboard",   label: "Keyboard" },
     { id: "about",      label: "About" },
@@ -11810,31 +11941,141 @@ function SettingsModal({
             Export…
           </button>
         </${StgRow}>
-        <${StgRow} label="Export to Reveal.js Slideshow" desc="Save a standalone HTML presentation, with slide transitions and step-through bullets">
-          <button className="stg-btn" disabled=${!currentFile}
-                  onClick=${() => { onExportToReveal?.(); onClose(); }}
-                  title=${!currentFile ? "Open a file first" : "Export current file as a Reveal.js slideshow"}>
-            Export…
-          </button>
-        </${StgRow}>
-        ${revealSettings?.pdfExport !== false && html`
-        <${StgRow} label="Export Slideshow to PDF" desc="Opens the slideshow in print layout and your browser's print dialog — choose 'Save as PDF'">
-          <button className="stg-btn" disabled=${!currentFile}
-                  onClick=${() => { onExportToRevealPdf?.(); onClose(); }}
-                  title=${!currentFile ? "Open a file first" : "Open print dialog for the slideshow"}>
-            Export…
-          </button>
-        </${StgRow}>
-        `}
       </div>
       <div className="stg-section">
-        <p className="stg-section-title">Slideshow Export Settings</p>
-        <${StgRow} label="Theme" desc="Visual theme applied to the exported Reveal.js slideshow">
-          <select className="stg-select" value=${revealSettings?.theme || "mattropolis"}
-                  onChange=${(e) => onSetRevealSettings?.({ theme: e.target.value })}>
-            ${REVEAL_THEMES.map((t) => html`<option value=${t}>${t}</option>`)}
-          </select>
+        <p className="stg-section-title">Copy</p>
+        <${StgRow} label="Copy as Formatted Text" desc="Copy a block-selected range of headings (titles only, no sub-items) — or the whole visible outline if nothing's selected — with bold/italic/links preserved">
+          <button className="stg-btn" disabled=${!currentFile}
+                  onClick=${() => { onCopyFormatted?.(); onClose(); }}
+                  title=${!currentFile ? "Open a file first" : "Copy to clipboard"}>
+            Copy
+          </button>
         </${StgRow}>
+        <${StgRow} label="Copy as Plain Text" desc="Same as above, but with no *markup* characters — clean text for pasting anywhere">
+          <button className="stg-btn" disabled=${!currentFile}
+                  onClick=${() => { onCopyPlain?.(); onClose(); }}
+                  title=${!currentFile ? "Open a file first" : "Copy to clipboard"}>
+            Copy
+          </button>
+        </${StgRow}>
+      </div>
+    `;
+    if (section === "slideshow") return html`
+      <div className="stg-section">
+        <p className="stg-section-title">Slideshow Export</p>
+        <div className="reveal-execute-row">
+          <button className="reveal-execute-btn" disabled=${!currentFile}
+                  onClick=${() => onExportToReveal?.()}
+                  title=${!currentFile ? "Open a file first" : "Export current file as a Reveal.js slideshow"}>
+            ▶ Execute Slideshow Export
+          </button>
+          ${revealSettings?.pdfExport !== false && html`
+            <button className="stg-btn" disabled=${!currentFile}
+                    onClick=${() => onExportToRevealPdf?.()}
+                    title=${!currentFile ? "Open a file first" : "Open print dialog for the slideshow"}>
+              Export to PDF
+            </button>
+          `}
+        </div>
+      </div>
+      <div className="stg-section">
+        <p className="stg-section-title">Theme</p>
+        <${StgRow} label="Theme" desc="Visual theme applied to the exported Reveal.js slideshow — click to pick from previews, or design your own below">
+          <button className="reveal-theme-current-btn"
+                  onClick=${(e) => {
+                    const r = e.currentTarget.getBoundingClientRect();
+                    setThemePickerPos(themePickerPos ? null : { x: r.left, y: r.bottom + 4 });
+                  }}>
+            <span className="reveal-theme-current-swatch" style=${{ background: revealSwatchColors(revealSettings?.theme, revealSettings?.themeColors, epicorgThemeColors(theme)).background }}>
+              <span style=${{ color: revealSwatchColors(revealSettings?.theme, revealSettings?.themeColors, epicorgThemeColors(theme)).link }}>●</span>
+            </span>
+            ${REVEAL_THEME_INFO[revealSettings?.theme]?.label || "Choose theme…"}
+          </button>
+          ${themePickerPos && html`
+            <${RevealThemePicker}
+              x=${themePickerPos.x} y=${themePickerPos.y}
+              revealSettings=${revealSettings}
+              customThemes=${customRevealThemes || []}
+              liveEpicorgColors=${epicorgThemeColors(theme)}
+              onSelectBuiltin=${(id) => { onSetRevealSettings?.({ theme: id, themeColors: null }); setThemePickerPos(null); }}
+              onSelectCustom=${(t) => {
+                onSetRevealSettings?.({ theme: t.theme, themeColors: t.themeColors, sizer: t.sizer, breadcrumbs: t.breadcrumbs, breadcrumbPosition: t.breadcrumbPosition });
+                setThemePickerPos(null);
+              }}
+              onDeleteCustom=${(id) => onDeleteCustomRevealTheme?.(id)}
+              onClose=${() => setThemePickerPos(null)} />
+          `}
+        </${StgRow}>
+        <div className="reveal-theme-designer">
+          <p className="reveal-theme-designer-title">Theme Designer</p>
+          <${StgRow} label="Background" desc="Overrides the theme's own background color">
+            <${ColorPickerRow} color=${revealSettings?.themeColors?.background || null}
+              onChange=${(c) => onSetRevealSettings?.({ themeColors: { ...(revealSettings?.themeColors || {}), background: c || undefined } })} />
+          </${StgRow}>
+          <${StgRow} label="Text" desc="Overrides the theme's own body-text color">
+            <${ColorPickerRow} color=${revealSettings?.themeColors?.main || null}
+              onChange=${(c) => onSetRevealSettings?.({ themeColors: { ...(revealSettings?.themeColors || {}), main: c || undefined } })} />
+          </${StgRow}>
+          <${StgRow} label="Heading" desc="Overrides the theme's own heading color">
+            <${ColorPickerRow} color=${revealSettings?.themeColors?.heading || null}
+              onChange=${(c) => onSetRevealSettings?.({ themeColors: { ...(revealSettings?.themeColors || {}), heading: c || undefined } })} />
+          </${StgRow}>
+          <${StgRow} label="Link / Accent" desc="Overrides the theme's own link and accent color">
+            <${ColorPickerRow} color=${revealSettings?.themeColors?.link || null}
+              onChange=${(c) => onSetRevealSettings?.({ themeColors: { ...(revealSettings?.themeColors || {}), link: c || undefined } })} />
+          </${StgRow}>
+          ${!!(revealSettings?.themeColors && Object.values(revealSettings.themeColors).some(Boolean)) && html`
+            <${StgRow} label="" desc="">
+              <button className="stg-btn" onClick=${() => onSetRevealSettings?.({ themeColors: null })}>Reset Colors to Theme Defaults</button>
+            </${StgRow}>
+          `}
+          <${StgRow} label="Sizer" desc="How much of the screen the slide content fills — higher fills more of the screen, lower leaves more surrounding margin">
+            <div className="reveal-sizer-row">
+              <input type="range" min="0" max="100" step="5"
+                     value=${revealSettings?.sizer ?? 90}
+                     onChange=${(e) => onSetRevealSettings?.({ sizer: parseInt(e.target.value, 10) })} />
+              <span className="reveal-sizer-value">${revealSettings?.sizer ?? 90}%</span>
+            </div>
+          </${StgRow}>
+          <${StgRow} label="Breadcrumbs" desc="A persistent bar showing where the current slide sits in the overall outline — an alternative to opening the Slide Menu">
+            <input type="checkbox" checked=${!!revealSettings?.breadcrumbs}
+                   onChange=${(e) => onSetRevealSettings?.({ breadcrumbs: e.target.checked })} />
+          </${StgRow}>
+          ${!!revealSettings?.breadcrumbs && html`
+            <${StgRow} label="Breadcrumbs Position" desc="">
+              <select className="stg-select" value=${revealSettings?.breadcrumbPosition || "top"}
+                      onChange=${(e) => onSetRevealSettings?.({ breadcrumbPosition: e.target.value })}>
+                <option value="top">Top</option>
+                <option value="left">Left</option>
+              </select>
+            </${StgRow}>
+          `}
+          <${StgRow} label="Save as Named Theme" desc="Save the base theme, colors, sizer, and breadcrumbs above as a preset you can pick again later">
+            ${!saveThemeFormOpen
+              ? html`<button className="stg-btn" onClick=${() => { setSaveThemeName(""); setSaveThemeFormOpen(true); }}>Save…</button>`
+              : html`
+                <div className="reveal-save-theme-form">
+                  <input type="text" className="sp-save-input" autoFocus
+                         placeholder="Name this theme…"
+                         value=${saveThemeName}
+                         onInput=${(e) => setSaveThemeName(e.target.value)}
+                         onKeyDown=${(e) => {
+                           if (e.key === "Enter" && saveThemeName.trim()) { onSaveCustomRevealTheme?.(saveThemeName.trim()); setSaveThemeFormOpen(false); }
+                           if (e.key === "Escape") setSaveThemeFormOpen(false);
+                         }} />
+                  <button className="sp-save-confirm" disabled=${!saveThemeName.trim()}
+                          onClick=${() => { onSaveCustomRevealTheme?.(saveThemeName.trim()); setSaveThemeFormOpen(false); }}>Save</button>
+                  <button className="sp-save-cancel" onClick=${() => setSaveThemeFormOpen(false)}>Cancel</button>
+                </div>
+              `}
+          </${StgRow}>
+          <${StgRow} label="Reveal.js Markup Reference" desc="Full syntax for backgrounds, fragments, code, math, and more">
+            <a className="stg-btn" href="https://revealjs.com/markup/" target="_blank" rel="noopener noreferrer">revealjs.com/markup ↗</a>
+          </${StgRow}>
+        </div>
+      </div>
+      <div className="stg-section">
+        <p className="stg-section-title">Slide Behavior</p>
         <${StgRow} label="Transition" desc="Animation played between slides — overridden per-file by a #+REVEAL_TRANSITION: keyword">
           <select className="stg-select" value=${revealSettings?.transition || "fade"}
                   onChange=${(e) => onSetRevealSettings?.({ transition: e.target.value })}>
@@ -11861,7 +12102,7 @@ function SettingsModal({
           <input type="checkbox" checked=${revealSettings?.math !== false}
                  onChange=${(e) => onSetRevealSettings?.({ math: e.target.checked })} />
         </${StgRow}>
-        <${StgRow} label="PDF Export" desc="Offer the separate 'Export Slideshow to PDF' command">
+        <${StgRow} label="PDF Export" desc="Offer the 'Export to PDF' button above">
           <input type="checkbox" checked=${revealSettings?.pdfExport !== false}
                  onChange=${(e) => onSetRevealSettings?.({ pdfExport: e.target.checked })} />
         </${StgRow}>
@@ -11877,22 +12118,9 @@ function SettingsModal({
           <input type="checkbox" checked=${revealSettings?.overview !== false}
                  onChange=${(e) => onSetRevealSettings?.({ overview: e.target.checked })} />
         </${StgRow}>
-      </div>
-      <div className="stg-section">
-        <p className="stg-section-title">Copy</p>
-        <${StgRow} label="Copy as Formatted Text" desc="Copy a block-selected range of headings (titles only, no sub-items) — or the whole visible outline if nothing's selected — with bold/italic/links preserved">
-          <button className="stg-btn" disabled=${!currentFile}
-                  onClick=${() => { onCopyFormatted?.(); onClose(); }}
-                  title=${!currentFile ? "Open a file first" : "Copy to clipboard"}>
-            Copy
-          </button>
-        </${StgRow}>
-        <${StgRow} label="Copy as Plain Text" desc="Same as above, but with no *markup* characters — clean text for pasting anywhere">
-          <button className="stg-btn" disabled=${!currentFile}
-                  onClick=${() => { onCopyPlain?.(); onClose(); }}
-                  title=${!currentFile ? "Open a file first" : "Copy to clipboard"}>
-            Copy
-          </button>
+        <${StgRow} label="Live Font Size Control" desc="Adds −/+ buttons to the exported slideshow for nudging text size up or down on the spot — useful when one slide's title is disproportionately large. The browser's own zoom doesn't work for this, since reveal.js rescales to fit the viewport and cancels it out.">
+          <input type="checkbox" checked=${revealSettings?.fontZoom !== false}
+                 onChange=${(e) => onSetRevealSettings?.({ fontZoom: e.target.checked })} />
         </${StgRow}>
       </div>
     `;
