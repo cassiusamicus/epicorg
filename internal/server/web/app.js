@@ -319,7 +319,7 @@ function useFixedMenuPosition(menuRef, x, y) {
 // being edited, so empty items don't clutter the outline. Mirrors the
 // title's formatted-preview/edit-textarea split, governed by the same
 // titleFormatMode toggle.
-function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onInsertFootnote, onInsertImage, onInsertTable, onWrapAsCodeBlock, onWrapAsQuoteBlock, onWrapAsVerseBlock, onClose }) {
+function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onInsertFootnote, onInsertImage, onInsertTable, onWrapAsCodeBlock, onWrapAsQuoteBlock, onWrapAsVerseBlock, writeToClipboard, showToast, onClose }) {
   const menuRef = useRef(null);
   const hasSel = sel.start !== sel.end;
   const hasBody = !!sel.value;
@@ -334,18 +334,37 @@ function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onIn
 
   const commit = (newVal, cursor) => { onCommit(newVal, cursor); onClose(); };
 
+  // navigator.clipboard.writeText alone silently rejects on some
+  // browsers/configs (privacy-hardened Chromium builds like Thorium and
+  // Brave in particular) — writeToClipboard is the same fallback chain
+  // (ClipboardItem -> writeText -> hidden-textarea execCommand) already
+  // used elsewhere in the app for exactly this, threaded down here as a
+  // prop since this component lives outside App() and can't call the
+  // useCallback directly.
   const doCut = async () => {
     if (!hasSel) return onClose();
     const text = sel.value.slice(sel.start, sel.end);
-    await navigator.clipboard.writeText(text).catch(() => {});
+    const ok = await writeToClipboard(text, text);
+    if (!ok) { showToast?.("Cut failed — clipboard access blocked"); return onClose(); }
     commit(sel.value.slice(0, sel.start) + sel.value.slice(sel.end), sel.start);
   };
   const doCopy = async () => {
-    if (hasSel) await navigator.clipboard.writeText(sel.value.slice(sel.start, sel.end)).catch(() => {});
+    if (hasSel) {
+      const text = sel.value.slice(sel.start, sel.end);
+      const ok = await writeToClipboard(text, text);
+      if (!ok) showToast?.("Copy failed — clipboard access blocked");
+    }
     onClose();
   };
   const doPaste = async () => {
-    const text = await navigator.clipboard.readText().catch(() => "");
+    // No execCommand-style fallback exists for *reading* the clipboard the
+    // way writeToClipboard has one for writing — unprivileged paste is
+    // widely disabled in modern browsers — so a failure here surfaces as
+    // a toast instead of silently inserting nothing (indistinguishable
+    // from a genuinely empty clipboard otherwise).
+    let text;
+    try { text = await navigator.clipboard.readText(); }
+    catch { showToast?.("Paste failed — clipboard access blocked"); return onClose(); }
     const newVal = sel.value.slice(0, sel.start) + text + sel.value.slice(sel.end);
     commit(newVal, sel.start + text.length);
   };
@@ -417,7 +436,7 @@ function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onIn
 // re-render that touches that subtree collapses it), so the selected
 // text is captured as a plain string up front rather than re-read from
 // the live selection when Copy is actually clicked.
-function PreviewContextMenu({ x, y, text, onEditNote, onClose }) {
+function PreviewContextMenu({ x, y, text, onEditNote, writeToClipboard, showToast, onClose }) {
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -429,7 +448,8 @@ function PreviewContextMenu({ x, y, text, onEditNote, onClose }) {
   }, [onClose]);
 
   const doCopy = async () => {
-    await navigator.clipboard.writeText(text).catch(() => {});
+    const ok = await writeToClipboard(text, text);
+    if (!ok) showToast?.("Copy failed — clipboard access blocked");
     onClose();
   };
 
@@ -827,7 +847,7 @@ function TableEditor({ rows: initRows, headerCount: initHeaderCount, onSave, onC
   `;
 }
 
-function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notesVisible, depth, bodyRefs, linkifySelectionFromClipboard, showToast }) {
+function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notesVisible, depth, bodyRefs, linkifySelectionFromClipboard, writeToClipboard, showToast }) {
   const localRef = useRef(null);
   const [ctxMenu, setCtxMenu] = useState(null);
   const [previewCtxMenu, setPreviewCtxMenu] = useState(null); // { x, y, text }
@@ -1132,10 +1152,12 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
       onWrapAsCodeBlock=${(start, end) => wrapAsCodeBlockAtCursor(start, end)}
       onWrapAsQuoteBlock=${(start, end) => wrapAsQuoteBlockAtCursor(start, end)}
       onWrapAsVerseBlock=${(start, end) => wrapAsVerseBlockAtCursor(start, end)}
+      writeToClipboard=${writeToClipboard} showToast=${showToast}
       onClose=${() => setCtxMenu(null)} />`}
     ${previewCtxMenu && html`<${PreviewContextMenu}
       x=${previewCtxMenu.x} y=${previewCtxMenu.y} text=${previewCtxMenu.text}
       onEditNote=${() => dispatch(node.id, "edit-body", (node.body || "").length)}
+      writeToClipboard=${writeToClipboard} showToast=${showToast}
       onClose=${() => setPreviewCtxMenu(null)} />`}
     ${imgPopup && (() => {
       const blocks = tree.parseImageBlocks(node.body);
@@ -1178,7 +1200,7 @@ const TRANSCLUSION_BADGE_TITLES = {
   chained: "Source is itself a transclusion — chained transclusion isn't supported",
 };
 
-function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, outlineFormat, levelFormats, siblingIndex, verticalLines, showTagChips, tagsOnRight, onSearchTag, bodyEditingId, bodyPreviewId, bodyRefs, onNodeHandleMouseDown, onNodeHandleMenu, nodeMenuOpenId, globalFont, levelFonts, globalColor, levelColors, linkifySelectionFromClipboard, showToast }) {
+function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, outlineFormat, levelFormats, siblingIndex, verticalLines, showTagChips, tagsOnRight, onSearchTag, bodyEditingId, bodyPreviewId, bodyRefs, onNodeHandleMouseDown, onNodeHandleMenu, nodeMenuOpenId, globalFont, levelFonts, globalColor, levelColors, linkifySelectionFromClipboard, writeToClipboard, showToast }) {
   const isFocused = focusedId === node.id;
   const hasChildren = node.children?.length > 0;
   // Transclusion display state — see tree.applyTransclusions. `transclusion`
@@ -1472,6 +1494,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
         depth=${depth}
         bodyRefs=${bodyRefs}
         linkifySelectionFromClipboard=${linkifySelectionFromClipboard}
+        writeToClipboard=${writeToClipboard}
         showToast=${showToast}
       />
       ${hasChildren && !node.collapsed && node.children.map(
@@ -1503,6 +1526,7 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
             globalColor=${globalColor}
             levelColors=${levelColors}
             linkifySelectionFromClipboard=${linkifySelectionFromClipboard}
+            writeToClipboard=${writeToClipboard}
             showToast=${showToast}
           />
         `
@@ -9558,6 +9582,7 @@ function App() {
                   globalFont=${globalFont} levelFonts=${levelFonts}
                   globalColor=${globalColor} levelColors=${levelColors}
                   linkifySelectionFromClipboard=${linkifySelectionFromClipboard}
+                  writeToClipboard=${writeToClipboard}
                   showToast=${showToast} />
               `)}
               ${!isFiltering && currentFile && html`
