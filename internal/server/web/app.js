@@ -646,6 +646,250 @@ function InsertImageDialog({ onInsert, onClose }) {
   `;
 }
 
+// A REVEAL_BACKGROUND value counts as a local workspace image (servable via
+// /api/media/ and embeddable as a data: URI at export time — see
+// embedRevealBackgroundImages) only if it isn't already an http(s) URL or a
+// data: URI and has an image extension. Anything else (a bare color name,
+// a CSS gradient, a remote URL) is passed through to reveal.js's plain
+// data-background attribute untouched — see revealSlideAttrs in export.js.
+function isLocalImageBackgroundPath(v) {
+  if (!v || /^https?:\/\//i.test(v) || /^data:/i.test(v)) return false;
+  return /\.(png|jpe?g|gif|webp|svg|bmp|tiff?)$/i.test(v);
+}
+
+function mediaUrlForPath(p) {
+  return "/api/media/" + p.split("/").map(encodeURIComponent).join("/");
+}
+
+// Folder browser for picking a slide's Reveal.js background image — unlike
+// InsertImageDialog (a filename list, since inline body images need width/
+// align options reviewed before committing), this shows actual image
+// thumbnails in a grid and commits on a single click, since "set this photo
+// as the background" has nothing left to configure at picker time (size
+// mode is a separate, persistent per-slide control in SlideBackgroundEditor).
+//
+// Navigation isn't capped at the workspace root — "Up" keeps working past
+// it, the same as FileSystemPicker/OrgFilePicker (see their comments: /api/
+// browse already resolves absolute paths anywhere on disk, not just inside
+// the workspace). A pick from outside orgFileDir (the folder the current
+// .org file lives in) doesn't resolve immediately — it drops into a small
+// confirm step offering to copy the file alongside the note (mandatory once
+// it's outside the workspace entirely, since nothing under serveMedia/
+// embedRevealBackgroundImages can read a path outside the workspace back).
+function BackgroundImagePickerDialog({ orgFileDir, onSelect, onClose }) {
+  const rootRef = useRef("");
+  const [rootState, setRootState] = useState("");
+  const [currentAbs, setCurrentAbs] = useState("");
+  const [parentPath, setParentPath] = useState("");
+  const [dirs, setDirs] = useState([]);
+  const [imgFiles, setImgFiles] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [pending, setPending] = useState(null); // { fileName, absPath, relPathValue, insideWorkspace }
+  const [copying, setCopying] = useState(false);
+  const [copyError, setCopyError] = useState("");
+
+  const browse = useCallback(async (pathArg) => {
+    setLoading(true);
+    try {
+      const url = pathArg != null ? "/api/browse?path=" + encodeURIComponent(pathArg) : "/api/browse?path=";
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!rootRef.current) { rootRef.current = data.path; setRootState(data.path); }
+      setCurrentAbs(data.path);
+      setParentPath(data.parent || "");
+      setDirs(data.dirs || []);
+      setImgFiles((data.files || []).filter(f => IMAGE_EXTS_BROWSE.has(f.split(".").pop().toLowerCase())));
+    } catch {}
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    browse(null);
+    const onKey = e => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  const insideWorkspace = !!rootState && (currentAbs === rootState || currentAbs.startsWith(rootState + "/"));
+  const currentRelDir = insideWorkspace ? currentAbs.slice(rootState.length).replace(/^\/+/, "") : null;
+
+  const pickFile = (f) => {
+    const absPath = currentAbs.replace(/\/+$/, "") + "/" + f;
+    const relPathValue = insideWorkspace ? (currentRelDir ? currentRelDir + "/" + f : f) : null;
+    const imageDir = relPathValue != null ? (relPathValue.includes("/") ? relPathValue.slice(0, relPathValue.lastIndexOf("/")) : "") : null;
+    if (imageDir !== null && imageDir === (orgFileDir || "")) {
+      onSelect(relPathValue);
+      return;
+    }
+    setCopyError("");
+    setPending({ fileName: f, absPath, relPathValue, insideWorkspace });
+  };
+
+  const doCopy = async () => {
+    if (!pending) return;
+    setCopying(true);
+    setCopyError("");
+    try {
+      const source = pending.insideWorkspace ? pending.relPathValue : pending.absPath;
+      const res = await fetch("/api/copyimage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source, destDir: orgFileDir || "" }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      onSelect(data.path);
+    } catch {
+      setCopyError("Couldn't copy that file — check permissions and try again.");
+      setCopying(false);
+    }
+  };
+
+  // Thumbnails inside the workspace go through the normal workspace-
+  // relative /api/media/ route; outside it, serveMedia only serves an
+  // absolute path via ?path= (see its comment) — never what
+  // REVEAL_BACKGROUND itself stores, just what the grid renders.
+  const thumbSrcFor = (f) => {
+    if (insideWorkspace) {
+      const rel = currentRelDir ? currentRelDir + "/" + f : f;
+      return mediaUrlForPath(rel);
+    }
+    return "/api/media/?path=" + encodeURIComponent(currentAbs.replace(/\/+$/, "") + "/" + f);
+  };
+
+  return html`
+    <div className="folder-picker-overlay"
+         onMouseDown=${(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-picker-dialog">
+        <div className="img-insert-header">
+          <span className="img-insert-title">Choose Slide Background</span>
+          <button className="folder-picker-close" onClick=${onClose}>×</button>
+        </div>
+        ${pending ? html`
+          <div className="bg-picker-body">
+            <p className="bg-picker-confirm-text">
+              “${pending.fileName}” is ${pending.insideWorkspace ? "in a different folder from this note" : "outside the workspace"}.
+              Copy it into ${orgFileDir ? html`<code>${orgFileDir}</code>` : "the workspace root"} so it stays with this note?
+            </p>
+            ${copyError && html`<div className="folder-picker-error">${copyError}</div>`}
+            <div className="img-insert-footer bg-picker-confirm-actions">
+              <button className="stg-btn" disabled=${copying} onClick=${() => setPending(null)}>Back</button>
+              ${pending.insideWorkspace && html`
+                <button className="stg-btn" disabled=${copying} onClick=${() => onSelect(pending.relPathValue)}>Use As-Is</button>
+              `}
+              <button className="stg-btn img-insert-ok" disabled=${copying} onClick=${doCopy}>
+                ${copying ? "Copying…" : "Copy Here"}
+              </button>
+            </div>
+          </div>
+        ` : html`
+          <div className="bg-picker-body">
+            <div className="img-browse-nav">
+              ${parentPath ? html`
+                <button className="img-browse-up" onClick=${() => browse(parentPath)}>↑ Up</button>
+              ` : null}
+              <span className="img-browse-path" title=${currentAbs}>${currentAbs}</span>
+            </div>
+            <div className="bg-picker-grid">
+              ${loading && html`<div className="folder-picker-loading">Loading…</div>`}
+              ${!loading && dirs.map((d) => html`
+                <div key=${"d:" + d} className="bg-picker-tile bg-picker-dir-tile"
+                     onClick=${() => browse(currentAbs.replace(/\/+$/, "") + "/" + d)}>
+                  <div className="bg-picker-dir-icon">📁</div>
+                  <span className="bg-picker-tile-label">${d}</span>
+                </div>
+              `)}
+              ${!loading && imgFiles.map((f) => html`
+                <div key=${"f:" + f} className="bg-picker-tile" onClick=${() => pickFile(f)}>
+                  <img className="bg-picker-thumb" src=${thumbSrcFor(f)} alt=${f} loading="lazy" />
+                  <span className="bg-picker-tile-label">${f}</span>
+                </div>
+              `)}
+              ${!loading && dirs.length === 0 && imgFiles.length === 0 && html`
+                <div className="folder-picker-empty">No images in this folder</div>
+              `}
+            </div>
+          </div>
+        `}
+        <div className="img-insert-footer">
+          <button className="stg-btn" onClick=${onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Per-node Reveal.js background control, shown in the detail pane. Keeps
+// the actual photo small here (a fixed-size thumbnail, not the full image)
+// — the full-size version only ever appears in the exported slideshow
+// itself, never inline in the outline editor.
+function SlideBackgroundEditor({ nodeId, properties, dispatch, currentFile }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const orgFileDir = currentFile && currentFile.includes("/")
+    ? currentFile.slice(0, currentFile.lastIndexOf("/"))
+    : "";
+  const bg = properties?.REVEAL_BACKGROUND || "";
+  const bgSize = properties?.REVEAL_BACKGROUND_SIZE || "cover";
+  const isLocalImg = isLocalImageBackgroundPath(bg);
+  const isRemoteImg = !isLocalImg && /^https?:\/\//i.test(bg) && /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(bg);
+  const thumbSrc = isLocalImg ? mediaUrlForPath(bg) : (isRemoteImg ? bg : "");
+  const isCustomPercent = bgSize !== "cover" && bgSize !== "contain" && /%$/.test(bgSize);
+  const percentVal = isCustomPercent ? (parseInt(bgSize) || 50) : 50;
+
+  const setProps = (updater) => {
+    const updated = { ...(properties || {}) };
+    updater(updated);
+    dispatch(nodeId, "update-properties", updated);
+  };
+
+  const setSize = (mode) => setProps((updated) => {
+    if (mode === "cover") delete updated.REVEAL_BACKGROUND_SIZE;
+    else updated.REVEAL_BACKGROUND_SIZE = mode;
+  });
+  const setPercent = (n) => setProps((updated) => { updated.REVEAL_BACKGROUND_SIZE = `${n}%`; });
+  const clear = () => setProps((updated) => { delete updated.REVEAL_BACKGROUND; delete updated.REVEAL_BACKGROUND_SIZE; });
+
+  return html`
+    <div className="slide-bg-editor">
+      ${bg ? html`
+        <div className="slide-bg-preview-row">
+          ${thumbSrc
+            ? html`<img className="slide-bg-thumb" src=${thumbSrc} alt="Slide background" />`
+            : html`<div className="slide-bg-thumb slide-bg-thumb-color" style=${{ background: bg }}></div>`}
+          <div className="slide-bg-preview-info">
+            <span className="slide-bg-preview-path" title=${bg}>${bg}</span>
+            <button className="slide-bg-clear-btn" onClick=${clear}>× Clear</button>
+          </div>
+        </div>
+      ` : html`<div className="detail-empty">No background set</div>`}
+      <div className="slide-bg-actions">
+        <button className="stg-btn" onClick=${() => setPickerOpen(true)}>Choose Image…</button>
+      </div>
+      ${(isLocalImg || isRemoteImg) && html`
+        <div className="img-insert-align slide-bg-size-group">
+          <button className=${"img-align-btn" + (bgSize === "cover" ? " active" : "")}
+                  onClick=${() => setSize("cover")}>Full Screen</button>
+          <button className=${"img-align-btn" + (bgSize === "contain" ? " active" : "")}
+                  onClick=${() => setSize("contain")}>Fit</button>
+          <button className=${"img-align-btn" + (isCustomPercent ? " active" : "")}
+                  onClick=${() => setPercent(percentVal)}>Custom %</button>
+        </div>
+        ${isCustomPercent && html`
+          <div className="slide-bg-percent-row">
+            <input type="range" min="10" max="100" step="5" value=${percentVal}
+                   onInput=${(e) => setPercent(parseInt(e.target.value))} />
+            <span className="slide-bg-percent-val">${percentVal}%</span>
+          </div>
+        `}
+      `}
+      ${pickerOpen && html`<${BackgroundImagePickerDialog}
+        orgFileDir=${orgFileDir}
+        onSelect=${(path) => { setProps((updated) => { updated.REVEAL_BACKGROUND = path; }); setPickerOpen(false); }}
+        onClose=${() => setPickerOpen(false)} />`}
+    </div>
+  `;
+}
+
 function ImageEditPopup({ imgIndex, block, nodeBody, rect, onUpdate, onClose }) {
   const [widthInput, setWidthInput] = useState(block.width ? String(block.width) : "");
 
@@ -2299,7 +2543,7 @@ const REPEATER_OPTIONS = [
   { label: "Yearly",  value: "+1y" },
 ];
 
-const DetailPane = forwardRef(function DetailPane({ node, isPreamble, dispatch, inputRefs, width, visible, onWidthChange, onOpen, onClose, titleFormatMode, globalTags, tagPanelVisible, onToggleTagPanel, textMode, selectedTags }, ref) {
+const DetailPane = forwardRef(function DetailPane({ node, isPreamble, dispatch, inputRefs, width, visible, onWidthChange, onOpen, onClose, titleFormatMode, globalTags, tagPanelVisible, onToggleTagPanel, textMode, selectedTags, currentFile }, ref) {
   // Only preamble's content still lives here — it has no bulleted row of
   // its own to display notes inline under. Every regular node's body now
   // shows inline in the outline, so the pane is properties-only for those.
@@ -2592,6 +2836,12 @@ const DetailPane = forwardRef(function DetailPane({ node, isPreamble, dispatch, 
         <label className="detail-label">Properties</label>
         ${node
           ? html`<${PropertiesEditor} nodeId=${node.id} properties=${node.properties} dispatch=${dispatch} />`
+          : html`<div className="detail-empty">—</div>`}
+      </div>
+      <div className="detail-section">
+        <label className="detail-label">Slide Background</label>
+        ${node
+          ? html`<${SlideBackgroundEditor} nodeId=${node.id} properties=${node.properties} dispatch=${dispatch} currentFile=${currentFile} />`
           : html`<div className="detail-empty">—</div>`}
       </div>
     `}
@@ -3208,7 +3458,69 @@ function AgendaView({ nodes, currentFile, onSelect, onEditNode, searchQuery, sel
   `;
 }
 
-function JournalDayCard({ filename, onOpen, onOpenDetail, onOpenAt, searchQuery }) {
+// Deep-clones a journal node for "Copy"/"Move to Today" — fresh ids
+// throughout (so the duplicate never collides with the original) and
+// TRANSCLUDE_ID stripped (a duplicate must not claim to be the same
+// transclusion source as the node it was copied from; TRANSCLUDE itself,
+// a pointer *to* another source, is left as-is — copying the pointer is
+// exactly what "copy" should do for a transcluding node).
+function cloneJournalNodeForCopy(node) {
+  const properties = { ...(node.properties || {}) };
+  delete properties.TRANSCLUDE_ID;
+  return {
+    id: tree.newId(),
+    title: node.title || "",
+    body: node.body || "",
+    status: node.status || "",
+    priority: node.priority || "",
+    tags: [...(node.tags || [])],
+    properties,
+    children: (node.children || []).map(cloneJournalNodeForCopy),
+    collapsed: false,
+  };
+}
+
+// Small popup for a single journal entry's "⋯" button — lets a past or
+// future entry be pulled into today's journal without leaving the Journal
+// view. Mirrors NodeActionMenu's positioning/dismiss wiring. Delete is a
+// direct file write with no undo (unlike the outline's own Delete, which
+// goes through the live dispatch/history stack — see NodeActionMenu), so
+// it gets an inline "Delete this entry? Yes/No" confirm step first,
+// mirroring FilePicker's own per-row delete confirmation.
+function JournalNodeMenu({ x, y, busy, onCopy, onMove, onLink, onDelete, onClose }) {
+  const menuRef = useRef(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  useEffect(() => {
+    const down = (e) => { if (!menuRef.current?.contains(e.target)) onClose(); };
+    const key = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("mousedown", down);
+    document.addEventListener("keydown", key, true);
+    return () => { document.removeEventListener("mousedown", down); document.removeEventListener("keydown", key, true); };
+  }, [onClose]);
+
+  const pos = useFixedMenuPosition(menuRef, x, y);
+  const style = { position: "fixed", left: pos.left, top: pos.top, zIndex: 9999 };
+  return html`
+    <div ref=${menuRef} className="note-ctx-menu" style=${style}>
+      ${confirmingDelete ? html`
+        <div className="file-delete-confirm journal-menu-delete-confirm">
+          <span>Delete this entry?</span>
+          <button className="file-delete-confirm-btn" disabled=${busy} onClick=${onDelete}>Yes</button>
+          <button className="file-delete-cancel-btn" disabled=${busy} onClick=${() => setConfirmingDelete(false)}>No</button>
+        </div>
+      ` : html`
+        <button className="note-ctx-item" disabled=${busy} onClick=${onCopy}>Copy To Today</button>
+        <button className="note-ctx-item" disabled=${busy} onClick=${onMove}>Move To Today</button>
+        <button className="note-ctx-item" disabled=${busy} onClick=${onLink}>Link To Today</button>
+        <div className="note-ctx-sep" />
+        <button className="note-ctx-item journal-menu-item-danger" disabled=${busy} onClick=${() => setConfirmingDelete(true)}>Delete</button>
+      `}
+    </div>
+  `;
+}
+
+function JournalDayCard({ filename, onOpen, onOpenDetail, onOpenAt, onJournalAction, searchQuery }) {
   const [content, setContent] = useState(null); // null=not loaded, false=error, {nodes,preamble}=ok
   const hasStarted = useRef(false);
   const cardRef = useRef(null);
@@ -3232,6 +3544,58 @@ function JournalDayCard({ filename, onOpen, onOpenDetail, onOpenAt, searchQuery 
     io.observe(cardRef.current);
     return () => io.disconnect();
   }, [doLoad]);
+
+  // A top-level node created via "Link To Today" (see JournalNodeMenu)
+  // stores an empty title — its real title only exists at the transclusion
+  // source (see tree.js's Transclusion section) and is normally resolved
+  // by applyTransclusions when the file is opened in the live outline. This
+  // preview never goes through that path (it's a lightweight, independent
+  // fetch — see doLoad), so a transcluding node's display title is
+  // resolved separately here, same-file by lookup and cross-file via
+  // /api/transclude (mirrors fetchMissingTransclusions).
+  const [transcludeTitles, setTranscludeTitles] = useState({}); // ref -> title
+  useEffect(() => {
+    if (!content || !content.nodes) return;
+    const toResolve = (content.nodes || [])
+      .map((n) => n.properties?.TRANSCLUDE)
+      .filter((ref) => ref && !(ref in transcludeTitles));
+    if (toResolve.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const updates = {};
+      for (const ref of toResolve) {
+        const parsed = tree.parseTranscludeRef(ref);
+        if (!parsed) continue;
+        try {
+          if (parsed.file) {
+            const data = await api.get(`/api/transclude?file=${encodeURIComponent(parsed.file)}&id=${encodeURIComponent(parsed.id)}`);
+            updates[ref] = data.node?.title || "(untitled)";
+          } else {
+            const source = (content.nodes || []).find((x) => x.properties?.TRANSCLUDE_ID === parsed.id);
+            updates[ref] = source?.title || "(untitled)";
+          }
+        } catch {
+          updates[ref] = "(source unavailable)";
+        }
+      }
+      if (!cancelled) setTranscludeTitles((prev) => ({ ...prev, ...updates }));
+    })();
+    return () => { cancelled = true; };
+  }, [content]);
+
+  const [nodeMenu, setNodeMenu] = useState(null); // { x, y, node }
+  const [actionBusy, setActionBusy] = useState(false);
+
+  // No local state cleanup needed after the action resolves — the parent
+  // (JournalView) remounts every visible card afterward (see its
+  // refreshNonce), which naturally resets nodeMenu/actionBusy on this card
+  // and re-fetches fresh content, whether it was this card, "today"'s
+  // card, or both that changed.
+  const runJournalAction = useCallback(async (mode) => {
+    if (!nodeMenu || !onJournalAction) return;
+    setActionBusy(true);
+    await onJournalAction(filename, nodeMenu.node, mode);
+  }, [nodeMenu, onJournalAction, filename]);
 
   const dateStr = filename.replace("journal/", "").replace(".org", "");
   const dateDisplay = formatJournalDate(dateStr);
@@ -3265,21 +3629,41 @@ function JournalDayCard({ filename, onOpen, onOpenDetail, onOpenAt, searchQuery 
           <div className="journal-day-empty">No entries yet — click to add</div>
         `}
         ${content && displayNodes.length > 0 && html`
-          ${displayNodes.slice(0, 6).map((node, i) => html`
+          ${displayNodes.slice(0, 6).map((node, i) => {
+            const transcludeRef = node.properties?.TRANSCLUDE;
+            const displayTitle = transcludeRef ? (transcludeTitles[transcludeRef] || "Loading…") : (node.title || "");
+            return html`
             <div key=${i} className="journal-node-preview"
                  onClick=${(e) => { e.stopPropagation(); onOpenAt(node.id); }}>
-              <span className="journal-node-bullet">•</span>
-              <span dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(node.title || "") }} />
+              <span className="journal-node-bullet">${transcludeRef ? "↦" : "•"}</span>
+              <span dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(displayTitle) }} />
               ${node.children && node.children.length > 0 && html`
                 <span className="journal-node-child-count"> +${node.children.length}</span>
               `}
+              ${!today && onJournalAction && html`
+                <button className=${"journal-node-menu-btn" + (nodeMenu?.node === node ? " active" : "")}
+                        title="Copy, move, or link to today"
+                        onClick=${(e) => {
+                          e.stopPropagation();
+                          const r = e.currentTarget.getBoundingClientRect();
+                          setNodeMenu({ x: r.right, y: r.bottom, node });
+                        }}>⋯</button>
+              `}
             </div>
-          `)}
+          `;
+          })}
           ${displayNodes.length > 6 && html`
             <div className="journal-more">+${displayNodes.length - 6} more…</div>
           `}
         `}
       </div>
+      ${nodeMenu && html`<${JournalNodeMenu}
+        x=${nodeMenu.x} y=${nodeMenu.y} busy=${actionBusy}
+        onCopy=${() => runJournalAction("copy")}
+        onMove=${() => runJournalAction("move")}
+        onLink=${() => runJournalAction("link")}
+        onDelete=${() => runJournalAction("delete")}
+        onClose=${() => setNodeMenu(null)} />`}
     </div>
   `;
 }
@@ -3388,21 +3772,44 @@ function ReminderPopup({ reminder, queueLength, onOpen, onDismiss }) {
   `;
 }
 
-function JournalView({ onOpenFile, onOpenFileWithDetail, onOpenFileAt, onGoToDate, onNewAppointment, searchQuery }) {
+function JournalView({ onOpenFile, onOpenFileWithDetail, onOpenFileAt, onGoToDate, onNewAppointment, onJournalAction, searchQuery }) {
   const [journalFiles, setJournalFiles] = useState(null); // null=loading, []+ =loaded
   const [sortDesc, setSortDesc] = useState(true); // true = newest first
   const [dateFilter, setDateFilter] = useState("all"); // "all" | "future" | "past"
   const datePickerRef = useRef(null);
+  // Bumped after every Copy/Move/Link/Delete action and folded into each
+  // card's key below, forcing every visible JournalDayCard to remount and
+  // re-fetch from disk — not just the one the action ran on. A card caches
+  // its own content after its first load (see doLoad's hasStarted guard),
+  // so without this, an action that touches an *already-loaded* card (most
+  // commonly "today", once it's been scrolled past once) would leave that
+  // card showing stale content until the next full reload.
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
-  useEffect(() => {
-    api.get("/api/journal")
+  const refreshJournalFiles = useCallback(() => {
+    return api.get("/api/journal")
       .then((d) => setJournalFiles(d.files || []))
       .catch(() => setJournalFiles([]));
   }, []);
 
+  useEffect(() => { refreshJournalFiles(); }, [refreshJournalFiles]);
+
   const cycleFilter = useCallback(() => {
     setDateFilter((f) => DATE_FILTERS[(DATE_FILTERS.indexOf(f) + 1) % DATE_FILTERS.length]);
   }, []);
+
+  // Copy/Move/Link/Delete To Today (see JournalNodeMenu) can create today's
+  // journal file on demand — refresh the file list (so a "today" card
+  // appears at all) and force every card to remount (so any card whose
+  // content actually changed reflects it), all without requiring the user
+  // to leave the view.
+  const handleJournalAction = useCallback(async (sourceFile, node, mode) => {
+    if (!onJournalAction) return false;
+    const result = await onJournalAction(sourceFile, node, mode);
+    await refreshJournalFiles();
+    setRefreshNonce((n) => n + 1);
+    return result;
+  }, [onJournalAction, refreshJournalFiles]);
 
   const openToday = useCallback(async () => {
     try {
@@ -3461,11 +3868,12 @@ function JournalView({ onOpenFile, onOpenFileWithDetail, onOpenFileAt, onGoToDat
       `}
       ${journalFiles !== null && displayFiles.map((f) => html`
         <${JournalDayCard}
-          key=${f.name}
+          key=${f.name + ":" + refreshNonce}
           filename=${f.name}
           onOpen=${() => onOpenFile(f.name)}
           onOpenDetail=${() => onOpenFileWithDetail(f.name)}
           onOpenAt=${(nodeId) => onOpenFileAt(f.name, nodeId)}
+          onJournalAction=${handleJournalAction}
           searchQuery=${searchQuery}
         />
       `)}
@@ -7316,6 +7724,50 @@ function App() {
     return tree.applyTransclusions(sourceNodes, currentFileRef.current, transclusionCacheRef.current);
   }, []);
 
+  // Slide backgrounds set via SlideBackgroundEditor store a workspace-
+  // relative path in REVEAL_BACKGROUND, resolved live through /api/media/
+  // while epicorg is running — but the exported HTML is meant to be a
+  // single, fully self-contained file (see fetchRevealAssets) that never
+  // needs epicorg's server again, so any local image path gets swapped for
+  // its base64 data: URI here before generateRevealHtml ever sees it.
+  // Remote http(s) URLs and plain color/gradient values pass through
+  // unchanged. A cache keyed by path avoids refetching the same image used
+  // as the background for multiple slides.
+  const embedRevealBackgroundImages = useCallback(async (sourceNodes) => {
+    const cache = {};
+    const fetchDataUri = async (path) => {
+      if (path in cache) return cache[path];
+      let result = null;
+      try {
+        const res = await fetch(mediaUrlForPath(path));
+        if (res.ok) {
+          const blob = await res.blob();
+          result = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        }
+      } catch {}
+      cache[path] = result;
+      return result;
+    };
+    const walk = async (list) => Promise.all((list || []).map(async (n) => {
+      let nn = n;
+      const bg = n.properties?.REVEAL_BACKGROUND;
+      if (bg && isLocalImageBackgroundPath(bg)) {
+        const dataUri = await fetchDataUri(bg);
+        if (dataUri) nn = { ...n, properties: { ...n.properties, REVEAL_BACKGROUND: dataUri } };
+      }
+      if (n.children && n.children.length) {
+        nn = { ...nn, children: await walk(n.children) };
+      }
+      return nn;
+    }));
+    return walk(sourceNodes);
+  }, []);
+
   const exportToHtml = useCallback(async () => {
     if (!currentFile) return;
     const resolved = await resolveTranscludedNodesForExport(nodes);
@@ -7417,9 +7869,10 @@ function App() {
   const exportToReveal = useCallback(async () => {
     if (!currentFile) return;
     const resolved = await resolveTranscludedNodesForExport(nodes);
+    const withBackgrounds = await embedRevealBackgroundImages(resolved);
     const effective = resolveRevealSettings(revealSettings);
     const assets = await fetchRevealAssets(effective);
-    const html = generateRevealHtml(resolved, preamble, currentFile, assets, effective);
+    const html = generateRevealHtml(withBackgrounds, preamble, currentFile, assets, effective);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -7427,7 +7880,7 @@ function App() {
     a.download = currentFile.replace(/\.org$/, "") + "-slides.html";
     a.click();
     URL.revokeObjectURL(url);
-  }, [nodes, preamble, currentFile, resolveTranscludedNodesForExport, fetchRevealAssets, revealSettings, resolveRevealSettings]);
+  }, [nodes, preamble, currentFile, resolveTranscludedNodesForExport, embedRevealBackgroundImages, fetchRevealAssets, revealSettings, resolveRevealSettings]);
 
   // Reveal.js's PDF print layout only activates when "print-pdf" is in the
   // URL *before* Reveal.initialize() runs (it's read once at startup, not
@@ -7441,9 +7894,10 @@ function App() {
     if (!win) { showToast("Pop-up blocked — allow pop-ups for epicorg to export to PDF"); return; }
     win.document.write('<p style="font-family:sans-serif;padding:2rem;">Preparing export…</p>');
     const resolved = await resolveTranscludedNodesForExport(nodes);
+    const withBackgrounds = await embedRevealBackgroundImages(resolved);
     const effective = resolveRevealSettings(revealSettings);
     const assets = await fetchRevealAssets(effective);
-    const html = generateRevealHtml(resolved, preamble, currentFile, assets, effective);
+    const html = generateRevealHtml(withBackgrounds, preamble, currentFile, assets, effective);
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob) + "?print-pdf";
     win.onafterprint = () => { win.close(); URL.revokeObjectURL(url); };
@@ -7461,7 +7915,7 @@ function App() {
       }
     };
     setTimeout(waitAndPrint, 500);
-  }, [nodes, preamble, currentFile, showToast, resolveTranscludedNodesForExport, fetchRevealAssets, revealSettings, resolveRevealSettings]);
+  }, [nodes, preamble, currentFile, showToast, resolveTranscludedNodesForExport, embedRevealBackgroundImages, fetchRevealAssets, revealSettings, resolveRevealSettings]);
 
   const importFromMarkdown = useCallback((file) => {
     if (!file) return;
@@ -8511,6 +8965,89 @@ function App() {
     if (node.body) dispatch(nodeId, "change-body", cleanUpText(node.body));
   }, [dispatch]);
 
+  // Journal view's per-node "⋯" menu — copies, moves, links (via a
+  // cross-file transclusion) or deletes a top-level journal entry, so past/
+  // future entries can be reviewed and cleaned up or pulled into today
+  // without leaving the Journal view. Always works directly against the
+  // API (fresh GET + hash-checked PUT) rather than the live outline's
+  // nodes/dispatch state — the source or "today" file is essentially never
+  // the file currently open in the editor, and on the rare occasion it is,
+  // this mirrors AgendaView's own external-file editor (see
+  // updateNodePropsInTree above) by matching the target node by title, not
+  // id, since ids are reassigned fresh on every GET rather than persisted.
+  // Returns true if the source file's top-level node list changed (move or
+  // delete), so the Journal view knows a refresh is actually needed.
+  const journalNodeAction = useCallback(async (sourceFile, node, mode) => {
+    if (mode === "delete") {
+      try {
+        const sourceDoc = await api.get(docUrl(sourceFile));
+        let removed = false;
+        const remaining = (sourceDoc.nodes || []).filter((n) => {
+          if (!removed && n.title === node.title) { removed = true; return false; }
+          return true;
+        });
+        await api.put(docUrl(sourceFile), { hash: sourceDoc.hash, preamble: sourceDoc.preamble || "", nodes: remaining });
+        showToast(`Deleted "${node.title || "(untitled)"}"`);
+        return true;
+      } catch {
+        showToast("Something went wrong — try again");
+        return false;
+      }
+    }
+    if (mode === "link" && node.properties?.TRANSCLUDE) {
+      showToast("Can't link a transclusion — link the original note instead");
+      return false;
+    }
+    try {
+      const todayInfo = await api.post("/api/journal", {});
+      const todayFile = todayInfo.filename;
+      if (todayFile === sourceFile) {
+        showToast("Already in today's journal");
+        return false;
+      }
+
+      let sourceDoc = null;
+      let transcludeRef = null;
+      if (mode === "link") {
+        sourceDoc = await api.get(docUrl(sourceFile));
+        const srcNode = (sourceDoc.nodes || []).find((n) => n.title === node.title);
+        if (!srcNode) { showToast("Couldn't find that entry — it may have changed"); return false; }
+        let transcludeId = srcNode.properties?.TRANSCLUDE_ID;
+        if (!transcludeId) {
+          const result = tree.ensureTranscludeId(sourceDoc.nodes, srcNode.id);
+          const putResult = await api.put(docUrl(sourceFile), { hash: sourceDoc.hash, preamble: sourceDoc.preamble || "", nodes: result.nodes });
+          transcludeId = result.id;
+          sourceDoc = { ...sourceDoc, nodes: result.nodes, hash: putResult.hash };
+        }
+        transcludeRef = tree.formatTranscludeRef(sourceFile, transcludeId);
+      }
+
+      const todayDoc = await api.get(docUrl(todayFile));
+      const newTodayNode = mode === "link"
+        ? { id: tree.newId(), title: "", body: "", status: "", tags: [], properties: { TRANSCLUDE: transcludeRef }, children: [], collapsed: false }
+        : cloneJournalNodeForCopy(node);
+      await api.put(docUrl(todayFile), { hash: todayDoc.hash, preamble: todayDoc.preamble || "", nodes: [...(todayDoc.nodes || []), newTodayNode] });
+
+      if (mode === "move") {
+        if (!sourceDoc) sourceDoc = await api.get(docUrl(sourceFile));
+        let removed = false;
+        const remaining = (sourceDoc.nodes || []).filter((n) => {
+          if (!removed && n.title === node.title) { removed = true; return false; }
+          return true;
+        });
+        await api.put(docUrl(sourceFile), { hash: sourceDoc.hash, preamble: sourceDoc.preamble || "", nodes: remaining });
+      }
+
+      const verb = mode === "copy" ? "Copied" : mode === "move" ? "Moved" : "Linked";
+      const prep = mode === "link" ? "into" : "to";
+      showToast(`${verb} "${node.title || "(untitled)"}" ${prep} today's journal`);
+      return mode === "move";
+    } catch {
+      showToast("Something went wrong — try again");
+      return false;
+    }
+  }, [showToast]);
+
   // Transclusion — see tree.js's "Transclusion" section for the property
   // scheme. "Copy Reference" assigns the node a permanent TRANSCLUDE_ID
   // (reusing one if it already has it) and remembers it here; "Paste as
@@ -9113,6 +9650,18 @@ function App() {
       if (e.key !== "Delete" && e.key !== "Backspace") return;
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+
+      // A selection sitting outside any editable control (e.g. text dragged
+      // across a read-only note preview) isn't consumed by anything, so
+      // Backspace falls through to the browser's default "navigate back"
+      // action. Block that unconditionally whenever there's an active
+      // selection and focus isn't in an actual editable field — real
+      // editable fields (title/body textareas) already handle Backspace
+      // correctly on their own and must be left alone.
+      const active = document.activeElement;
+      const activeIsEditable = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable);
+      if (!activeIsEditable) e.preventDefault();
+
       const range = sel.getRangeAt(0);
 
       const els = [...document.querySelectorAll(".node-row[data-node-id], .node-body-preview[data-node-id]")];
@@ -9629,6 +10178,7 @@ function App() {
                 }}
                 onGoToDate=${goToJournalDate}
                 onNewAppointment=${openApptDialog}
+                onJournalAction=${journalNodeAction}
                 searchQuery=${searchQuery}
               />
             </div>
@@ -9678,7 +10228,7 @@ function App() {
           titleFormatMode=${titleFormatMode}
           globalTags=${globalTags}
           tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${toggleTagPanel}
-          textMode=${textMode} selectedTags=${selectedTags} />
+          textMode=${textMode} selectedTags=${selectedTags} currentFile=${currentFile} />
       </div>
       ${statusBarVisible && html`
         <${StatusBar} currentFile=${currentFile} homeDir=${homeDir} journalDir=${journalDir} tagListFile=${tagListFile} bookmarkListFile=${bookmarkListFile}

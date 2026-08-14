@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"html"
 	"io"
 	"net/http"
@@ -959,21 +960,37 @@ var allowedImageMIME = map[string]string{
 }
 
 func (h *handlers) serveMedia(w http.ResponseWriter, r *http.Request) {
-	relPath := strings.TrimPrefix(r.URL.Path, "/api/media/")
-	relPath = filepath.Clean(relPath)
-	if relPath == "." || relPath == "" || filepath.IsAbs(relPath) || strings.HasPrefix(relPath, "..") {
-		http.Error(w, "invalid path", http.StatusBadRequest)
-		return
+	var fullPath string
+	// ?path=<absolute path> mirrors /api/browse and /api/raw's own "resolve
+	// anywhere on disk" convention (see resolveFilePath) — used only for
+	// thumbnail previews while picking a slide background from outside the
+	// workspace (see BackgroundImagePickerDialog in app.js). A picked image
+	// is always copied or referenced by a plain workspace-relative path
+	// afterward (see copyMediaFile) — this form is never what
+	// REVEAL_BACKGROUND itself ends up storing.
+	if abs := r.URL.Query().Get("path"); abs != "" {
+		if !filepath.IsAbs(abs) {
+			http.Error(w, "invalid path", http.StatusBadRequest)
+			return
+		}
+		fullPath = filepath.Clean(abs)
+	} else {
+		relPath := strings.TrimPrefix(r.URL.Path, "/api/media/")
+		relPath = filepath.Clean(relPath)
+		if relPath == "." || relPath == "" || filepath.IsAbs(relPath) || strings.HasPrefix(relPath, "..") {
+			http.Error(w, "invalid path", http.StatusBadRequest)
+			return
+		}
+		storeDir := filepath.Clean(h.store.Dir()) + string(filepath.Separator)
+		fullPath = filepath.Join(h.store.Dir(), relPath)
+		if !strings.HasPrefix(fullPath, storeDir) {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
 	}
-	mimeType, ok := allowedImageMIME[strings.ToLower(filepath.Ext(relPath))]
+	mimeType, ok := allowedImageMIME[strings.ToLower(filepath.Ext(fullPath))]
 	if !ok {
 		http.Error(w, "not an image type", http.StatusForbidden)
-		return
-	}
-	storeDir := filepath.Clean(h.store.Dir()) + string(filepath.Separator)
-	fullPath := filepath.Join(h.store.Dir(), relPath)
-	if !strings.HasPrefix(fullPath, storeDir) {
-		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 	data, err := os.ReadFile(fullPath)
@@ -984,4 +1001,74 @@ func (h *handlers) serveMedia(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", mimeType)
 	w.Header().Set("Cache-Control", "max-age=3600")
 	w.Write(data)
+}
+
+// copyMediaFile copies an image (the slide-background picker's "outside
+// this note's folder" case — see BackgroundImagePickerDialog in app.js)
+// into a workspace directory, so REVEAL_BACKGROUND can reference it as a
+// plain workspace-relative path servable by serveMedia. Source may be
+// absolute (browsed from anywhere on disk, per the same convention as
+// browseDir/getRawFile) or workspace-relative; the destination directory
+// is always required to resolve inside the workspace, since that's the
+// only thing serveMedia/export's embedRevealBackgroundImages can ever read
+// back.
+func (h *handlers) copyMediaFile(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Source  string `json:"source"`
+		DestDir string `json:"destDir"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Source == "" {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	ext := filepath.Ext(req.Source)
+	if _, ok := allowedImageMIME[strings.ToLower(ext)]; !ok {
+		http.Error(w, "not an image type", http.StatusForbidden)
+		return
+	}
+
+	srcPath := req.Source
+	if !filepath.IsAbs(srcPath) {
+		srcPath = filepath.Join(h.store.Dir(), srcPath)
+	}
+	srcPath = filepath.Clean(srcPath)
+
+	storeDir := filepath.Clean(h.store.Dir()) + string(filepath.Separator)
+	destDir := filepath.Clean(filepath.Join(h.store.Dir(), req.DestDir))
+	if !strings.HasPrefix(destDir+string(filepath.Separator), storeDir) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
+	data, err := os.ReadFile(srcPath)
+	if err != nil {
+		http.Error(w, "source not found", http.StatusNotFound)
+		return
+	}
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	base := filepath.Base(srcPath)
+	stem := strings.TrimSuffix(base, ext)
+	name := base
+	for i := 2; ; i++ {
+		if _, err := os.Stat(filepath.Join(destDir, name)); os.IsNotExist(err) {
+			break
+		}
+		name = fmt.Sprintf("%s (%d)%s", stem, i, ext)
+	}
+
+	if err := os.WriteFile(filepath.Join(destDir, name), data, 0644); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	relOut := name
+	if req.DestDir != "" {
+		relOut = strings.TrimSuffix(req.DestDir, "/") + "/" + name
+	}
+	writeJSON(w, map[string]string{"path": relOut})
 }

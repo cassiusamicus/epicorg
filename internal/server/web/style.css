@@ -3857,6 +3857,10 @@ body.dnd-dragging, body.dnd-dragging * { cursor: move !important; user-select: n
 .note-ctx-item:disabled { color: var(--text-dim); cursor: default; }
 .note-ctx-sep { height: 1px; background: var(--border); margin: 3px 0; }
 
+.journal-menu-item-danger { color: var(--danger); }
+.journal-menu-item-danger:hover:not(:disabled) { background: var(--danger-bg); }
+.journal-menu-delete-confirm { padding: 6px 12px; }
+
 .node-body-preview {
   flex: 1;
   min-width: 0;
@@ -4187,6 +4191,153 @@ body.dnd-dragging, body.dnd-dragging * { cursor: move !important; user-select: n
 .img-browse-file.active {
   background: var(--accent);
   color: #fff;
+}
+
+/* Slide background picker (grid of actual image thumbnails, not filenames) */
+.bg-picker-dialog {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 560px;
+  max-width: 92vw;
+  max-height: 80vh;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.28);
+  display: flex;
+  flex-direction: column;
+}
+.bg-picker-body {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+.bg-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+}
+.bg-picker-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  background: var(--bg);
+}
+.bg-picker-tile:hover {
+  border-color: var(--accent);
+  background: var(--focused-bg);
+}
+.bg-picker-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--input-bg, var(--bg));
+}
+.bg-picker-dir-icon {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  border-radius: 4px;
+  background: var(--input-bg, var(--bg));
+}
+.bg-picker-tile-label {
+  font-size: 11px;
+  color: var(--text);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bg-picker-confirm-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  margin: 0;
+}
+.bg-picker-confirm-text code {
+  font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+  font-size: 12px;
+  background: var(--input-bg, var(--bg));
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+.bg-picker-confirm-actions {
+  padding-top: 10px;
+}
+
+/* Slide background editor (detail pane) */
+.slide-bg-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.slide-bg-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.slide-bg-thumb {
+  width: 96px;
+  height: 54px;
+  object-fit: cover;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--input-bg, var(--bg));
+  flex-shrink: 0;
+}
+.slide-bg-thumb-color {
+  background-size: cover;
+  background-position: center;
+}
+.slide-bg-preview-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.slide-bg-preview-path {
+  font-size: 11px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.slide-bg-clear-btn {
+  align-self: flex-start;
+  font-size: 11px;
+  color: var(--danger, #c0392b);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+.slide-bg-clear-btn:hover {
+  text-decoration: underline;
+}
+.slide-bg-size-group {
+  margin-top: 2px;
+}
+.slide-bg-percent-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.slide-bg-percent-row input[type="range"] {
+  flex: 1;
+}
+.slide-bg-percent-val {
+  font-size: 12px;
+  color: var(--text-dim);
+  min-width: 32px;
+  text-align: right;
 }
 
 /* Properties editor */
@@ -6071,6 +6222,30 @@ a.org-file-link {
 .journal-node-child-count {
   font-size: 11px;
   color: var(--text-dim);
+}
+
+.journal-node-menu-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1;
+  padding: 1px 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  opacity: 0;
+}
+.journal-node-preview:hover .journal-node-menu-btn,
+.journal-node-menu-btn.active {
+  opacity: 1;
+}
+.journal-node-menu-btn:hover {
+  background: var(--bg);
+  color: var(--text);
+  border-color: var(--border);
 }
 
 .journal-more {

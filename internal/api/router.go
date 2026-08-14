@@ -103,6 +103,17 @@ func Register(mux *http.ServeMux, store *orgfile.Store, onSave func(), defaultFi
 		h.serveMedia(w, r)
 	})
 
+	// Copies an image into a workspace directory — used by the slide
+	// background picker when the chosen photo lives outside the current
+	// note's folder (see copyMediaFile).
+	mux.HandleFunc("/api/copyimage", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		h.copyMediaFile(w, r)
+	})
+
 	// Opens a local file path with xdg-open (system default handler).
 	mux.HandleFunc("/api/open", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

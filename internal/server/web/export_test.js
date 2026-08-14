@@ -169,6 +169,43 @@ test("generateRevealHtml: REVEAL_BACKGROUND with an image URL becomes data-backg
   assert(html.includes('data-background-image="https://example.com/pic.jpg"'), "image URL should use data-background-image");
 });
 
+test("generateRevealHtml: REVEAL_BACKGROUND as a data: URI (embedded local image) becomes data-background-image", () => {
+  const node = makeNode({ title: "Styled", properties: { REVEAL_BACKGROUND: "data:image/png;base64,AAAA" } });
+  const html = generateRevealHtml([node], "", "test.org", makeAssets(), {});
+  assert(html.includes('data-background-image="data:image/png;base64,AAAA"'), "embedded data: URI should still use data-background-image");
+});
+
+test("generateRevealHtml: no REVEAL_BACKGROUND_SIZE (Full Screen) omits data-background-size, relying on reveal.css's cover default", () => {
+  const node = makeNode({ title: "Styled", properties: { REVEAL_BACKGROUND: "photo.jpg" } });
+  const html = generateRevealHtml([node], "", "test.org", makeAssets(), {});
+  assert(!html.includes("data-background-size"), "Full Screen mode should not emit data-background-size at all");
+});
+
+test("generateRevealHtml: REVEAL_BACKGROUND_SIZE cover also omits data-background-size", () => {
+  const node = makeNode({ title: "Styled", properties: { REVEAL_BACKGROUND: "photo.jpg", REVEAL_BACKGROUND_SIZE: "cover" } });
+  const html = generateRevealHtml([node], "", "test.org", makeAssets(), {});
+  assert(!html.includes("data-background-size"), "explicit cover should still omit the attribute (matches the CSS default)");
+});
+
+test("generateRevealHtml: REVEAL_BACKGROUND_SIZE contain becomes data-background-size=\"contain\"", () => {
+  const node = makeNode({ title: "Styled", properties: { REVEAL_BACKGROUND: "photo.jpg", REVEAL_BACKGROUND_SIZE: "contain" } });
+  const html = generateRevealHtml([node], "", "test.org", makeAssets(), {});
+  assert(html.includes('data-background-size="contain"'), "Fit mode should emit data-background-size=\"contain\"");
+});
+
+test("generateRevealHtml: REVEAL_BACKGROUND_SIZE as a custom percentage is passed through", () => {
+  const node = makeNode({ title: "Styled", properties: { REVEAL_BACKGROUND: "photo.jpg", REVEAL_BACKGROUND_SIZE: "45%" } });
+  const html = generateRevealHtml([node], "", "test.org", makeAssets(), {});
+  assert(html.includes('data-background-size="45%"'), "custom percentage should be passed through verbatim");
+});
+
+test("generateRevealHtml: REVEAL_BACKGROUND_SIZE is ignored for a non-image (plain color) background", () => {
+  const node = makeNode({ title: "Styled", properties: { REVEAL_BACKGROUND: "#222222", REVEAL_BACKGROUND_SIZE: "contain" } });
+  const html = generateRevealHtml([node], "", "test.org", makeAssets(), {});
+  assert(html.includes('data-background="#222222"'), "missing data-background attribute");
+  assert(!html.includes("data-background-size"), "size shouldn't apply to a plain color/gradient background");
+});
+
 test("generateRevealHtml: uses #+TITLE: from the preamble as the document title", () => {
   const html = generateRevealHtml([makeNode({ title: "X" })], "#+TITLE: My Deck", "test.org", makeAssets(), {});
   assert(html.includes("<title>My Deck</title>"), "expected #+TITLE: to become the <title>");
