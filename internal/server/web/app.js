@@ -5143,6 +5143,19 @@ function WorkspaceSettingsPanel({
   `;
 }
 
+// Long workspace paths eat all the status bar's width. Keep the last two
+// path components in full (they're what actually distinguishes one file/
+// folder from its neighbors) and collapse every component before that down
+// to its first letter — the full path is still available in the tooltip.
+function shortenStatusPath(path) {
+  if (!path) return path;
+  const abs = path.startsWith("/");
+  const parts = (abs ? path.slice(1) : path).split("/");
+  if (parts.length <= 2) return path;
+  const collapsed = parts.slice(0, -2).map((p) => p.charAt(0)).concat(parts.slice(-2));
+  return (abs ? "/" : "") + collapsed.join("/");
+}
+
 function StatusBar({ currentFile, homeDir, journalDir, tagListFile, bookmarkListFile, onOpenSettings }) {
   const journalLabel = journalDir ? journalDir : "(workspace default)";
   // Build full absolute path: currentFile is relative when opened from the
@@ -5152,29 +5165,29 @@ function StatusBar({ currentFile, homeDir, journalDir, tagListFile, bookmarkList
     : "—";
   return html`
     <div className="status-bar">
-      <span className="status-bar-item">
+      <span className="status-bar-item" title=${fullFilePath}>
         <span className="status-bar-label">File</span>
-        ${fullFilePath}
+        ${shortenStatusPath(fullFilePath)}
       </span>
       <span className="status-bar-sep" />
-      <span className="status-bar-item">
+      <span className="status-bar-item" title=${homeDir || "—"}>
         <span className="status-bar-label">Home Folder</span>
-        ${homeDir || "—"}
+        ${homeDir ? shortenStatusPath(homeDir) : "—"}
       </span>
       <span className="status-bar-sep" />
-      <span className="status-bar-item">
+      <span className="status-bar-item" title=${journalLabel}>
         <span className="status-bar-label">Journal</span>
-        ${journalLabel}
+        ${journalDir ? shortenStatusPath(journalDir) : journalLabel}
       </span>
       <span className="status-bar-sep" />
-      <span className="status-bar-item">
+      <span className="status-bar-item" title=${tagListFile || "—"}>
         <span className="status-bar-label">Tag List</span>
-        ${tagListFile || "—"}
+        ${tagListFile ? shortenStatusPath(tagListFile) : "—"}
       </span>
       <span className="status-bar-sep" />
-      <span className="status-bar-item">
+      <span className="status-bar-item" title=${bookmarkListFile || "—"}>
         <span className="status-bar-label">Bookmark List</span>
-        ${bookmarkListFile || "—"}
+        ${bookmarkListFile ? shortenStatusPath(bookmarkListFile) : "—"}
       </span>
       <button className="status-bar-settings-btn" onClick=${onOpenSettings} title="Workspace settings">⚙</button>
     </div>
