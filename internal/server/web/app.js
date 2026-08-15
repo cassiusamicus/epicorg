@@ -3938,6 +3938,7 @@ const SHORTCUT_DEFS = [
   { id: "textSearch",      cat: "Navigation", label: "Full-text Search",      def: "Ctrl+Shift+F" },
   { id: "copyFormatted",   cat: "Export",     label: "Copy as Formatted Text", def: "Ctrl+Shift+C" },
   { id: "copyPlain",       cat: "Export",     label: "Copy as Plain Text",     def: "Ctrl+Shift+X" },
+  { id: "toggleLevelPanel", cat: "View",      label: "Toggle Level Selection Panel", def: "Ctrl+Shift+K" },
   // Fixed: shown for reference, not rebindable
   { id: "newSibling",  cat: "Reference", label: "New Sibling Node",  def: "Enter",       fixed: true },
   { id: "editBody",    cat: "Reference", label: "Edit Body Note",    def: "Shift+Enter", fixed: true },
@@ -6143,6 +6144,22 @@ function App() {
       return next;
     });
   }, []);
+  const [levelPanelVisible, setLevelPanelVisible] = useState(() => {
+    try { return localStorage.getItem("epicorg.levelPanelVisible") !== "0"; } catch { return true; }
+  });
+  const toggleLevelPanel = useCallback(() => {
+    setLevelPanelVisible((p) => {
+      const next = !p;
+      try { localStorage.setItem("epicorg.levelPanelVisible", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  }, []);
+  // Tracks which of the Level Selection Panel's four buttons was last
+  // pressed, so it can show which fold level is currently active. Set from
+  // the shared foldToLevel wrapper below (not just the panel's own clicks)
+  // so it also stays in sync with Alt+1..4, the search panel's depth
+  // buttons, and the header's fold-level toolbar buttons.
+  const [activeFoldLevel, setActiveFoldLevel] = useState(null);
   const [showTagChips, setShowTagChips] = useState(() => {
     try { return localStorage.getItem("epicorg.showTagChips") === "1"; } catch { return false; }
   });
@@ -6978,6 +6995,7 @@ function App() {
   const foldToLevel = useCallback((level) => {
     setNodes((prev) => prev ? tree.foldToLevel(prev, level) : prev);
     markDirty();
+    setActiveFoldLevel(level >= 1 && level <= 4 ? level : null);
   }, [markDirty]);
 
   // Unlike "Expand All" (which only unfolds headings), this also force-shows
@@ -7037,6 +7055,9 @@ function App() {
       if (matchShortcut("hoist", e)) {
         e.preventDefault(); toggleHoistRef.current?.(); return;
       }
+      if (matchShortcut("toggleLevelPanel", e)) {
+        e.preventDefault(); toggleLevelPanel(); return;
+      }
       // Indent/Outdent moved to Tab/Shift+Tab (see the "indent"/"outdent"
       // SHORTCUT_DEFS) specifically so Alt+Left/Right would be free to mean
       // just one thing — Go Back/Forward — with no per-field disambiguation
@@ -7058,7 +7079,7 @@ function App() {
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [foldToLevel, undo, redo]);
+  }, [foldToLevel, undo, redo, toggleLevelPanel]);
 
   // Focus effect
   useEffect(() => {
@@ -9871,6 +9892,7 @@ function App() {
           toggleHoist, isHoisted,
           toggleTagPanel, tagPanelVisible,
           toggleBookmarkPanel, bookmarkPanelVisible,
+          toggleLevelPanel, levelPanelVisible,
           foldToLevel, expandAllWithNotes,
           setView, view,
           setShowPicker, setShowTextSearch, setShowFolderPicker,
@@ -10319,6 +10341,7 @@ function App() {
           onCopyFormatted=${copyAsFormatted} onCopyPlain=${copyAsPlain}
           tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${toggleTagPanel}
           bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${toggleBookmarkPanel}
+          levelPanelVisible=${levelPanelVisible} onToggleLevelPanel=${toggleLevelPanel}
           workspaceConfig=${workspaceConfig}
           onConfigureWorkspace=${() => { setShowSettings(false); setShowWorkspaceModal(true); }}
           savedWorkspaceProfiles=${savedWorkspaceProfiles}
@@ -10337,10 +10360,30 @@ function App() {
       <div className="dnd-drop-line" style=${{ top: dragVisual.lineY, left: dragVisual.lineLeft }} />
     `}
     <${Toast} message=${toastMsg} />
+    ${levelPanelVisible && html`
+      <${LevelSelectionPanel} activeLevel=${activeFoldLevel} onSelectLevel=${foldToLevel} onClose=${toggleLevelPanel} />
+    `}
   `;
 }
 
 const FOLD_LEVELS = [1, 2, 3, 4];
+
+// Floating bottom-center bar with quick fold-to-level buttons — a faster
+// alternative to the header's fold-level toolbar buttons or the Alt+1..4
+// shortcuts for anyone who wants it always visible and mouse-reachable.
+function LevelSelectionPanel({ activeLevel, onSelectLevel, onClose }) {
+  return html`
+    <div className="level-panel">
+      ${FOLD_LEVELS.map((lvl) => html`
+        <button key=${lvl}
+                className=${"level-panel-btn" + (activeLevel === lvl ? " active" : "")}
+                title=${"Fold outline to level " + lvl}
+                onClick=${() => onSelectLevel(lvl)}>${lvl}</button>
+      `)}
+      <span className="level-panel-close" title="Hide Level Selection Panel" onClick=${onClose}>×</span>
+    </div>
+  `;
+}
 
 // --- Toolbar icons ---
 // Inline SVG (not emoji/icon-font glyphs) so they render identically on
@@ -12154,6 +12197,7 @@ function SettingsModal({
   onCopyFormatted, onCopyPlain,
   tagPanelVisible, onToggleTagPanel,
   bookmarkPanelVisible, onToggleBookmarkPanel,
+  levelPanelVisible, onToggleLevelPanel,
   workspaceConfig, onConfigureWorkspace,
   savedWorkspaceProfiles, onSaveCurrentAsWorkspaceProfile, onDeleteWorkspaceProfile, onSwitchWorkspaceProfile,
 }) {
@@ -12215,6 +12259,9 @@ function SettingsModal({
         </${StgRow}>
         <${StgRow} label="Bookmark panel visible">
           <input type="checkbox" checked=${bookmarkPanelVisible} onChange=${onToggleBookmarkPanel} />
+        </${StgRow}>
+        <${StgRow} label="Level Selection Panel" desc="Floating bar with quick fold-to-level buttons (Ctrl+Shift+K)">
+          <input type="checkbox" checked=${levelPanelVisible} onChange=${onToggleLevelPanel} />
         </${StgRow}>
       </div>
       <div className="stg-section">
@@ -13350,6 +13397,7 @@ function buildCommands(ctx) {
     toggleHoist, isHoisted,
     toggleTagPanel, tagPanelVisible,
     toggleBookmarkPanel, bookmarkPanelVisible,
+    toggleLevelPanel, levelPanelVisible,
     foldToLevel, expandAllWithNotes,
     setView, view,
     setShowPicker, setShowTextSearch, setShowFolderPicker, setShowHelp,
@@ -13378,6 +13426,7 @@ function buildCommands(ctx) {
     { category: "View", label: "Collapse Top Bar",         desc: "Shrink the top bar down to a small corner tab (click the tab to restore it)", keys: "", action: toggleHeaderCollapsed },
     { category: "View", label: "Toggle Tag Panel",         desc: "Show/hide the tag panel",        keys: "",              action: toggleTagPanel },
     { category: "View", label: "Toggle Bookmark Panel",    desc: "Show/hide bookmarks",            keys: "",              action: toggleBookmarkPanel },
+    { category: "View", label: "Toggle Level Selection Panel", desc: levelPanelVisible ? "Hide the floating fold-level bar" : "Show the floating fold-level bar", keys: "", action: toggleLevelPanel },
     { category: "View", label: "Toggle Detail Panel",      desc: "Show/hide the detail pane",      keys: "",              action: () => {} }, // wired below
     { category: "View", label: "Toggle Notes",             desc: notesVisible ? "Hide inline notes" : "Show inline notes", keys: "", action: toggleNotesVisible },
     { category: "View", label: "Toggle Reading Width",     desc: readingWidth ? "Full width" : "Comfortable reading width", keys: "", action: toggleReadingWidth },
