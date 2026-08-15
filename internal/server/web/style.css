@@ -1476,6 +1476,29 @@ header h1 {
   color: #fff;
 }
 
+.level-panel-mode-btn {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px dashed var(--bullet);
+  background: none;
+  color: var(--text-dim);
+  font-size: 9px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
+  padding: 0;
+  margin-left: 4px;
+}
+
+.level-panel-mode-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .level-panel-close {
   position: absolute;
   top: -6px;

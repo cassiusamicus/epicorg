@@ -9913,7 +9913,7 @@ function App() {
           setView, view,
           setShowPicker, setShowTextSearch, setShowFolderPicker,
           setShowHelp, insertFootnote, insertDateStamp,
-          joinFocusedWithNext,
+          joinFocusedWithNext, outlineAction,
                 exportToHtml, exportToPdf, exportToOrg, exportToMarkdown, exportToReveal, exportToRevealPdf, revealSettings, currentFile,
           copyAsFormatted, copyAsPlain,
           triggerImportFile, triggerImportFolder, triggerImportMarkdownReplaceCurrent,
@@ -10377,25 +10377,58 @@ function App() {
     `}
     <${Toast} message=${toastMsg} />
     ${levelPanelVisible && html`
-      <${LevelSelectionPanel} activeLevel=${activeFoldLevel} onSelectLevel=${foldToLevel} onClose=${toggleLevelPanel} />
+      <${LevelSelectionPanel} activeLevel=${activeFoldLevel} onSelectLevel=${foldToLevel} onMoveAction=${outlineAction} onClose=${toggleLevelPanel} />
     `}
   `;
 }
 
 const FOLD_LEVELS = [1, 2, 3, 4];
 
-// Floating bottom-center bar with quick fold-to-level buttons — a faster
-// alternative to the header's fold-level toolbar buttons or the Alt+1..4
-// shortcuts for anyone who wants it always visible and mouse-reachable.
-function LevelSelectionPanel({ activeLevel, onSelectLevel, onClose }) {
+// Same dir->action mapping as the "Move Subtree" group in
+// OutlineActionsPanel — → is Demote/Indent (deeper), ← is Promote/Outdent
+// (shallower), matching the reading-direction metaphor used there.
+const LEVEL_PANEL_MOVE_BUTTONS = [
+  { key: "up",    label: "↑", title: "Move Node Up",            action: "move-up" },
+  { key: "down",  label: "↓", title: "Move Node Down",          action: "move-down" },
+  { key: "left",  label: "←", title: "Promote Node (Outdent)",  action: "outdent" },
+  { key: "right", label: "→", title: "Demote Node (Indent)",    action: "indent" },
+];
+
+// Floating bottom-center bar. Defaults to quick fold-to-level buttons (a
+// faster alternative to the header's fold-level toolbar buttons or the
+// Alt+1..4 shortcuts), with a mode toggle that swaps them for node-move
+// buttons (up/down/promote/demote) acting on the currently focused node —
+// the same operations wired into the Command Palette's Outline commands.
+function LevelSelectionPanel({ activeLevel, onSelectLevel, onMoveAction, onClose }) {
+  const [mode, setMode] = useState(() => {
+    try { return localStorage.getItem("epicorg.levelPanelMode") === "move" ? "move" : "levels"; } catch { return "levels"; }
+  });
+  const toggleMode = () => {
+    setMode((m) => {
+      const next = m === "levels" ? "move" : "levels";
+      try { localStorage.setItem("epicorg.levelPanelMode", next); } catch {}
+      return next;
+    });
+  };
+
   return html`
     <div className="level-panel">
-      ${FOLD_LEVELS.map((lvl) => html`
-        <button key=${lvl}
-                className=${"level-panel-btn" + (activeLevel === lvl ? " active" : "")}
-                title=${"Fold outline to level " + lvl}
-                onClick=${() => onSelectLevel(lvl)}>${lvl}</button>
-      `)}
+      ${mode === "levels"
+        ? FOLD_LEVELS.map((lvl) => html`
+            <button key=${lvl}
+                    className=${"level-panel-btn" + (activeLevel === lvl ? " active" : "")}
+                    title=${"Fold outline to level " + lvl}
+                    onClick=${() => onSelectLevel(lvl)}>${lvl}</button>
+          `)
+        : LEVEL_PANEL_MOVE_BUTTONS.map((b) => html`
+            <button key=${b.key}
+                    className="level-panel-btn"
+                    title=${b.title}
+                    onClick=${() => onMoveAction(b.action)}>${b.label}</button>
+          `)}
+      <button className="level-panel-mode-btn"
+              title=${mode === "levels" ? "Switch to node-move buttons" : "Switch to fold-level buttons"}
+              onClick=${toggleMode}>⇄</button>
       <span className="level-panel-close" title="Hide Level Selection Panel" onClick=${onClose}>×</span>
     </div>
   `;
@@ -13418,7 +13451,7 @@ function buildCommands(ctx) {
     setView, view,
     setShowPicker, setShowTextSearch, setShowFolderPicker, setShowHelp,
     insertFootnote, insertDateStamp,
-    joinFocusedWithNext,
+    joinFocusedWithNext, outlineAction,
     exportToHtml, exportToPdf, exportToOrg, exportToMarkdown, exportToReveal, exportToRevealPdf, revealSettings, currentFile,
     copyAsFormatted, copyAsPlain,
     triggerImportFile, triggerImportFolder, triggerImportMarkdownReplaceCurrent,
@@ -13479,6 +13512,10 @@ function buildCommands(ctx) {
     { category: "Edit", label: "Insert Date Stamp",       desc: "Insert formatted date/time at cursor", keys: displayCombo(getShortcutCombo("insertDateStamp")), action: insertDateStamp },
     { category: "Edit", label: "Split At Cursor Location", desc: "Split the focused title into two sibling nodes, or the focused note into a new node's note directly after", keys: displayCombo(getShortcutCombo("splitNode")), action: splitAtCursorLocation },
     { category: "Edit", label: "Join with Next Node",     desc: "Merge this node with the next sibling",        keys: displayCombo(getShortcutCombo("joinNode")),   action: joinFocusedWithNext },
+    { category: "Outline", label: "Demote Node (Indent)",       desc: "Move the focused node and its children one level deeper",    keys: displayCombo(getShortcutCombo("indent")),      action: () => outlineAction("indent") },
+    { category: "Outline", label: "Promote Node (Outdent)",     desc: "Move the focused node and its children one level shallower", keys: displayCombo(getShortcutCombo("outdent")),     action: () => outlineAction("outdent") },
+    { category: "Outline", label: "Demote Heading Only",        desc: "Move just the heading deeper, leaving its children in place as siblings",   keys: displayCombo(getShortcutCombo("indentOnly")),  action: () => outlineAction("indent-only") },
+    { category: "Outline", label: "Promote Heading Only",       desc: "Move just the heading shallower, leaving its children in place as siblings", keys: displayCombo(getShortcutCombo("outdentOnly")), action: () => outlineAction("outdent-only") },
     { category: "Edit", label: "Convert Note To Node",    desc: "Turn the focused note into a new first-child node", keys: "", action: convertNoteToNodeAtFocus },
     { category: "Edit", label: "Convert Node To Note",    desc: "Fold the focused node into a note on the node immediately above it", keys: "", action: convertNodeToNoteAtFocus },
     { category: "Edit", label: "Link Selection From Clipboard", desc: "Wrap the selected text as a link to the URL currently on the clipboard", keys: displayCombo(getShortcutCombo("linkifySelection")), action: linkifySelectionFromClipboard },
