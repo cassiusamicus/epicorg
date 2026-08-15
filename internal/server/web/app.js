@@ -5165,31 +5165,34 @@ function StatusBar({ currentFile, homeDir, journalDir, tagListFile, bookmarkList
     : "—";
   return html`
     <div className="status-bar">
-      <span className="status-bar-item" title=${fullFilePath}>
-        <span className="status-bar-label">File</span>
-        ${shortenStatusPath(fullFilePath)}
-      </span>
-      <span className="status-bar-sep" />
-      <span className="status-bar-item" title=${homeDir || "—"}>
-        <span className="status-bar-label">Home Folder</span>
-        ${homeDir ? shortenStatusPath(homeDir) : "—"}
-      </span>
-      <span className="status-bar-sep" />
-      <span className="status-bar-item" title=${journalLabel}>
-        <span className="status-bar-label">Journal</span>
-        ${journalDir ? shortenStatusPath(journalDir) : journalLabel}
-      </span>
-      <span className="status-bar-sep" />
-      <span className="status-bar-item" title=${tagListFile || "—"}>
-        <span className="status-bar-label">Tag List</span>
-        ${tagListFile ? shortenStatusPath(tagListFile) : "—"}
-      </span>
-      <span className="status-bar-sep" />
-      <span className="status-bar-item" title=${bookmarkListFile || "—"}>
-        <span className="status-bar-label">Bookmark List</span>
-        ${bookmarkListFile ? shortenStatusPath(bookmarkListFile) : "—"}
-      </span>
-      <button className="status-bar-settings-btn" onClick=${onOpenSettings} title="Workspace settings">⚙</button>
+      <div className="status-bar-group status-bar-group-left">
+        <span className="status-bar-item" title=${fullFilePath}>
+          <span className="status-bar-label">File</span>
+          ${shortenStatusPath(fullFilePath)}
+        </span>
+        <span className="status-bar-sep" />
+        <span className="status-bar-item" title=${homeDir || "—"}>
+          <span className="status-bar-label">Home Folder</span>
+          ${homeDir ? shortenStatusPath(homeDir) : "—"}
+        </span>
+      </div>
+      <div className="status-bar-group status-bar-group-right">
+        <span className="status-bar-item" title=${journalLabel}>
+          <span className="status-bar-label">Journal</span>
+          ${journalDir ? shortenStatusPath(journalDir) : journalLabel}
+        </span>
+        <span className="status-bar-sep" />
+        <span className="status-bar-item" title=${tagListFile || "—"}>
+          <span className="status-bar-label">Tag List</span>
+          ${tagListFile ? shortenStatusPath(tagListFile) : "—"}
+        </span>
+        <span className="status-bar-sep" />
+        <span className="status-bar-item" title=${bookmarkListFile || "—"}>
+          <span className="status-bar-label">Bookmark List</span>
+          ${bookmarkListFile ? shortenStatusPath(bookmarkListFile) : "—"}
+        </span>
+        <button className="status-bar-settings-btn" onClick=${onOpenSettings} title="Workspace settings">⚙</button>
+      </div>
     </div>
   `;
 }

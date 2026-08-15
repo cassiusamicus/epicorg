@@ -1455,7 +1455,7 @@ header h1 {
   border: 1px solid var(--bullet);
   background: var(--bg);
   color: var(--text);
-  font-size: 11px;
+  font-size: 9px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -2171,13 +2171,19 @@ header.header-tinted {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0;
+  justify-content: space-between;
+  gap: 12px;
   padding: 3px 16px;
   background: var(--accent);
   font-size: 11px;
   color: rgba(255, 255, 255, 0.82);
   user-select: text;
+  overflow: hidden;
+}
+.status-bar-group {
+  display: flex;
+  align-items: center;
+  min-width: 0;
   overflow: hidden;
 }
 .status-bar-item {
