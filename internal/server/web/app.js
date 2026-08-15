@@ -1354,7 +1354,12 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
               // the note's start, left continues backward into that same
               // title's end (not the previous node's) — nav-left/right on
               // the title itself already picks up the chain from there.
-              if (e.key === "ArrowRight" && !e.altKey) {
+              // Shift held is a selection extension, not cursor movement — with
+              // Shift+Right in particular, selectionStart (the lower bound)
+              // stays put on almost every keystroke regardless of where the
+              // cursor actually is, so the "didn't move" boundary check can't
+              // tell a real selection from a true edge. Leave it to the browser.
+              if (e.key === "ArrowRight" && !e.altKey && !e.shiftKey) {
                 const ta = e.target;
                 const posBefore = ta.selectionStart;
                 requestAnimationFrame(() => {
@@ -1362,7 +1367,7 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
                 });
                 return;
               }
-              if (e.key === "ArrowLeft" && !e.altKey) {
+              if (e.key === "ArrowLeft" && !e.altKey && !e.shiftKey) {
                 const ta = e.target;
                 const posBefore = ta.selectionStart;
                 requestAnimationFrame(() => {
@@ -1613,12 +1618,29 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                   return;
                 }
                 if (showOverlay && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) setIsEditing(true);
+                // Shift+Arrow should extend a text selection, same as typing a
+                // character reveals the real (until-now offscreen) textarea —
+                // otherwise the overlay's own arrow handling below and
+                // handleKey's unconditional fallback both treat every arrow
+                // key as cross-node navigation, and Shift never gets a chance
+                // to turn it into a selection.
+                if (showOverlay && e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey
+                    && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
+                  setIsEditing(true);
+                }
                 // When actively editing, let the browser move the cursor first for
                 // ArrowUp/Down. Check in rAF whether it actually moved — if not, the
                 // cursor was already at the visual boundary and we navigate to the
                 // adjacent node. This handles both literal-newline and word-wrapped
                 // titles without needing to measure visual line position.
                 if (isEditing && (e.key === "ArrowUp" || e.key === "ArrowDown") && !e.altKey) {
+                  // Shift held is a selection extension, not cursor movement —
+                  // selectionStart can easily end up unchanged (e.g. extending
+                  // rightward/downward always leaves the lower bound fixed),
+                  // which would otherwise be misread as "hit the boundary" and
+                  // fire cross-node navigation mid-selection. Leave it to the
+                  // browser entirely.
+                  if (e.shiftKey) return;
                   const ta = e.target;
                   const posBefore = ta.selectionStart;
                   const dir = e.key === "ArrowUp" ? "nav-up" : "nav-down";
@@ -1641,6 +1663,12 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
                 // can't be decided here, since this component has no access
                 // to sibling nodes; that's handled inside nav-left itself.)
                 if (isEditing && (e.key === "ArrowLeft" || e.key === "ArrowRight") && !e.altKey) {
+                  // Same reasoning as the Up/Down case above: with Shift held,
+                  // selectionStart (the lower bound) stays put on almost every
+                  // rightward extension regardless of where the cursor
+                  // actually is, so the boundary check can't tell a real
+                  // selection from a true edge. Let the browser handle it.
+                  if (e.shiftKey) return;
                   const ta = e.target;
                   const posBefore = ta.selectionStart;
                   const enterOwnNote = e.key === "ArrowRight" && notesVisible && !!node.body;
@@ -4213,15 +4241,18 @@ function handleKey(e, wrapperId, contentId, dispatch, linkifySelectionFromClipbo
   if (matchShortcut("indentOnly", e))   { e.preventDefault(); dispatch(wrapperId, "indent-only"); return; }
   if (matchShortcut("outdentOnly", e))  { e.preventDefault(); dispatch(wrapperId, "outdent-only"); return; }
   const key = e.key;
-  if (key === "ArrowUp")   { e.preventDefault(); dispatch(wrapperId, "nav-up"); return; }
-  if (key === "ArrowDown") { e.preventDefault(); dispatch(wrapperId, "nav-down"); return; }
+  // Shift held means the user is extending a selection, not navigating —
+  // leave it alone so the (now-visible, see the showOverlay Shift+Arrow
+  // check above) textarea's native selection handling applies instead.
+  if (key === "ArrowUp"   && !e.shiftKey) { e.preventDefault(); dispatch(wrapperId, "nav-up"); return; }
+  if (key === "ArrowDown" && !e.shiftKey) { e.preventDefault(); dispatch(wrapperId, "nav-down"); return; }
   // Fallback for when the title isn't in the isEditing boundary-check state
   // above (still in overlay/preview mode, focused but untouched) — mirrors
   // ArrowUp/Down's unconditional jump immediately above. altKey is excluded
   // so Alt+Left/Right still reaches the document-level Go Back/Forward
   // listener instead of being swallowed here.
-  if (key === "ArrowLeft"  && !e.altKey) { e.preventDefault(); dispatch(wrapperId, "nav-left"); return; }
-  if (key === "ArrowRight" && !e.altKey) { e.preventDefault(); dispatch(wrapperId, hasExposedNote ? "edit-body" : "nav-right", hasExposedNote ? 0 : undefined); return; }
+  if (key === "ArrowLeft"  && !e.altKey && !e.shiftKey) { e.preventDefault(); dispatch(wrapperId, "nav-left"); return; }
+  if (key === "ArrowRight" && !e.altKey && !e.shiftKey) { e.preventDefault(); dispatch(wrapperId, hasExposedNote ? "edit-body" : "nav-right", hasExposedNote ? 0 : undefined); return; }
   if (key === "Enter" && e.shiftKey) { e.preventDefault(); dispatch(wrapperId, "focus-body"); return; }
   if (key === "Enter") {
     e.preventDefault();
