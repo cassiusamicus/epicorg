@@ -7565,6 +7565,17 @@ function App() {
     api.get("/api/saved-workspaces").then((d) => setSavedWorkspaceProfiles(d.workspaces || [])).catch(() => {});
   }, []);
 
+  // `files` is otherwise only fetched once on mount (see above) — reused
+  // for every later "Choose a file" visit without a refetch, it would keep
+  // showing whatever modTime each file happened to have at page load, so
+  // sorting by Date silently stopped reflecting anything edited since then.
+  // Always refresh right before showing the picker so Date sorting (and the
+  // size/name columns) reflect the current state of disk.
+  const openFilePicker = useCallback(() => {
+    setShowPicker(true);
+    api.get("/api/files").then((data) => setFiles(data.files || [])).catch(() => {});
+  }, []);
+
   const changeHomeDir = useCallback(async (dir) => {
     try {
       await api.post("/api/homedir", { dir });
@@ -9906,7 +9917,7 @@ function App() {
                   topBarColor=${topBarColor} onSetTopBarColor=${setTopBarColorPersisted}
                   tagPanelVisible=${tagPanelVisible} onToggleTagPanel=${toggleTagPanel}
                   bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${toggleBookmarkPanel}
-                  onBack=${() => setShowPicker(true)}
+                  onBack=${openFilePicker}
                   homeDir=${homeDir} onPickHomeDir=${() => setShowFolderPicker(true)}
                   journalDir=${journalDir} onPickJournalDir=${() => setShowJournalFolderPicker(true)}
                   onClearJournalDir=${clearJournalDir}
@@ -9967,7 +9978,7 @@ function App() {
           toggleLevelPanel, levelPanelVisible,
           foldToLevel, expandAllWithNotes,
           setView, view,
-          setShowPicker, setShowTextSearch, setShowFolderPicker,
+          setShowPicker, openFilePicker, setShowTextSearch, setShowFolderPicker,
           setShowHelp, insertFootnote, insertDateStamp,
           joinFocusedWithNext, outlineAction,
                 exportToHtml, exportToPdf, exportToOrg, exportToMarkdown, exportToReveal, exportToRevealPdf, revealSettings, currentFile,
@@ -13522,7 +13533,7 @@ function buildCommands(ctx) {
     toggleLevelPanel, levelPanelVisible,
     foldToLevel, expandAllWithNotes,
     setView, view,
-    setShowPicker, setShowTextSearch, setShowFolderPicker, setShowHelp,
+    setShowPicker, openFilePicker, setShowTextSearch, setShowFolderPicker, setShowHelp,
     insertFootnote, insertDateStamp,
     joinFocusedWithNext, outlineAction,
     exportToHtml, exportToPdf, exportToOrg, exportToMarkdown, exportToReveal, exportToRevealPdf, revealSettings, currentFile,
@@ -13538,7 +13549,7 @@ function buildCommands(ctx) {
     // Navigation
     { category: "Navigation", label: "Go Back",            desc: "Navigate to previous location",  keys: "Alt+←",         action: goBack,                     disabled: !canGoBack },
     { category: "Navigation", label: "Go Forward",         desc: "Navigate to next location",      keys: "Alt+→",         action: goForward,                  disabled: !canGoForward },
-    { category: "Navigation", label: "Open File…",         desc: "Switch to a different file",     keys: "",              action: () => setShowPicker(true) },
+    { category: "Navigation", label: "Open File…",         desc: "Switch to a different file",     keys: "",              action: openFilePicker },
     // View
     { category: "View", label: "Outline View",             desc: "Show the outline",               keys: "",              action: () => setView("outline") },
     { category: "View", label: "Agenda View",              desc: "Show scheduled items",           keys: "",              action: () => setView("agenda") },
