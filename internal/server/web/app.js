@@ -319,7 +319,7 @@ function useFixedMenuPosition(menuRef, x, y) {
 // being edited, so empty items don't clutter the outline. Mirrors the
 // title's formatted-preview/edit-textarea split, governed by the same
 // titleFormatMode toggle.
-function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onInsertFootnote, onInsertImage, onInsertTable, onWrapAsCodeBlock, onWrapAsQuoteBlock, onWrapAsVerseBlock, writeToClipboard, showToast, onClose }) {
+function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onInsertFootnote, onInsertImage, onInsertTable, onWrapAsCodeBlock, onWrapAsQuoteBlock, onWrapAsVerseBlock, onWrapAsCenterBlock, writeToClipboard, showToast, onClose }) {
   const menuRef = useRef(null);
   const hasSel = sel.start !== sel.end;
   const hasBody = !!sel.value;
@@ -403,6 +403,10 @@ function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onIn
     onWrapAsVerseBlock(sel.start, sel.end, sel.value);
     onClose();
   };
+  const doWrapAsCenterBlock = () => {
+    onWrapAsCenterBlock(sel.start, sel.end, sel.value);
+    onClose();
+  };
 
   const pos = useFixedMenuPosition(menuRef, x, y);
   const style = { position: "fixed", left: pos.left, top: pos.top, zIndex: 9999 };
@@ -421,9 +425,10 @@ function NoteContextMenu({ x, y, sel, textarea, nodeId, dispatch, onCommit, onIn
       <button className="note-ctx-item" onClick=${doInsertFootnote}>Insert Footnote</button>
       <button className="note-ctx-item" onClick=${doInsertImage}>Insert Image</button>
       <button className="note-ctx-item" onClick=${doInsertTable}>Insert Table</button>
-      <button className="note-ctx-item" disabled=${!hasBody} onClick=${doWrapAsCodeBlock}>Wrap as Code Block</button>
-      <button className="note-ctx-item" disabled=${!hasBody} onClick=${doWrapAsQuoteBlock}>Wrap as Quote Block</button>
-      <button className="note-ctx-item" disabled=${!hasBody} onClick=${doWrapAsVerseBlock}>Wrap as Verse Block</button>
+      <button className="note-ctx-item" disabled=${!hasBody} onClick=${doWrapAsCodeBlock}>Insert Code Block</button>
+      <button className="note-ctx-item" disabled=${!hasBody} onClick=${doWrapAsQuoteBlock}>Insert Quote Block</button>
+      <button className="note-ctx-item" disabled=${!hasBody} onClick=${doWrapAsVerseBlock}>Insert Verse Block</button>
+      <button className="note-ctx-item" disabled=${!hasBody} onClick=${doWrapAsCenterBlock}>Insert Center Block</button>
     </div>
   `;
 }
@@ -1187,6 +1192,23 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
     dispatch(contentTargetId, "change-body", before + pre + block + post + after);
   };
 
+  // Same as wrapAsVerseBlockAtCursor above, but for #+begin_center — the
+  // right-click menu's Wrap as Center Block. Inline markup still applies;
+  // only the text alignment changes (see .org-center in style.css).
+  const wrapAsCenterBlockAtCursor = (start, end) => {
+    const body = node.body || "";
+    const collapsed = start === end;
+    const from = collapsed ? 0 : start;
+    const to = collapsed ? body.length : end;
+    const before = body.slice(0, from);
+    const inner = body.slice(from, to);
+    const after = body.slice(to);
+    const pre = before.length > 0 && !before.endsWith("\n") ? "\n" : "";
+    const post = after.length > 0 && !after.startsWith("\n") ? "\n" : "";
+    const block = "#+begin_center\n" + inner + "\n#+end_center";
+    dispatch(contentTargetId, "change-body", before + pre + block + post + after);
+  };
+
   useEffect(() => {
     adjustTextareaHeight(localRef.current);
   }, [node.body, isEditing]);
@@ -1227,6 +1249,15 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
                  if (wikiEl) {
                    e.preventDefault();
                    document.body.dispatchEvent(new CustomEvent("epicWikiNav", { detail: { name: wikiEl.dataset.wiki } }));
+                   return;
+                 }
+                 const copyBtn = e.target.closest(".org-copy-btn");
+                 if (copyBtn) {
+                   e.preventDefault();
+                   const text = copyBtn.dataset.copyText || "";
+                   writeToClipboard(text, text).then((ok) => {
+                     showToast?.(ok ? "Copied to clipboard" : "Copy failed — clipboard access blocked");
+                   });
                    return;
                  }
                  if (isReadOnlyContent) return;
@@ -1401,6 +1432,7 @@ function NodeBody({ node, dispatch, isEditing, isPreview, titleFormatMode, notes
       onWrapAsCodeBlock=${(start, end) => wrapAsCodeBlockAtCursor(start, end)}
       onWrapAsQuoteBlock=${(start, end) => wrapAsQuoteBlockAtCursor(start, end)}
       onWrapAsVerseBlock=${(start, end) => wrapAsVerseBlockAtCursor(start, end)}
+      onWrapAsCenterBlock=${(start, end) => wrapAsCenterBlockAtCursor(start, end)}
       writeToClipboard=${writeToClipboard} showToast=${showToast}
       onClose=${() => setCtxMenu(null)} />`}
     ${previewCtxMenu && html`<${PreviewContextMenu}
@@ -9368,6 +9400,30 @@ function App() {
     requestAnimationFrame(() => { if (document.body.contains(el)) el.setSelectionRange(cursor, cursor); });
   }, [dispatch, showToast]);
 
+  // Command-palette form of "Wrap as Center Block" — same mechanics as
+  // wrapAsVerseBlockAtFocus above, but with #+begin_center/#+end_center.
+  const wrapAsCenterBlockAtFocus = useCallback(() => {
+    const isLive = document.activeElement?.tagName === "TEXTAREA";
+    const el = isLive ? document.activeElement : _lastOutlineTextarea;
+    if (!el || el.tagName !== "TEXTAREA") return;
+    const meta = isLive ? fieldMetaForTextarea(el) : _lastOutlineTextareaMeta;
+    if (!meta || meta.field !== "change-body") { showToast("Place the cursor in a note first"); return; }
+    const value = el.value;
+    const collapsed = el.selectionStart === el.selectionEnd;
+    const from = collapsed ? 0 : el.selectionStart;
+    const to = collapsed ? value.length : el.selectionEnd;
+    const before = value.slice(0, from);
+    const inner = value.slice(from, to);
+    const after = value.slice(to);
+    const pre = before.length > 0 && !before.endsWith("\n") ? "\n" : "";
+    const post = after.length > 0 && !after.startsWith("\n") ? "\n" : "";
+    const block = "#+begin_center\n" + inner + "\n#+end_center";
+    const newVal = before + pre + block + post + after;
+    const cursor = (before + pre + block).length;
+    dispatch(meta.nodeId, meta.field, newVal);
+    requestAnimationFrame(() => { if (document.body.contains(el)) el.setSelectionRange(cursor, cursor); });
+  }, [dispatch, showToast]);
+
   const onNodeHandleMouseDown = useCallback((nodeId, e) => {
     dragStateRef.current = { nodeId, startX: e.clientX, startY: e.clientY, pending: true };
   }, []);
@@ -9920,7 +9976,7 @@ function App() {
           triggerDeleteCurrentFile,
           clearRecentFiles,
           setFindOpen, findInputRef,
-          cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus, convertNodeToNoteAtFocus, linkifySelectionFromClipboard, wrapAsCodeBlockAtFocus, wrapAsQuoteBlockAtFocus, wrapAsVerseBlockAtFocus,
+          cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus, convertNodeToNoteAtFocus, linkifySelectionFromClipboard, wrapAsCodeBlockAtFocus, wrapAsQuoteBlockAtFocus, wrapAsVerseBlockAtFocus, wrapAsCenterBlockAtFocus,
         })} onClose=${() => setShowHelp(false)} />`}
       ${showShortcutEditor && html`
         <${ShortcutEditor}
@@ -10384,14 +10440,29 @@ function App() {
 
 const FOLD_LEVELS = [1, 2, 3, 4];
 
+// A single hand-drawn triangle, rotated per direction — guarantees all four
+// are pixel-identical and genuinely centered in their circle. Unicode
+// glyphs (▲▼◀▶, and thin arrows before that) each carry their own baked-in
+// font-metric padding that varies per direction, so flexbox centering only
+// ever centers their character cell, not the visible ink — this sidesteps
+// that entirely by drawing the shape ourselves.
+function IconLevelPanelTriangle({ dir }) {
+  const rotation = { up: 0, right: 90, down: 180, left: 270 }[dir] || 0;
+  return html`
+    <svg width="10" height="10" viewBox="0 0 10 10" style=${{ transform: `rotate(${rotation}deg)`, display: "block" }}>
+      <path d="M5 1 L9 8 L1 8 Z" fill="currentColor" />
+    </svg>
+  `;
+}
+
 // Same dir->action mapping as the "Move Subtree" group in
 // OutlineActionsPanel — → is Demote/Indent (deeper), ← is Promote/Outdent
 // (shallower), matching the reading-direction metaphor used there.
 const LEVEL_PANEL_MOVE_BUTTONS = [
-  { key: "up",    label: "↑", title: "Move Node Up",            action: "move-up" },
-  { key: "down",  label: "↓", title: "Move Node Down",          action: "move-down" },
-  { key: "left",  label: "←", title: "Promote Node (Outdent)",  action: "outdent" },
-  { key: "right", label: "→", title: "Demote Node (Indent)",    action: "indent" },
+  { key: "up",    dir: "up",    title: "Move Node Up",            action: "move-up" },
+  { key: "down",  dir: "down",  title: "Move Node Down",          action: "move-down" },
+  { key: "left",  dir: "left",  title: "Promote Node (Outdent)",  action: "outdent" },
+  { key: "right", dir: "right", title: "Demote Node (Indent)",    action: "indent" },
 ];
 
 // Floating bottom-center bar. Defaults to quick fold-to-level buttons (a
@@ -10422,9 +10493,11 @@ function LevelSelectionPanel({ activeLevel, onSelectLevel, onMoveAction, onClose
           `)
         : LEVEL_PANEL_MOVE_BUTTONS.map((b) => html`
             <button key=${b.key}
-                    className="level-panel-btn"
+                    className="level-panel-btn level-panel-btn-arrow"
                     title=${b.title}
-                    onClick=${() => onMoveAction(b.action)}>${b.label}</button>
+                    onClick=${() => onMoveAction(b.action)}>
+              <${IconLevelPanelTriangle} dir=${b.dir} />
+            </button>
           `)}
       <button className="level-panel-mode-btn"
               title=${mode === "levels" ? "Switch to node-move buttons" : "Switch to fold-level buttons"}
@@ -13458,7 +13531,7 @@ function buildCommands(ctx) {
     triggerDeleteCurrentFile,
     clearRecentFiles,
     setFindOpen, findInputRef,
-    cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus, convertNodeToNoteAtFocus, linkifySelectionFromClipboard, wrapAsCodeBlockAtFocus, wrapAsQuoteBlockAtFocus, wrapAsVerseBlockAtFocus,
+    cleanUpSelectedText, splitAtCursorLocation, convertNoteToNodeAtFocus, convertNodeToNoteAtFocus, linkifySelectionFromClipboard, wrapAsCodeBlockAtFocus, wrapAsQuoteBlockAtFocus, wrapAsVerseBlockAtFocus, wrapAsCenterBlockAtFocus,
   } = ctx;
 
   return [
@@ -13519,9 +13592,10 @@ function buildCommands(ctx) {
     { category: "Edit", label: "Convert Note To Node",    desc: "Turn the focused note into a new first-child node", keys: "", action: convertNoteToNodeAtFocus },
     { category: "Edit", label: "Convert Node To Note",    desc: "Fold the focused node into a note on the node immediately above it", keys: "", action: convertNodeToNoteAtFocus },
     { category: "Edit", label: "Link Selection From Clipboard", desc: "Wrap the selected text as a link to the URL currently on the clipboard", keys: displayCombo(getShortcutCombo("linkifySelection")), action: linkifySelectionFromClipboard },
-    { category: "Edit", label: "Wrap as Code Block",      desc: "Wrap the selected note text (or the whole note) in #+begin_example so it renders verbatim — no auto-links, no markup", keys: "", action: wrapAsCodeBlockAtFocus },
-    { category: "Edit", label: "Wrap as Quote Block",     desc: "Wrap the selected note text (or the whole note) in #+begin_quote so it renders as a bordered, italicized blockquote", keys: "", action: wrapAsQuoteBlockAtFocus },
-    { category: "Edit", label: "Wrap as Verse Block",     desc: "Wrap the selected note text (or the whole note) in #+begin_verse so line breaks and indentation are preserved exactly, for poetry/lyrics", keys: "", action: wrapAsVerseBlockAtFocus },
+    { category: "Edit", label: "Insert Code Block",       desc: "Insert #+begin_example around the cursor — wraps the selected note text, or the whole note if nothing's selected — so it renders verbatim, no auto-links or markup", keys: "", action: wrapAsCodeBlockAtFocus },
+    { category: "Edit", label: "Insert Quote Block",      desc: "Insert #+begin_quote around the cursor — wraps the selected note text, or the whole note if nothing's selected — so it renders as a bordered, italicized blockquote", keys: "", action: wrapAsQuoteBlockAtFocus },
+    { category: "Edit", label: "Insert Verse Block",      desc: "Insert #+begin_verse around the cursor — wraps the selected note text, or the whole note if nothing's selected — so line breaks and indentation are preserved exactly, for poetry/lyrics", keys: "", action: wrapAsVerseBlockAtFocus },
+    { category: "Edit", label: "Insert Center Block",     desc: "Insert #+begin_center around the cursor — wraps the selected note text, or the whole note if nothing's selected — centering it while inline markup still applies", keys: "", action: wrapAsCenterBlockAtFocus },
     { category: "Edit", label: "Hoist / Unhoist",         desc: isHoisted ? "Unhoist — show full tree" : "Hoist focused item", keys: displayCombo(getShortcutCombo("hoist")), action: toggleHoist },
     // Search
     { category: "Search", label: "Full-text Search…",    desc: "Search across all org files",    keys: displayCombo(getShortcutCombo("textSearch")),      action: () => setShowTextSearch(true) },

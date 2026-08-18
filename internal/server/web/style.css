@@ -1470,6 +1470,11 @@ header h1 {
   color: var(--accent);
 }
 
+/* The move-mode buttons render a drawn SVG triangle (see
+   IconLevelPanelTriangle) rather than a text glyph, specifically so they
+   center exactly — no rule needed here beyond the flex centering already
+   on .level-panel-btn. */
+
 .level-panel-btn.active {
   border-color: var(--accent);
   background: var(--accent);
@@ -4030,6 +4035,7 @@ body.dnd-dragging, body.dnd-dragging * { cursor: move !important; user-select: n
   border-left: 3px solid var(--border);
   font-style: italic;
   color: var(--text-dim-strong);
+  position: relative;
 }
 
 .org-verse {
@@ -4037,6 +4043,7 @@ body.dnd-dragging, body.dnd-dragging * { cursor: move !important; user-select: n
      pre-wrap from .node-body-preview so both are preserved exactly. */
   margin: 8px 0;
   padding-left: 12px;
+  position: relative;
 }
 
 .org-src, .org-example {
@@ -4046,6 +4053,7 @@ body.dnd-dragging, body.dnd-dragging * { cursor: move !important; user-select: n
   border-radius: 4px;
   overflow-x: auto;
   white-space: pre;
+  position: relative;
 }
 .org-src code, .org-example code {
   font-family: "SF Mono", "Fira Code", "Consolas", monospace;
@@ -4057,6 +4065,14 @@ body.dnd-dragging, body.dnd-dragging * { cursor: move !important; user-select: n
 .org-center {
   margin: 8px 0;
   text-align: center;
+  position: relative;
+}
+
+/* Table can't hold a <button> child directly (HTML foster-parents it out of
+   the table), so the copy button lives in this wrapper alongside it instead. */
+.org-table-wrap {
+  position: relative;
+  max-width: 100%;
 }
 
 .org-table { border-collapse: collapse; margin: 6px 0 10px; font-size: 13px; max-width: 100%; cursor: pointer; }
@@ -4065,6 +4081,39 @@ body.dnd-dragging, body.dnd-dragging * { cursor: move !important; user-select: n
 .org-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--text) 3%, var(--bg)); }
 .org-table tbody tr:hover { background: var(--focused-bg); }
 .node-body-preview .org-table:hover { outline: 2px solid var(--accent); border-radius: 3px; }
+
+/* Per-block "copy to clipboard" button — one lives in the corner of every
+   quote/verse/code/center/table block (see orgCopyButtonHtml in tree.js).
+   Hidden until the block is hovered, like a markdown editor's fenced-code
+   copy button. */
+.org-copy-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+  z-index: 1;
+}
+.org-quote:hover > .org-copy-btn,
+.org-verse:hover > .org-copy-btn,
+.org-src:hover > .org-copy-btn,
+.org-example:hover > .org-copy-btn,
+.org-center:hover > .org-copy-btn,
+.org-table-wrap:hover > .org-copy-btn {
+  opacity: 1;
+}
+.org-copy-btn:hover {
+  background: var(--accent);
+}
 
 /* Table editor modal */
 .te-overlay { position: fixed; inset: 0; background: var(--overlay); z-index: 9800; display: flex; align-items: center; justify-content: center; }

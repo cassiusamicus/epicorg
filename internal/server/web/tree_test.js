@@ -15,6 +15,14 @@ function assertEqual(a, b, msg = "") {
   }
 }
 
+// Strips the injected per-block "copy to clipboard" button so existing
+// renderOrgBody assertions can keep checking structure/escaping without
+// also encoding the button's HTML — see the dedicated org-copy-btn tests
+// further down for coverage of the button itself.
+function stripCopyBtn(html) {
+  return html.replace(/<button type="button" class="org-copy-btn"[^>]*>⧉<\/button>/g, "");
+}
+
 function test(name, fn) {
   tree.resetIdCounter();
   try {
@@ -909,35 +917,35 @@ test("renderOrgInline: plain scholarly citation text with periods is untouched",
 // --- renderOrgBody: quote blocks ---
 test("renderOrgBody: quote block renders as blockquote, hides markers", () => {
   assertEqual(
-    tree.renderOrgBody("#+begin_quote\nHello world\n#+end_quote"),
+    stripCopyBtn(tree.renderOrgBody("#+begin_quote\nHello world\n#+end_quote")),
     '<blockquote class="org-quote">Hello world</blockquote>'
   );
 });
 
 test("renderOrgBody: quote block content still processes inline markup", () => {
   assertEqual(
-    tree.renderOrgBody("#+begin_quote\n*bold* text\n#+end_quote"),
+    stripCopyBtn(tree.renderOrgBody("#+begin_quote\n*bold* text\n#+end_quote")),
     '<blockquote class="org-quote"><strong>bold</strong> text</blockquote>'
   );
 });
 
 test("renderOrgBody: quote block marker matching is case-insensitive", () => {
   assertEqual(
-    tree.renderOrgBody("#+BEGIN_QUOTE\nHello\n#+END_QUOTE"),
+    stripCopyBtn(tree.renderOrgBody("#+BEGIN_QUOTE\nHello\n#+END_QUOTE")),
     '<blockquote class="org-quote">Hello</blockquote>'
   );
 });
 
 test("renderOrgBody: text before and after quote block is preserved", () => {
   assertEqual(
-    tree.renderOrgBody("before\n#+begin_quote\nquoted\n#+end_quote\nafter"),
+    stripCopyBtn(tree.renderOrgBody("before\n#+begin_quote\nquoted\n#+end_quote\nafter")),
     'before\n<blockquote class="org-quote">quoted</blockquote>\nafter'
   );
 });
 
 test("renderOrgBody: unterminated quote block runs to end of body", () => {
   assertEqual(
-    tree.renderOrgBody("#+begin_quote\nquoted forever"),
+    stripCopyBtn(tree.renderOrgBody("#+begin_quote\nquoted forever")),
     '<blockquote class="org-quote">quoted forever</blockquote>'
   );
 });
@@ -949,28 +957,28 @@ test("renderOrgBody: plain text without quote markers is unaffected", () => {
 // --- renderOrgBody: verse blocks ---
 test("renderOrgBody: verse block renders as <p class=org-verse>, hides markers", () => {
   assertEqual(
-    tree.renderOrgBody("#+begin_verse\nRoses are red\nViolets are blue\n#+end_verse"),
+    stripCopyBtn(tree.renderOrgBody("#+begin_verse\nRoses are red\nViolets are blue\n#+end_verse")),
     '<p class="org-verse">Roses are red\nViolets are blue</p>'
   );
 });
 
 test("renderOrgBody: verse block content still processes inline markup", () => {
   assertEqual(
-    tree.renderOrgBody("#+begin_verse\n*Roses* are red\n#+end_verse"),
+    stripCopyBtn(tree.renderOrgBody("#+begin_verse\n*Roses* are red\n#+end_verse")),
     '<p class="org-verse"><strong>Roses</strong> are red</p>'
   );
 });
 
 test("renderOrgBody: verse block marker matching is case-insensitive", () => {
   assertEqual(
-    tree.renderOrgBody("#+BEGIN_VERSE\nline\n#+END_VERSE"),
+    stripCopyBtn(tree.renderOrgBody("#+BEGIN_VERSE\nline\n#+END_VERSE")),
     '<p class="org-verse">line</p>'
   );
 });
 
 test("renderOrgBody: unterminated verse block runs to end of body", () => {
   assertEqual(
-    tree.renderOrgBody("#+begin_verse\nforever"),
+    stripCopyBtn(tree.renderOrgBody("#+begin_verse\nforever")),
     '<p class="org-verse">forever</p>'
   );
 });
@@ -978,42 +986,42 @@ test("renderOrgBody: unterminated verse block runs to end of body", () => {
 // --- renderOrgBody: src blocks ---
 test("renderOrgBody: src block renders as <pre><code>, hides markers", () => {
   assertEqual(
-    tree.renderOrgBody("#+begin_src\nconsole.log(1)\n#+end_src"),
+    stripCopyBtn(tree.renderOrgBody("#+begin_src\nconsole.log(1)\n#+end_src")),
     '<pre class="org-src"><code>console.log(1)</code></pre>'
   );
 });
 
 test("renderOrgBody: src block captures the language as data-lang", () => {
   assertEqual(
-    tree.renderOrgBody("#+begin_src js\nconsole.log(1)\n#+end_src"),
+    stripCopyBtn(tree.renderOrgBody("#+begin_src js\nconsole.log(1)\n#+end_src")),
     '<pre class="org-src" data-lang="js"><code>console.log(1)</code></pre>'
   );
 });
 
 test("renderOrgBody: src block content is never run through inline markup", () => {
   assertEqual(
-    tree.renderOrgBody("#+begin_src\n*not bold* /not italic/\n#+end_src"),
+    stripCopyBtn(tree.renderOrgBody("#+begin_src\n*not bold* /not italic/\n#+end_src")),
     '<pre class="org-src"><code>*not bold* /not italic/</code></pre>'
   );
 });
 
 test("renderOrgBody: src block escapes HTML special characters", () => {
   assertEqual(
-    tree.renderOrgBody("#+begin_src html\n<div>&x</div>\n#+end_src"),
+    stripCopyBtn(tree.renderOrgBody("#+begin_src html\n<div>&x</div>\n#+end_src")),
     '<pre class="org-src" data-lang="html"><code>&lt;div&gt;&amp;x&lt;/div&gt;</code></pre>'
   );
 });
 
 test("renderOrgBody: src block marker matching is case-insensitive", () => {
   assertEqual(
-    tree.renderOrgBody("#+BEGIN_SRC python\nx = 1\n#+END_SRC"),
+    stripCopyBtn(tree.renderOrgBody("#+BEGIN_SRC python\nx = 1\n#+END_SRC")),
     '<pre class="org-src" data-lang="python"><code>x = 1</code></pre>'
   );
 });
 
 test("renderOrgBody: unterminated src block runs to end of body", () => {
   assertEqual(
-    tree.renderOrgBody("#+begin_src\nforever()"),
+    stripCopyBtn(tree.renderOrgBody("#+begin_src\nforever()")),
     '<pre class="org-src"><code>forever()</code></pre>'
   );
 });
@@ -1021,35 +1029,35 @@ test("renderOrgBody: unterminated src block runs to end of body", () => {
 // --- renderOrgBody: example blocks ---
 test("renderOrgBody: example block renders as <pre><code>, hides markers", () => {
   assertEqual(
-    tree.renderOrgBody("#+begin_example\nsome output\n#+end_example"),
+    stripCopyBtn(tree.renderOrgBody("#+begin_example\nsome output\n#+end_example")),
     '<pre class="org-example"><code>some output</code></pre>'
   );
 });
 
 test("renderOrgBody: example block content is never run through inline markup", () => {
   assertEqual(
-    tree.renderOrgBody("#+begin_example\n*not bold*\n#+end_example"),
+    stripCopyBtn(tree.renderOrgBody("#+begin_example\n*not bold*\n#+end_example")),
     '<pre class="org-example"><code>*not bold*</code></pre>'
   );
 });
 
 test("renderOrgBody: example block escapes HTML special characters", () => {
   assertEqual(
-    tree.renderOrgBody("#+begin_example\n<div>&x</div>\n#+end_example"),
+    stripCopyBtn(tree.renderOrgBody("#+begin_example\n<div>&x</div>\n#+end_example")),
     '<pre class="org-example"><code>&lt;div&gt;&amp;x&lt;/div&gt;</code></pre>'
   );
 });
 
 test("renderOrgBody: example block marker matching is case-insensitive", () => {
   assertEqual(
-    tree.renderOrgBody("#+BEGIN_EXAMPLE\nline\n#+END_EXAMPLE"),
+    stripCopyBtn(tree.renderOrgBody("#+BEGIN_EXAMPLE\nline\n#+END_EXAMPLE")),
     '<pre class="org-example"><code>line</code></pre>'
   );
 });
 
 test("renderOrgBody: unterminated example block runs to end of body", () => {
   assertEqual(
-    tree.renderOrgBody("#+begin_example\nforever"),
+    stripCopyBtn(tree.renderOrgBody("#+begin_example\nforever")),
     '<pre class="org-example"><code>forever</code></pre>'
   );
 });
@@ -1057,30 +1065,66 @@ test("renderOrgBody: unterminated example block runs to end of body", () => {
 // --- renderOrgBody: center blocks ---
 test("renderOrgBody: center block renders as <div class=org-center>, hides markers", () => {
   assertEqual(
-    tree.renderOrgBody("#+begin_center\nCentered text\n#+end_center"),
+    stripCopyBtn(tree.renderOrgBody("#+begin_center\nCentered text\n#+end_center")),
     '<div class="org-center">Centered text</div>'
   );
 });
 
 test("renderOrgBody: center block content still processes inline markup", () => {
   assertEqual(
-    tree.renderOrgBody("#+begin_center\n*bold* text\n#+end_center"),
+    stripCopyBtn(tree.renderOrgBody("#+begin_center\n*bold* text\n#+end_center")),
     '<div class="org-center"><strong>bold</strong> text</div>'
   );
 });
 
 test("renderOrgBody: center block marker matching is case-insensitive", () => {
   assertEqual(
-    tree.renderOrgBody("#+BEGIN_CENTER\nline\n#+END_CENTER"),
+    stripCopyBtn(tree.renderOrgBody("#+BEGIN_CENTER\nline\n#+END_CENTER")),
     '<div class="org-center">line</div>'
   );
 });
 
 test("renderOrgBody: unterminated center block runs to end of body", () => {
   assertEqual(
-    tree.renderOrgBody("#+begin_center\nforever"),
+    stripCopyBtn(tree.renderOrgBody("#+begin_center\nforever")),
     '<div class="org-center">forever</div>'
   );
+});
+
+// --- renderOrgBody: per-block copy button ---
+test("renderOrgBody: quote block includes a copy button with the raw block text", () => {
+  const html = tree.renderOrgBody("#+begin_quote\n*bold* text\n#+end_quote");
+  assert(html.includes('class="org-copy-btn"'), "missing copy button");
+  assert(html.includes('data-copy-text="*bold* text"'), "copy text should be the raw, unrendered block content");
+});
+
+test("renderOrgBody: verse block copy button preserves embedded newlines", () => {
+  const html = tree.renderOrgBody("#+begin_verse\nRoses are red\nViolets are blue\n#+end_verse");
+  assert(html.includes('data-copy-text="Roses are red\nViolets are blue"'), "copy text should preserve line breaks verbatim");
+});
+
+test("renderOrgBody: src block copy button carries the unescaped raw code", () => {
+  const html = tree.renderOrgBody("#+begin_src html\n<div>&x</div>\n#+end_src");
+  // The visible <code> content is HTML-escaped, but the copy button's raw
+  // text must be the literal source — escaped only for the attribute itself.
+  assert(html.includes('data-copy-text="&lt;div&gt;&amp;x&lt;/div&gt;"'), "copy text should be attribute-escaped raw code, not double-escaped");
+});
+
+test("renderOrgBody: example block has a copy button", () => {
+  const html = tree.renderOrgBody("#+begin_example\nsome output\n#+end_example");
+  assert(html.includes('class="org-copy-btn"') && html.includes('data-copy-text="some output"'));
+});
+
+test("renderOrgBody: center block has a copy button", () => {
+  const html = tree.renderOrgBody("#+begin_center\nCentered text\n#+end_center");
+  assert(html.includes('class="org-copy-btn"') && html.includes('data-copy-text="Centered text"'));
+});
+
+test("renderOrgBody: table is wrapped in org-table-wrap with a copy button carrying the raw org rows", () => {
+  const html = tree.renderOrgBody("| a | b |\n| 1 | 2 |");
+  assert(html.includes('<div class="org-table-wrap">'), "table should be wrapped for the copy button");
+  assert(html.includes('data-copy-text="| a | b |\n| 1 | 2 |"'), "copy text should be the raw org table rows");
+  assert(html.includes('<table class="org-table"'), "the actual table markup should still be present");
 });
 
 // --- orgifyPaths ---

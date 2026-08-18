@@ -1029,6 +1029,17 @@ const EXAMPLE_END_RE = /^\s*#\+end_example\s*$/i;
 const CENTER_BEGIN_RE = /^\s*#\+begin_center\s*$/i;
 const CENTER_END_RE = /^\s*#\+end_center\s*$/i;
 
+// Small "copy this block" button injected into the corner of quote/verse/
+// code/center/table blocks in the rendered preview — mirrors a markdown
+// editor's fenced-code-block copy button, but for every org greater-block
+// type. rawText is the block's literal, unrendered content (verbatim,
+// newlines and all); it round-trips through the HTML attribute unescaped by
+// the browser's own attribute parsing, so the click handler in app.js can
+// read it straight off the element's dataset.
+function orgCopyButtonHtml(rawText) {
+  return `<button type="button" class="org-copy-btn" data-copy-text="${escapeHtml(rawText)}" title="Copy block to clipboard" aria-label="Copy block to clipboard">⧉</button>`;
+}
+
 // Generic greater-block scanner shared by quote/verse/src handling below.
 // If lines[i] opens a block matching beginRe, collects lines until endRe (or
 // end of body, for an unterminated block) and returns { lang, contentLines,
@@ -1102,7 +1113,7 @@ export function renderOrgBody(text) {
         tableLines.push(lines[i++]);
       }
       flushPending();
-      outputParts.push(renderOrgTable(tableLines, tableIndex++));
+      outputParts.push(`<div class="org-table-wrap">${orgCopyButtonHtml(tableLines.join("\n"))}${renderOrgTable(tableLines, tableIndex++)}</div>`);
       continue;
     }
 
@@ -1112,7 +1123,8 @@ export function renderOrgBody(text) {
     const quoteBlock = scanBlock(lines, i, QUOTE_BEGIN_RE, QUOTE_END_RE);
     if (quoteBlock) {
       flushPending();
-      outputParts.push(`<blockquote class="org-quote">${renderOrgInline(quoteBlock.contentLines.join("\n"))}</blockquote>`);
+      const quoteText = quoteBlock.contentLines.join("\n");
+      outputParts.push(`<blockquote class="org-quote">${orgCopyButtonHtml(quoteText)}${renderOrgInline(quoteText)}</blockquote>`);
       i = quoteBlock.nextIndex;
       continue;
     }
@@ -1122,7 +1134,8 @@ export function renderOrgBody(text) {
     const verseBlock = scanBlock(lines, i, VERSE_BEGIN_RE, VERSE_END_RE);
     if (verseBlock) {
       flushPending();
-      outputParts.push(`<p class="org-verse">${renderOrgInline(verseBlock.contentLines.join("\n"))}</p>`);
+      const verseText = verseBlock.contentLines.join("\n");
+      outputParts.push(`<p class="org-verse">${orgCopyButtonHtml(verseText)}${renderOrgInline(verseText)}</p>`);
       i = verseBlock.nextIndex;
       continue;
     }
@@ -1134,7 +1147,8 @@ export function renderOrgBody(text) {
     if (srcBlock) {
       flushPending();
       const langAttr = srcBlock.lang ? ` data-lang="${escapeHtml(srcBlock.lang)}"` : "";
-      outputParts.push(`<pre class="org-src"${langAttr}><code>${escapeHtml(srcBlock.contentLines.join("\n"))}</code></pre>`);
+      const srcText = srcBlock.contentLines.join("\n");
+      outputParts.push(`<pre class="org-src"${langAttr}>${orgCopyButtonHtml(srcText)}<code>${escapeHtml(srcText)}</code></pre>`);
       i = srcBlock.nextIndex;
       continue;
     }
@@ -1144,7 +1158,8 @@ export function renderOrgBody(text) {
     const exampleBlock = scanBlock(lines, i, EXAMPLE_BEGIN_RE, EXAMPLE_END_RE);
     if (exampleBlock) {
       flushPending();
-      outputParts.push(`<pre class="org-example"><code>${escapeHtml(exampleBlock.contentLines.join("\n"))}</code></pre>`);
+      const exampleText = exampleBlock.contentLines.join("\n");
+      outputParts.push(`<pre class="org-example">${orgCopyButtonHtml(exampleText)}<code>${escapeHtml(exampleText)}</code></pre>`);
       i = exampleBlock.nextIndex;
       continue;
     }
@@ -1154,7 +1169,8 @@ export function renderOrgBody(text) {
     const centerBlock = scanBlock(lines, i, CENTER_BEGIN_RE, CENTER_END_RE);
     if (centerBlock) {
       flushPending();
-      outputParts.push(`<div class="org-center">${renderOrgInline(centerBlock.contentLines.join("\n"))}</div>`);
+      const centerText = centerBlock.contentLines.join("\n");
+      outputParts.push(`<div class="org-center">${orgCopyButtonHtml(centerText)}${renderOrgInline(centerText)}</div>`);
       i = centerBlock.nextIndex;
       continue;
     }
