@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, useReducer, forwardRef, useImperativeHandle } from "react";
-import { createRoot } from "react-dom/client";
-import htm from "htm";
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, useReducer, forwardRef, useImperativeHandle } from "https://esm.sh/react@18";
+import { createRoot } from "https://esm.sh/react-dom@18/client";
+import htm from "https://esm.sh/htm@3";
 import * as tree from "./tree.js";
 import { generateExportHtml, generateMarkdown, parseMdToNodes, generateRevealHtml, REVEAL_THEMES, REVEAL_THEME_INFO, REVEAL_TRANSITIONS, REVEAL_SETTINGS_DEFAULTS } from "./export.js";
 
