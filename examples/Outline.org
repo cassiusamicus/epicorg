@@ -2278,187 +2278,396 @@ Forgetting the good that has been he has become old this very day. (Bailey)
 [[https://epicurustoday.com/citationclips/epicurus-vs-14-27-bailey.jpg][Epicurus, Vatican Saying 19 (tr. Bailey), same page also carries VS 14(cont.)-18, 21, 23-27]]
 /This collection is organized for study and reference. Citations from Diogenes Laertius Book X and additional Lucretius references to be added./
 * *OTHER PERSPECTIVES - People, History, And Controversies*
-** Is Pleasure -- Or Tranquility -- The Epicurean Goal? :PleasureNotTranquilityIsHighestGood:
-*** _Commentary_
+** People
+*** Is It True That Epicurus Was Not An Atheist As We Today Understand That Term? :EpicurusNotAnAtheist:
+**** _Commentary_
+The charge of atheism against Epicurus is understandable but wrong, and Epicurus's own words settle it directly: "gods there are, since the knowledge of them is by clear vision." What Epicurus denied was not the existence of divine beings but the popular mythology attached to them -- the belief that gods are supernatural and punish, reward, or otherwise intervene in human affairs out of anger or favor. He defined piety in reverse: the truly impious person is not the one who denies the gods of popular superstition, but the one who projects human pettiness -- anger, favor, meddling -- onto beings whose blessed and immortal nature, by definition, cannot include those things. This is a correction of theology, not a denial of divinity.
+**** /Epicurus, Letter to Menoeceus [123]/ :EpicurusNotAnAtheist:
+First of all believe that god is a being immortal and blessed, even as the common idea of a god is engraved on men's minds, and do not assign to him anything alien to his immortality or ill-suited to his blessedness: but believe about him everything that can uphold his blessedness and immortality. For gods there are, since the knowledge of them is by clear vision. But they are not such as the many believe them to be: for indeed they do not consistently represent them as they believe them to be. And the impious man is not he who popularly denies the gods of the many, but he who attaches to the gods the beliefs of the many.
+[[https://epicurustoday.com/citationclips/epicurus-lettermenoeceus-122-123-bailey.jpg][Epicurus, Letter to Menoeceus 123 (tr. Long & Sedley -- Bailey clip supplied for context)]]
+[[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Letter to Menoeceus [123] -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
+**** /Cicero, On the Nature of the Gods 1.44 (Rackham translation)/ :EpicurusNotAnAtheist:NatureOfGods:
+It is doubtless therefore truer to say, as the good friend of us all, Posidonius, argued in the fifth book of his On the Nature of the Gods, that Epicurus does not really believe in the gods at all, and that he said what he did about the immortal gods only for the sake of deprecating popular odium. In the first place, a being of this nature is an absolute impossibility, and Epicurus was aware of this, and so actually abolishes the gods, although professedly retaining them.
+[[https://epicurustoday.com/citationclips/cicero-natureofgods-1-44-posidonius.jpg][Cicero, On the Nature of the Gods 1.44 (Rackham translation)]]
+[[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+N.+D.+1.44][Cicero, On the Nature of the Gods 1.44 (Latin text only) -- Perseus Digital Library]]
+*** Does Avoiding Politics Mean Passive Withdrawal From The World? :NoPoliticsDoesNotMeanQuietist:
+**** _Commentary_
+Epicurus's advice to avoid formal office-seeking is often mistaken for a blanket counsel of passivity. But Diogenes Laertius's own description of the Epicurean Wise Man shows an active life: he engages in lawsuits, writes and leaves behind treatises, gathers a school, and lectures in public when asked. What he avoids is the specific mechanism of formal political ambition -- competing for office, delivering set-piece political oratory -- because that mechanism ties one's happiness to the unstable opinions of a crowd. The historical example of Cassius Longinus, an open and self-identified Epicurean who organized armed resistance to Caesar's tyranny, along with other Epicurean figures in Roman public life, puts the passive-withdrawal caricature to rest.
+The physical facts of where Epicurus actually lived and worked are further evidence against the recluse caricature. The Garden was not a remote retreat: Diogenes Laertius records that Epicurus paid eighty minae for the property, a substantial sum indicating a sizeable estate, not a modest cottage. Cicero's own dialogue places the Garden on ground his characters pass while strolling from central Athens, treating a visit there as an unremarkable stop along a well-traveled route, not an expedition to somewhere secluded. And the historical record of individual Epicureans confirms the same pattern at the level of lived example: Torquatus's own family was known for battlefield courage, not withdrawal from duty, which is precisely why Cicero chose a Torquatus, of all people, to voice the Epicurean position in *On Ends* -- an Epicurean spokesman whose family history made the passive-withdrawal caricature immediately implausible to a Roman audience.
+**** /Diogenes Laertius X.119-121/ :NoPoliticsDoesNotMeanQuietist:HowToLive:
+[[https://epicurustoday.com/citationclips/diogeneslaertius-10-118-121-bailey.jpg][Diogenes Laertius X.119-121 (tr. Bailey)]]
+Nor will he take part in public life, as he says in the first book On Lives. Nor will he act the tyrant, or live like the Cynics... He will engage in lawsuits and will leave writings behind him, but will not deliver speeches on public occasions. He will be careful of his possessions and will provide for the future... He will care more than other men for public spectacles. And he will gather together a school, but never so as to become a popular leader. He will give lectures in public, but never unless asked; he will give definite teaching and not profess doubt. He will pay court to a king, if occasion demands. (Bailey)
+[[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Diogenes Laertius X.119-121 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
+**** /Epicurus, Principal Doctrine 14/ :NoPoliticsDoesNotMeanQuietist:
+The most unalloyed source of protection from men, which is secured to some extent by a certain force of expulsion, is in fact the immunity which results from a quiet life and the retirement from the world. (Bailey)
+[[https://epicurustoday.com/citationclips/epicurus-pd-7-14-bailey.jpg][Epicurus, Principal Doctrine 14 (tr. Bailey), same page also carries PD 7-14]]
+[[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Principal Doctrine 14 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
+**** /Diogenes Laertius X.10-11/ :NoPoliticsDoesNotMeanQuietist:
+[[https://epicurustoday.com/citationclips/diogeneslaertius-10-9-11-eightyminae-bailey.jpg][Diogenes Laertius X.10-11 (tr. Bailey)]]
+And he bought the garden for eighty minae; ... Apollodorus in his Chronicles says the Garden was bought for eighty minae. (Bailey)
+[[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Diogenes Laertius X.10-11 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
+**** /Cicero, On Ends II.73 (Rackham) (Cicero, invoking Torquatus's ancestor's battlefield courage against him)/ :NoPoliticsDoesNotMeanQuietist:VirtueAsContextual:
+[Note: this passage is Cicero's own rhetorical challenge to Torquatus in Book II, not Torquatus's own narration in Book I as an earlier version of this entry had it -- corrected against the rendered page, De Finibus II.73.] But I return to old Torquatus. If it was to win pleasure that he accepted the Gallic warrior's challenge to single combat on the banks of the Anio, and if he despoiled him and assumed his necklet and the corresponding surname for any other reason than that he thought such deeds became a man, I do not consider him brave.
+[[https://epicurustoday.com/citationclips/cicero-onends-2-73-rackham-torquatusancestor.jpg][Cicero, On Ends II.73 (tr. Rackham)]]
+[[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Fin.+2.73][Cicero, On Ends (De Finibus) 2.73 (Latin text only) -- Perseus Digital Library]]
+*** Does Happiness Require The Complete Absence Of All Pain, And If So How Could Epicurus Say He Was Happy While Dying Of Kidney Disease? :HappinessDoesNotRequireCompleteAbsenceOfPain:
+**** _Commentary_
+If happiness required the total absence of all pain, Epicurus's own deathbed testimony would be incoherent -- he was dying in severe pain from disease of the bladder and stomach, and he called it "this truly happy day of my life." The resolution is that happiness is a property of a whole, weighed life, not a fragile state destroyed by any pain whatsoever - even a severe one. Principal Doctrine 4 states plainly that chronic illness can still leave a predominance of pleasure over pain in the flesh. The limit of pleasure is reached when all pain is removed, but reaching that limit in the mind, through right understanding of what matters, does not require that the body and mind never experience pain at all.
+**** /Epicurus, Letter to Idomeneus (his last letter, on his deathbed)/ :HappinessDoesNotRequireCompleteAbsenceOfPain:FriendshipAsPleasurable:
+On this truly happy day of my life, as I am at the point of death, I write this to you. The disease in my bladder and stomach are pursuing their course, lacking nothing of their natural severity: but against all this is the joy in my heart at the recollection of my conversations with you.
+[[https://epicurustoday.com/citationclips/epicurus-fragments-23-30-bailey-anaxarchusidomeneus.jpg][Epicurus, Fragment 30, Letter to Idomeneus (tr. Bailey), same page also carries Fragment 23 "To Anaxarchus"]]
+[[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Letter to Idomeneus (his last letter, on his deathbed) -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
+**** /Cicero, On Ends 2.96-98 (Cicero's own comment on the same dying letter, mid-argument AGAINST Epicurean ethics)/ :HappinessDoesNotRequireCompleteAbsenceOfPain:FriendshipAsPleasurable:
+[Note: this is Cicero quoting the very same letter to Idomeneus at length, then commenting in his own voice -- while actively disputing Epicurean ethics throughout this book, Cicero nonetheless ranks Epicurus's own conduct in dying alongside legendary heroic deaths. Strong evidence against reading Epicurus as passive or quietist: even a hostile witness treats his end as active, dignified, and admirable rather than merely resigned.]
+'...these words,' he says, 'on the happiest, and the last, day of my life. I am suffering from diseases of the bladder and intestines, which are of the utmost possible severity.' Unhappy creature! If pain is the Chief Evil, that is the only thing to be said. But let us hear his own words. 'Yet all my sufferings,' he continues, 'are counterbalanced by the joy which I derive from remembering my theories and discoveries. I charge you, by the devotion which from your youth up you have displayed towards myself and towards philosophy, to protect the children of Metrodorus.' When I read this I rank the death-scene of Epicurus on a level with those of Epaminondas and of Leonidas. Epaminondas had defeated the Lacedaemonians at Mantinea, and perceived himself to be mortally wounded. As soon as he opened his eyes he inquired if his shield were safe. His weeping followers told him that it was. He asked, were the enemy routed? Satisfied on this point also, he bade them pluck out the spear that pierced his side. A rush of blood followed, and so in the hour of joy and victory he died. Leonidas, king of the Lacedaemonians, had to choose between dishonourable flight and a glorious death; with the three hundred warriors that he had brought from Sparta he confronted the foe at Thermopylae. A great commander's death is famous; but philosophers mostly die in their beds. Still it makes a difference how they die. Epicurus counts himself happy in his last moments. All honour to him. 'My joy,' he writes, 'counterbalances the severest pain.' The words of a philosopher, Epicurus, command my attention; but you forget what you logically ought to say. (Rackham)
+[[https://epicurustoday.com/citationclips/cicero-onends-2-96-98-rackham-epicurusdeathscene.jpg][Cicero, On Ends II.96-98 (tr. Rackham)]]
+[[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Fin.+2.96][Cicero, On Ends (De Finibus) 2.96 (Latin text only) -- Perseus Digital Library]]
+**** /Epicurus, Principal Doctrine 4/ :HappinessDoesNotRequireCompleteAbsenceOfPain:
+Pain does not last continuously in the flesh, but the acutest pain is there for a very short time, and even that which just exceeds the pleasure in the flesh does not continue for many days at once. But chronic illnesses permit a predominance of pleasure over pain in the flesh.
+[[https://epicurustoday.com/citationclips/epicurus-pd-1-6-bailey.jpg][Epicurus, Principal Doctrine 4 (tr. Bailey), same page also carries PD 1-6]]
+[[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Principal Doctrine 4 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
+**** /Diogenes of Oinoanda, Fragment 44 (Lower Margin)/ :HappinessDoesNotRequireCompleteAbsenceOfPain:
+Pain in the flesh does not last continuously: extreme pain is present a very short time; pain which only just outweighs pleasure in the flesh does not last many days; and chronic illnesses permit a preponderance of pleasure over pain in the flesh. (Smith)
+[[https://epicurustoday.com/citationclips/diogenesofoinoanda-fr44-lowermargin-painnotcontinuous.jpg][Diogenes of Oinoanda, Fragment 44 (Lower Margin) (tr. Smith)]]
+*** Does "Live Unknown" Mean To Live In Isolation?  If Not, What Does It Mean? :LiveUnknownDoesNotMeanIsolation:
+**** _Commentary_
+"Live unknown" (lathe biosas) is routinely quoted, especially by hostile ancient sources like Plutarch, as if it counseled total withdrawal from the world. But the advice was aimed at the pursuit of political careerism, reputation, and office specifically -- not at social or civic invisibility as such. The historical record contradicts the isolationist reading directly: the Garden sat on Athens's busiest ceremonial road, its gate carried a welcoming sign addressed to strangers, and Epicurus corresponded prolifically with students and friends across the Greek world. Declining to compete for political office and public fame is not the same thing as declining to engage with other human beings.
+**** /Epicurus, Vatican Saying 86 and Vatican Saying 58/ :LiveUnknownDoesNotMeanIsolation:
+Live unknown.
+We must release ourselves from the prison of affairs and politics.
+[[https://epicurustoday.com/citationclips/epicurus-fragment-86-liveunknown-bailey.jpg][Epicurus, Fragment 86 "Live Unknown" (tr. Bailey) -- note: this is Bailey's separate numbered Fragments collection, not the 81-item Vatican Sayings Gnomologium]]
+[[https://epicurustoday.com/citationclips/epicurus-vs-51-61-bailey.jpg][Epicurus, Vatican Saying 58 (tr. Bailey), same page also carries VS 51-57 and 61]]
+**** /Seneca, Letters to Lucilius 21.10/ :LiveUnknownDoesNotMeanIsolation:PleasureNotTranquilityIsHighestGood:
+:PROPERTIES:
+:TRANSCLUDE: seneca-letters-to-lucilius-21-10
+:END:
+*** Did Epicurus Live On Bread And Water And Limit Himself To An Ascetic Diet?
+**** Commentary
+**** /Seneca, Epist. ad Luc, 18, 9 [11]/
+Even Epicurus, the teacher of pleasure, used to observe _stated intervals,_ during which he satisfied his hunger in niggardly fashion; he wished to see whether he thereby fell short of full and complete happiness, and, if so, by what amount he fell short, and whether this amount was worth purchasing at the price of great effort. At any rate, he makes such a statement in the well known letter written to Polyaenus in the archonship of Charinus. Indeed, he boasts that he himself lived on less than a penny, but that Metrodorus, whose progress was not yet so great, needed a whole penny.
+***** Even Epicurus, the teacher of pleasure, used to observe _stated intervals,_ during which he satisfied his hunger in niggardly fashion; he wished to see whether he thereby fell short of full and complete happiness, and, if so, by what amount he fell short, and whether this amount was worth purchasing at the price of great effort. At any rate, he makes such a statement in the well known letter written to Polyaenus in the archonship of Charinus. Indeed, he boasts that he himself lived on less than a penny, but that Metrodorus, whose progress was not yet so great, needed a whole penny.
+*** Did Epicurus And His School Engage Combatively With Rival Philosophers, Or Avoid Public Dispute? :EpicureanMockeryOfRivals:
+**** _Commentary_
+Epicurus is sometimes pictured as a gentle, withdrawn teacher who avoided confrontation. The historical record of how he actually spoke about rival philosophers refutes this directly. Diogenes Laertius preserves a whole catalog of pointed, personal epithets Epicurus coined for his opponents -- epithets that functioned as compact philosophical criticism, not mere name-calling, since each one targeted a specific doctrinal failure alongside the personal jab. This same combative habit continued in the school after him: Philodemus's polemic against the Stoics traces Zeno's doctrine back to the Cynic Diogenes of Sinope specifically to taint the Stoic school at its philosophical root. Later hostile tradition mocked Epicurean atomism itself with the epithet "Power of Air," attacking Epicurus's naturalism directly rather than any supposed passivity -- itself a sign that opponents understood him as an active target worth attacking, not a quietist to be ignored. (This specific epithet is preserved in modern secondary retellings rather than a pinned ancient primary-source line; treat it as a lead for further sourcing, not a settled citation.) A school this willing to mock its rivals by name, in print, was not a school of passive withdrawal.
+**** /Diogenes Laertius X.8/ :EpicureanMockeryOfRivals:
+[[https://epicurustoday.com/citationclips/diogeneslaertius-10-6-8-bailey.jpg][Diogenes Laertius X.8 (tr. Bailey)]]
+[Diogenes Laertius's biography preserves a set of personal epithets Epicurus applied to rival philosophers and schools, each doubling as a doctrinal jab: Nausiphanes (Epicurus's repudiated teacher, whose Pyrrhonist-tinged suspension of judgment left him with no genuine perceptive "grip" on reality) was "the Mollusk" (or "Jellyfish"); Plato was "the Golden" or "Gilded" (impressive but unsound); Plato's followers were "Flatterers of Dionysus"; Aristotle was "the Debauchee"; Protagoras was "Basketbearer"; Heraclitus was "the Agitator"; Democritus was "Lerocritus" (nonsense-monger); Antidorus was "Wood-Giver"; the Cyzicenes were "Enemies of Greece"; the Megarian Dialecticians were "the Grand Wreckers"; and Pyrrho was "the Uneducated Fool."]
+[[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Diogenes Laertius X.8 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
+**** /Sextus Empiricus, Against the Mathematicians I.3/ :EpicureanMockeryOfRivals:
+[Independent, non-Epicurean corroboration of one entry in the Diogenes Laertius catalog above.] Confirms that Nausiphanes was called "the Mollusk" (pleumon) "as one without sensation."
+[[https://epicurustoday.com/citationclips/sextusempiricus-againstprofessors-1-3-6-bury.jpg][Sextus Empiricus, Against the Professors I.3-6 (tr. Bury, Loeb) -- Bury renders the insult "Stockfish" rather than "Mollusk," but confirms the same passage: Epicurus mocking Nausiphanes as a senseless sea-creature]]
+**** /Philodemus, On the Stoics (PHerc. 155/339)/ :EpicureanMockeryOfRivals:
+[No personal epithet from Epicurus himself survives against Zeno of Citium -- the two founders were near-exact contemporaries, and the fiercest Epicurean-Stoic rivalry emerged a generation later. The school's anti-Stoic polemic instead survives in this text of Philodemus, which traces Zeno's doctrine back to the Cynic Diogenes of Sinope, tainting the Stoic school at its foundation.]
+[No scanned page image located -- this fragmentary papyrus (Dorandi's 1982 critical edition with Italian translation is the standard scholarly text) has no known older English translation avaible. An English rendering of the Diogenes-of-Sinope material does exist online rather than as a page scan:]
+[[https://www.attalus.org/translate/philodemus.html][English Source at attalus.org -- Philodemus, On the Stoics (tr. R. Dobbin, from "The Cynic Philosophers," 2012)]]
+*** Epicurus
+**** _Commentary_
+341–270 BC. Born on Samos, active mainly in Athens. Wrote in Greek. Founder of the school; developed the physics (atomism), canonics (the senses, preconceptions, and feelings as the criteria of truth), and ethics (pleasure as the goal, pain and pleasure as the only guides) that all later Epicureans transmitted and defended.
+*** Metrodorus of Lampsacus
+**** _Commentary_
+c. 331–278 BC. Born in Lampsacus, active in Athens. Wrote in Greek. Epicurus's closest companion and, in Epicurus's own words, second only to himself in importance to the school; predeceased Epicurus, who provided for Metrodorus's children in his will.
+*** Hermarchus of Mytilene
+**** _Commentary_
+c. 340–c. 260 BC. Born on Lesbos, active in Athens. Wrote in Greek. Epicurus's chosen successor as head (scholarch) of the school in Athens; little of his own writing survives, but ancient sources credit him with defending and consolidating the school after Epicurus's death.
+*** Polyaenus of Lampsacus
+**** _Commentary_
+Died c. 278 BC. From Lampsacus, active in Athens. Wrote in Greek. A trained mathematician before joining Epicurus; ranked by ancient sources among the school's founding inner circle alongside Metrodorus and Hermarchus, though little of his own work survives directly.
+*** Colotes of Lampsacus
+**** _Commentary_
+c. 320s BC–after 268 BC (exact dates uncertain). From Lampsacus, active in Athens. Wrote in Greek. A direct pupil of Epicurus who wrote a polemical treatise arguing that the doctrines of rival philosophers made it "impossible even to live" if followed consistently; known today mainly because Plutarch wrote a hostile point-by-point rebuttal, *Against Colotes*, which incidentally preserves a great deal of what Colotes actually argued.
+*** Leontion
+**** _Commentary_
+Active in the early 3rd century BC (exact dates unknown), Athens. Wrote in Greek. A female member of the Garden, formerly a hetaira, who became a respected philosopher in her own right; Epicurus wrote to her with evident affection, and she is credited with a treatise criticizing the Peripatetic philosopher Theophrastus, a striking case of a woman writing philosophical polemic in this period.
+*** Polystratus
+**** _Commentary_
+Died c. 219 BC, Athens. Wrote in Greek. Third head of the school, succeeding Hermarchus; his treatise *On Irrational Contempt*, defending objective value against a fashionable relativism, survives on papyrus from Herculaneum and is one of the few substantial post-founder Epicurean texts to survive at any length.
+*** Dionysius of Lamptrai
+**** _Commentary_
+3rd century BC (exact dates uncertain), Athens. Wrote in Greek. Fourth head of the school, succeeding Polystratus; almost nothing of his own teaching survives independently, and he is known chiefly from the bare succession-list preserved by Diogenes Laertius.
+*** Apollodorus of Athens ("the Garden-Tyrant")
+**** _Commentary_
+2nd century BC (exact dates uncertain), Athens. Wrote in Greek. A later scholarch reputed to have written over 400 books; Diogenes Laertius relied heavily on Apollodorus's own chronological work for the dates he gives of Epicurus's birth, death, and career, making him an important (if now largely lost) source behind the biographical tradition.
+*** Zeno of Sidon
+**** _Commentary_
+c. 150–c. 75 BC. Born in Sidon (Phoenicia), head of the school in Athens. Wrote in Greek. Teacher of Philodemus of Gadara and, by some ancient testimony, heard as a lecturer by the young Cicero in Athens; represents the school's continued vitality in the generation just before the great wave of Roman engagement with Epicureanism.
+*** Demetrius Lacon ("the Laconian")
+**** _Commentary_
+2nd–1st century BC (exact dates uncertain). From Miletus, active partly in Athens/Italy. Wrote in Greek. A scholarly Epicurean known for detailed polemical and technical works; substantial papyrus fragments of his writing were recovered from the Villa of the Papyri at Herculaneum.
+*** Philonides of Laodicea
+**** _Commentary_
+c. 200–after 129 BC. Born in Laodicea-on-Sea (Syria), active at the Seleucid court in Antioch. Wrote in Greek. A mathematician as well as an Epicurean, he became the friend and philosophical advisor of King Antiochus IV Epiphanes, and is the figure principally responsible for Epicureanism's establishment as the effective court philosophy at Antioch.
+*** Antiochus IV Epiphanes
+**** _Commentary_
+c. 215–164 BC. Seleucid king of Syria, reigning from Antioch. Greek-speaking court. Not himself a practicing Epicurean philosopher, but as the close friend and patron of Philonides of Laodicea he made Epicureanism the effective court philosophy at Antioch during his reign -- a rare case of the school gaining direct royal favor rather than merely private adherents.
+*** Timasagoras of Rhodes
+**** _Commentary_
+Dates uncertain (Hellenistic period), associated with Rhodes. Wrote in Greek. A minor figure known almost entirely from a single ancient citation recording that he disputed part of the school's standard account of visual perception -- evidence that individual Epicureans could and did disagree with details of school doctrine without leaving the school.
+*** Diogenes of Oinoanda
+**** _Commentary_
+Fl. early-to-mid 2nd century AD. From Oinoanda, in Lycia (modern southwestern Turkey). Wrote in Greek. A wealthy, elderly Epicurean who had a summary of Epicurean physics, ethics, and canonics carved onto a massive public inscription in his home city's marketplace, explicitly so that people not yet born could benefit from the doctrine -- the largest surviving inscribed philosophical text from antiquity, with fragments still being discovered and published today.
+*** Lucian of Samosata
+**** _Commentary_
+c. 125–after 180 AD. Born in Samosata (Syria/Commagene), traveled widely across the Greek-speaking world. Wrote in Greek. A satirist rather than a card-carrying Epicurean, but a valuable sympathetic outside witness: his *Alexander the False Prophet* singles out Epicurus's *Kyriai Doxai* (Principal Doctrines) by name as "a great bulwark" against superstition and religious fraud.
+*** Titus Lucretius Carus
+**** _Commentary_
+c. 99–c. 55 BC (dates disputed). Italy (city of birth unknown). Wrote in Latin. Author of *De Rerum Natura* ("On the Nature of Things"), the longest and fullest surviving exposition of Epicurean physics, written as a didactic poem addressed to Gaius Memmius.
+*** Gaius Amafinius
+**** _Commentary_
+Fl. late 2nd–early 1st century BC, Rome. Wrote in Latin. The earliest known Roman popularizer of Epicureanism in Latin prose; Cicero criticizes his style as inelegant but credits him (along with Rabirius) with reaching a wide non-elite Roman readership that more polished philosophical writing never touched.
+*** Rabirius
+**** _Commentary_
+Fl. early 1st century BC, Rome. Wrote in Latin. An early Latin Epicurean writer regularly paired with and criticized alongside Amafinius by Cicero for similar reasons -- accessible content delivered in what Cicero considered an unsophisticated style.
+*** Catius Insuber ("the Epicurean")
+**** _Commentary_
+Died c. 45 BC. From Cisalpine Gaul ("Insuber," i.e. of the Insubres), active in Rome. Wrote in Latin. Author of a treatise on physics and "the nature of things"; Cicero mentions him with personal warmth in his letters even while disagreeing with the philosophy, and Horace refers to him as an authority on Epicurean dietetics.
+*** Titus Albucius
+**** _Commentary_
+Fl. c. 105 BC. From Rome; studied at Athens; served as praetor and governor of Sardinia. Wrote and spoke in both Latin and Greek. Completed his philosophical education at Athens as an Epicurean, celebrated a minor triumph over bandits during his Sardinian command, and was later convicted of provincial extortion; the satirist Lucilius mocked him for affecting Greek manners and speech, and Cicero cites the episode in *De Finibus* I.9.
+*** Patro
+**** _Commentary_
+Fl. c. 70–51 BC, Athens. Wrote in Greek. Scholarch (head) of the Epicurean school at Athens, successor to Phaedrus; when Gaius Memmius sought permission to demolish part of the property that included Epicurus's old house, Patro appealed to Atticus and Cicero, who successfully interceded on the school's behalf.
+*** Gaius Velleius
+**** _Commentary_
+Fl. mid-1st century BC, Rome. Wrote and spoke in Latin. A Roman senator who voices and defends the Epicurean position on the nature of the gods in Book I of Cicero's *De Natura Deorum*, arguing for Epicurus's theology against the Stoic and Academic positions represented by the dialogue's other speakers.
+*** Lucius Manlius Torquatus
+**** _Commentary_
+Praetor 49 BC, Rome. Wrote and spoke in Latin. Voices and defends the Epicurean position on the highest good in Book I of Cicero's *De Finibus*. A member of a patrician family renowned for battlefield courage (his ancestor won the *cognomen* "Torquatus" in single combat against a Gallic champion), which Cicero exploits dramatically: an Epicurean spokesman from a lineage defined by martial valor undercuts any easy assumption that pleasure-ethics implies cowardice or passivity.
+*** Titus Pomponius Atticus
+**** _Commentary_
+110–32 BC. Born and died in Rome; spent much of his life in Athens (hence "Atticus"). Wrote and spoke in Latin and Greek. Cicero's lifelong friend, correspondent, financier, and publisher; widely understood by ancient and modern readers to have real Epicurean sympathies, though the precise degree of his personal commitment is debated. Joined Patro in persuading Cicero to intervene on behalf of the Epicurean school's property in Athens.
+*** Gaius Memmius
+**** _Commentary_
+Praetor 58 BC; governor of Bithynia 57 BC; later exiled to Athens after an electoral scandal. Rome/Bithynia/Athens. Wrote and spoke in Latin. The dedicatee of Lucretius's *De Rerum Natura*, addressed there as if a receptive audience for Epicurean philosophy -- yet while in exile at Athens he sought permission to redevelop the site of Epicurus's old house, provoking the school's scholarch Patro to seek (and win) Cicero's and Atticus's intervention against him, a real complication in his reputation as an Epicurean sympathizer.
+*** Lucius Calpurnius Piso Caesoninus
+**** _Commentary_
+Consul 58 BC. Rome; his family villa was at Herculaneum. Wrote and spoke in Latin. Julius Caesar's father-in-law and a patron of Philodemus of Gadara; his villa at Herculaneum (identified with the "Villa of the Papyri") is generally thought to have housed Philodemus's working library, the carbonized remains of which are the source of nearly all surviving Epicurean papyri.
+*** Philodemus of Gadara
+**** _Commentary_
+c. 110–c. 40/35 BC (exact death date uncertain). Born in Gadara (Syria), studied under Zeno of Sidon at Athens, spent his later career in Italy (Rome/Herculaneum). Wrote in Greek. A prolific Epicurean philosopher and poet whose numerous treatises -- on anger, frank criticism, household management, poetry, rhetoric, and more -- survive today only because they were carbonized (not destroyed) by the eruption that buried Herculaneum, and are still being recovered and published from the papyrus fragments.
+*** Siro
+**** _Commentary_
+1st century BC, taught in Naples/Campania. Wrote in Greek and/or Latin (uncertain which he taught in). An Epicurean teacher whose students in Campania included the young Virgil, giving Epicureanism a direct, documented line into one of the central figures of Latin literature, even though Virgil's own mature poetry moves in a more eclectic direction.
+*** Lucius Papirius Paetus
+**** _Commentary_
+Fl. mid-1st century BC, based at Naples. Wrote and spoke in Latin. A wealthy, hospitable friend of Cicero whom Cicero explicitly calls "a learned man" and "an Epicurean" in their surviving correspondence -- one of the clearest cases of Cicero directly labeling a private acquaintance by philosophical school rather than merely alluding to it.
+*** Gaius Trebatius Testa
+**** _Commentary_
+c. 84 BC–after 4 AD. From Velia; served on Julius Caesar's staff in Gaul; later prominent at Rome. Wrote in Latin. A jurist recommended to Caesar by Cicero, who teased him in letters about converting to Epicureanism around 53 BC; went on to become one of the most authoritative Roman jurists of the Augustan age, cited centuries later in Justinian's *Institutes*.
+*** Gaius Cassius Longinus
+**** _Commentary_
+c. 87–42 BC, Rome. Wrote and spoke in Latin. Senator and general, the leading organizer of the conspiracy to assassinate Julius Caesar; an open, self-identified Epicurean, confirmed in his own surviving letters to Cicero (*Ad Familiares* XV.16, 19). His life stands as the clearest ancient refutation of the caricature that Epicureans withdraw from politics and public danger: he raised and led armed resistance against what he regarded as Caesar's one-man tyranny.
+*** Gaius Julius Caesar
+**** _Commentary_
+100–44 BC, Rome. Wrote and spoke in Latin. Not a declared member of the school, but Sallust records Caesar arguing in the Senate debate over the Catiline conspirators, against the death penalty, that death is "a release from misery, not a torment" and brings no further suffering -- an argument that closely tracks the distinctively Epicurean doctrine that death is the end of sensation and therefore nothing to be feared. This single recorded speech has led some modern scholars to suspect genuine Epicurean sympathy or influence, though the question remains debated rather than settled.
+*** Quintus Horatius Flaccus (Horace)
+**** _Commentary_
+65–8 BC. Born at Venusia, active mainly at Rome. Wrote in Latin. A major poet who playfully describes himself as "a hog from Epicurus's herd" (*Epicuri de grege porcum*, *Epistles* I.4.16) and whose odes and satires repeatedly draw on Epicurean ethical themes -- seizing the day, the natural limits of desire, and freedom from the anxieties of ambition and wealth.
+*** Phaedrus
+**** _Commentary_
+c. 140–70 BC, head of the school at Athens (also taught at Rome). Wrote in Greek. Scholarch of the Epicurean school before Patro; taught the young Cicero and Atticus directly, both in Rome and Athens. Cicero speaks of him afterward with genuine personal warmth even while rejecting Epicurean doctrine philosophically.
+*** Pompeia Plotina
+**** _Commentary_
+c. 70–c. 121/123 AD, Rome. Wrote in Latin. Wife of the emperor Trajan; used her position as empress to help secure the headship of the Epicurean school at Athens for a chosen successor regardless of Roman citizenship, and is honored in a surviving imperial rescript for this act of patronage -- a rare, direct instance of imperial-level support for the school's institutional continuity.
+*** Lorenzo Valla
+**** _Commentary_
+1407–1457. Active in Rome and Naples. Wrote in Latin and Italian. A Renaissance humanist whose dialogue *De Voluptate* ("On Pleasure") is an early and daring attempt to rehabilitate Epicurean ethics within a nominally Christian intellectual world, arguing pleasure's case against Stoic virtue-ethics with real philosophical seriousness.
+*** Cosma Raimondi
+**** _Commentary_
+c. early-to-mid 15th century (precise dates uncertain), from Cremona. Wrote in Latin. A Renaissance humanist who wrote a direct, unapologetic defense of Epicurus's philosophy against Stoic critics, reconciling apparent tensions in the ancient biographical tradition (Diogenes Laertius) rather than simply repeating the standard hostile caricature.
+*** Celsus
+**** _Commentary_
+2nd century AD; precise identity and dates disputed. Wrote in Greek. Author of the lost anti-Christian polemic *The True Word* ("Alethes Logos"), known today only through Origen's point-by-point rebuttal, *Against Celsus*. Ancient and modern scholars disagree on whether this Celsus should be identified with an Epicurean philosopher of the same name mentioned elsewhere by Lucian -- a live, unresolved question rather than a settled fact, worth flagging honestly rather than assuming the identification.
+*** Julien Offray de la Mettrie
+**** _Commentary_
+1709–1751. Born in France, later worked in the Netherlands and Prussia (Berlin). Wrote in French. An Enlightenment physician and materialist philosopher whose works defend pleasure as the standard of the good and deny the soul's immortality in an explicitly Epicurean-Lucretian vein; repeatedly censored and forced into exile for it.
+*** Thomas Jefferson
+**** _Commentary_
+1743–1826, Virginia. Wrote in English. U.S. Founding Father and third President who explicitly declared, in an 1819 letter to William Short, "I too am an Epicurean," and assembled his own private syllabus/compilation of Epicurus's doctrines for personal use.
+*** Frances Wright
+**** _Commentary_
+1795–1852. Born in Scotland, active mainly in the United States. Wrote in English. Social reformer, abolitionist, and writer whose novel *A Few Days in Athens* (1822) dramatizes and defends Epicurean philosophy against the stock ancient criticisms leveled at it, presenting Epicurus's own school in a sympathetic, humanizing light for a 19th-century readership.
+** Other Controversies
+*** Is Pleasure -- Or Tranquility -- The Epicurean Goal? :PleasureNotTranquilityIsHighestGood:
+**** _Commentary_
 This is the single most consequential point of confusion in the modern reception of Epicurus. Ataraxia (freedom from disturbance) is a genuinely desirable state, but it is not itself the goal. Epicurus is explicit in the Letter to Menoeceus: pleasure is "the beginning and end of the blessed life," the standard by which every other good -- including tranquility -- is measured. Substituting ataraxia for pleasure as the goal quietly converts Epicurus into a Stoic or a Buddhist, trading an affirmative, embracing philosophy of life for one of managed withdrawal. Diogenes of Oinoanda's stone inscription, praising "the fullness of pleasure," stands as one of many persuasive ancient testimonies against the substitution.
 The vocabulary of the Principal Doctrines themselves bears this out. Pleasure (hēdonē) and pain are named repeatedly and explicitly as the criterion of choice and avoidance throughout the forty doctrines. Happiness (eudaimonia) does not appear there as a noun at all -- where that idea is gestured at, the text uses "blessed" (makarios) instead, as in PD 1 and PD 27. Ataraxia as an abstract noun likewise is not a headline term the way pleasure is. However PD 17 is built around a cognate of it -- "The just man is most free from trouble, the unjust most full of trouble"  -- so undisturbedness does appearin that one doctrine. In the global context, pleasure is named as the criterion in well over a dozen doctrines, while undisturbedness in this technical sense surfaces explicitly only once, and even there it describes a consequence of justice rather than a good ranked above pleasure. Tranquility is never the measuring stick in the Principal Doctrines; pleasure remains that throughout.
 The substitution of tranquility for pleasure has a specific philosophical origin, not merely a vague discomfort with hedonism: Plato's argument in the /Philebus/ that pleasure cannot be the highest good because it has no natural limit -- it always admits of "more and less," with no stopping point, so nothing bounded and complete (for Plato, virtue) could ever be reached by chasing it. Seneca restates this argument against Epicurus by name centuries later, insisting that anything capable of further increase is thereby proven imperfect, and reducing Epicurus's own reported two-goods formula (a body free from pain, a soul free from disturbance) to a fixed, static, low bar that mere "seasoning" cannot raise. Read against this background, ataraxia and aponia look like exactly the modest, negative goods that critics from Plato through Seneca said pleasure would have to be reduced to if it were going to have any limit at all -- which is precisely how tranquility gets smuggled in as a substitute for pleasure as the goal. But Epicurus's actual doctrine (PD3, PD18) answers Plato and Seneca on their own terms rather than conceding their premise: pleasure itself has a limit -- the removal of all pain -- so pleasure, not some separate state of tranquility, is the complete and achievable good. Ataraxia is the name for the mind's condition once that limit is reached, not a different, lesser goal substituted in pleasure's place. See the companion article "The Full Cup Model" for the full argument.
-*** For a list of those who take the position that Tranquility or something other than pleasure is the true goal of Epicurus, see here: [[https://epicurustoday.com/02-key-sources/tranquillists/][The Tranquillists: Table of Sources]]
-*** /Diogenes of Oinoanda, Fragment 32/ :PleasureNotTranquilityIsHighestGood:Pleasure:VirtueAsContextual:
+**** For a list of those who take the position that Tranquility or something other than pleasure is the true goal of Epicurus, see here: [[https://epicurustoday.com/02-key-sources/tranquillists/][The Tranquillists: Table of Sources]]
+**** /Diogenes of Oinoanda, Fragment 32/ :PleasureNotTranquilityIsHighestGood:Pleasure:VirtueAsContextual:
 Shortly I will speak about imprudence, but for the present about the virtues and pleasure. Now if, fellow men, the question at issue between these people [the Stoics] and ourselves involved examining 'what is the means of happiness?', and they wanted to say the virtues, as is in fact true, there would be no need to do anything except to agree with them and abandon the matter. But since, as I was saying, the issue is not 'what is the means of happiness?', but what being happy is and what our nature ultimately desires, I affirm now and always, with a great shout to all Greeks and foreigners, pleasure is the end of the best lifestyle, while the virtues which are now being inappropriately fussed about by them (being transferred from the position of means to that of end) are in no way the end, but the means to the end. (L&S-THP)
 [[https://epicurustoday.com/citationclips/diogenesofoinoanda-fr32-opening-shortlyimprudence.jpg][Diogenes of Oinoanda, Fragment 32 (tr. Smith), opening lines]]
 [[https://epicurustoday.com/citationclips/diogenesofoinoanda-fr32-pleasureistheend.jpg][Diogenes of Oinoanda, Fragment 32 (tr. Smith), continued]]
-*** /Cicero, On Ends 1.29 (Torquatus, Rackham)/ :PleasureNotTranquilityIsHighestGood:HappinessAsLifeOfPleasure:Pleasure:
+**** /Cicero, On Ends 1.29 (Torquatus, Rackham)/ :PleasureNotTranquilityIsHighestGood:HappinessAsLifeOfPleasure:Pleasure:
 :PROPERTIES:
 :TRANSCLUDE: cicero-on-ends-1-29-torquatus-rackham
 :END:
 [[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Fin.+1.29][Cicero, On Ends (De Finibus) 1.29 (Latin text only) -- Perseus Digital Library]]
-*** /Cicero, On Ends 1.54 (Torquatus)/ :PleasureNotTranquilityIsHighestGood:HappinessAsLifeOfPleasure:Pleasure:VirtueAsContextual:
+**** /Cicero, On Ends 1.54 (Torquatus)/ :PleasureNotTranquilityIsHighestGood:HappinessAsLifeOfPleasure:Pleasure:VirtueAsContextual:
 :PROPERTIES:
 :TRANSCLUDE: cicero-on-ends-1-54-torquatus
 :END:
 [[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Fin.+1.54][Cicero, On Ends (De Finibus) 1.54 (Latin text only) -- Perseus Digital Library]]
-*** /Seneca, Letters to Lucilius 21.10/ :PleasureNotTranquilityIsHighestGood:Happiness:HappinessAsLifeOfPleasure:Pleasure:
+**** /Seneca, Letters to Lucilius 21.10/ :PleasureNotTranquilityIsHighestGood:Happiness:HappinessAsLifeOfPleasure:Pleasure:
 :PROPERTIES:
 :TRANSCLUDE_ID: seneca-letters-to-lucilius-21-10
 :END:
 /Hospes, hic bene manebis; hic summum bonum voluptas est./ -- "Stranger, here you will do well to tarry; here our highest good is pleasure."
 [[https://epicurustoday.com/citationclips/seneca-letters21-10-gummere-gardeninscription.jpg][Seneca, Letters to Lucilius 21.10 (tr. Gummere, Loeb)]]
-*** /Aulus Gellius, Attic Nights II.6/ :PleasureNotTranquilityIsHighestGood:Pleasure:
+**** /Aulus Gellius, Attic Nights II.6/ :PleasureNotTranquilityIsHighestGood:Pleasure:
 :PROPERTIES:
 :TRANSCLUDE: aulus-gellius-ii6
 :END:
-*** /Diogenes Laertius X.11/ :PleasureNotTranquilityIsHighestGood:Pleasure:
+**** /Diogenes Laertius X.11/ :PleasureNotTranquilityIsHighestGood:Pleasure:
 [[https://epicurustoday.com/citationclips/diogeneslaertius-10-11-cheese-bailey.jpg][Diogenes Laertius X.11 (tr. Bailey)]]
 'Send me,' he says, 'some preserved cheese, that when I like I may have a feast.' Such was the man who taught that the end is pleasure.
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Diogenes Laertius X.11 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-*** /Epicurus, Letter to Menoeceus [129]/ :PleasureNotTranquilityIsHighestGood:HappinessAsLifeOfPleasure:PleasureAsGuide:
+**** /Epicurus, Letter to Menoeceus [129]/ :PleasureNotTranquilityIsHighestGood:HappinessAsLifeOfPleasure:PleasureAsGuide:
 And for this cause we call pleasure the beginning and end of the blessed life. For we recognize pleasure as the first good innate in us, and from pleasure we begin every act of choice and avoidance, and to pleasure we return again, using the feeling as the standard by which we judge every good.
 [[https://epicurustoday.com/citationclips/epicurus-lettermenoeceus-126-129-bailey.jpg][Epicurus, Letter to Menoeceus 129 (tr. Bailey)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Letter to Menoeceus [129] -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-*** /Epicurus, Principal Doctrine 17/ :PleasureNotTranquilityIsHighestGood:FriendshipAsPleasurable:
+**** /Epicurus, Principal Doctrine 17/ :PleasureNotTranquilityIsHighestGood:FriendshipAsPleasurable:
 The just man is most free from trouble, the unjust most full of trouble. (Bailey)
 [[https://epicurustoday.com/citationclips/epicurus-pd-15-21-bailey.jpg][Epicurus, Principal Doctrine 17 (tr. Bailey), same page also carries PD 15-21]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Principal Doctrine 17 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-*** /Athenaeus, Deipnosophists XII, 546E/ :Pleasure:PleasureNotTranquilityIsHighestGood:
+**** /Athenaeus, Deipnosophists XII, 546E/ :Pleasure:PleasureNotTranquilityIsHighestGood:
 Not only Aristippus and his followers, but also Epicurus and his welcomed kinetic pleasure -- I will mention what follows, to avoid speaking of the 'storms' [of passion] and the 'delicacies' which Epicurus often cites, and the 'stimuli' which he mentions in his On the End-Goal. For he says: 'For I at least do not even know what I should conceive the good to be, if I eliminate the pleasures of taste, and eliminate the pleasures of sex, and eliminate the pleasures of listening, and eliminate the pleasant motions caused in our vision by a visible form.'
 [[https://epicurustoday.com/citationclips/athenaeus-deipnosophists-12-546ef-yonge.jpg][Athenaeus, Deipnosophists XII.546E (tr. Yonge, Bohn, 1854), same page also carries 546F below]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:2013.01.0003:book=12:chapter=1][Athenaeus, Deipnosophists XII, 546E (tr. Yonge, 1854) -- Perseus Digital Library, search Book XII for the passage]]
-*** /Lucian, The Double Indictment 21/ :PleasureNotTranquilityIsHighestGood:
+**** /Lucian, The Double Indictment 21/ :PleasureNotTranquilityIsHighestGood:
 [One who] ran away to Pleasure of his own free will, cutting the meshes of [Stoic] logic as if they were bonds, because he had the spirit of a human being, not of a dolt, and thought pain painful, as indeed it is, and pleasure pleasant. ... Stoa: Do you consider pain bad? Epicurus: Yes. Stoa: And pleasure good? Epicurus: Certainly so!
 [[https://epicurustoday.com/citationclips/lucian-doubleindictment-21-fowler.jpg][Lucian, The Double Indictment 21 (tr. Fowler, 1905)]]
 [[https://epicurustoday.com/citationclips/lucian-doubleindictment-22-fowler.jpg][Lucian, The Double Indictment 22 (tr. Fowler, 1905) -- the "Porch/Epi." Q&A continues here]]
-*** /Cicero, In Defense of Publius Sestius 10.23 (tr. Yonge)/ :PleasureNotTranquilityIsHighestGood:Pleasure:
+**** /Cicero, In Defense of Publius Sestius 10.23 (tr. Yonge)/ :PleasureNotTranquilityIsHighestGood:Pleasure:
 [Publius Clodius] praised those most who are said to be above all others the teachers and eulogists of pleasure [the Epicureans].... He added that these same men were quite right in saying that the wise do everything for their own interests; that no sane man should engage in public affairs; that nothing was preferable to a life of tranquility crammed full of pleasures. (Latin: nihil esse praestabilius otiosa vita, plena et conferta voluptatibus.)
 [[https://epicurustoday.com/citationclips/cicero-prosestio-10-23-yonge-panegyristsofpleasure.jpg][Cicero, In Defense of Publius Sestius 10.23 (tr. Yonge)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.02.0020:text%3DSest.:chapter%3D10][Cicero, In Defense of Publius Sestius 10 (tr. Yonge) -- Perseus Digital Library]]
-*** /Cicero, On Ends II.3.7 (tr. Rackham)/ :PleasureNotTranquilityIsHighestGood:
+**** /Cicero, On Ends II.3.7 (tr. Rackham)/ :PleasureNotTranquilityIsHighestGood:
 'Does not Epicurus recognize pleasure in your sense?' 'Not always,' said I, 'now and then, I admit, he recognizes it only too fully, for he solemnly avows that he cannot even understand what good there can be or where it can be found, apart from that which is derived from food and drink, the delight of the ears, and the grosser forms of gratification.'
 [[https://epicurustoday.com/citationclips/cicero-onends-2-3-7-rackham-delightoftheears.jpg][Cicero, On Ends II.3.7 (tr. Rackham)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Fin.+2.7][Cicero, On Ends (De Finibus) 2.7 (Latin text only) -- Perseus Digital Library]]
-*** /Cicero, On Ends II.7.20 (tr. Rackham)/ :PleasureNotTranquilityIsHighestGood:
+**** /Cicero, On Ends II.7.20 (tr. Rackham)/ :PleasureNotTranquilityIsHighestGood:
 In a number of passages where he is commending that real pleasure which all of us call by the same name, he goes so far as to say that he cannot even imagine any Good that is not connected with pleasure of the kind intended by Aristippus.
 [[https://epicurustoday.com/citationclips/cicero-onends-2-7-20-rackham-commendingrealpleasure.jpg][Cicero, On Ends II.7.20 (tr. Rackham)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Fin.+2.20][Cicero, On Ends (De Finibus) 2.20 (Latin text only) -- Perseus Digital Library]]
-*** /Cicero, On Ends II.9.29 and II.10.30 (tr. Rackham)/ :PleasureNotTranquilityIsHighestGood:
+**** /Cicero, On Ends II.9.29 and II.10.30 (tr. Rackham)/ :PleasureNotTranquilityIsHighestGood:
 But fancy his failing to see how strong a proof it is that the sort of pleasure, without which he declares he has no idea at all what Good means, [is] the pleasure of the palate, of the ears -- the kinetic sort of pleasure... he extols it so much that he tells us he is incapable even of imagining what other good there can be.
 [[https://epicurustoday.com/citationclips/cicero-onends-2-9-29-2-10-30-rackham-kineticpleasure.jpg][Cicero, On Ends II.9.29-10.30 (tr. Rackham)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Fin.+2.29][Cicero, On Ends (De Finibus) 2.29 (Latin text only) -- Perseus Digital Library]]
-*** /Cicero, On Ends II.20.64 (tr. Rackham)/ :PleasureNotTranquilityIsHighestGood:
+**** /Cicero, On Ends II.20.64 (tr. Rackham)/ :PleasureNotTranquilityIsHighestGood:
 Nor did he forgo those other indulgences in the absence of which Epicurus declares that he cannot understand what good is.
 [[https://epicurustoday.com/citationclips/cicero-onends-2-20-64-rackham-forgoindulgences.jpg][Cicero, On Ends II.20.64 (tr. Rackham)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Fin.+2.64][Cicero, On Ends (De Finibus) 2.64 (Latin text only) -- Perseus Digital Library]]
-*** /Cicero, On Ends II.17.55 (tr. Rackham)/ :PleasureNotTranquilityIsHighestGood:
+**** /Cicero, On Ends II.17.55 (tr. Rackham)/ :PleasureNotTranquilityIsHighestGood:
 According to your school, it is right to try to get money even at some risk; for money procures many very delightful pleasures.
 [[https://epicurustoday.com/citationclips/cicero-onends-2-17-55-rackham-moneyrisk.jpg][Cicero, On Ends II.17.55 (tr. Rackham)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Fin.+2.55][Cicero, On Ends (De Finibus) 2.55 (Latin text only) -- Perseus Digital Library]]
-*** /Cicero, On Ends II.27.88 (tr. Rackham)/ :PleasureNotTranquilityIsHighestGood:
+**** /Cicero, On Ends II.27.88 (tr. Rackham)/ :PleasureNotTranquilityIsHighestGood:
 Isn't pleasure more desirable the longer it lasts? On what ground then does Epicurus speak of a deity (for so he always does) as happy and immortal? Take away his everlasting life, and Jove is no happier than Epicurus. Each of them enjoys the Chief Good, that is to say, pleasure. Wherein then is he inferior to a god, except that a god lives forever?
 [[https://epicurustoday.com/citationclips/cicero-onends-2-27-88-rackham-jovenohappierthanepicurus.jpg][Cicero, On Ends II.27.88 (tr. Rackham)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Fin.+2.88][Cicero, On Ends (De Finibus) 2.88 (Latin text only) -- Perseus Digital Library]]
-*** /Cicero, Against Lucius Calpurnius Piso 27.66/ :PleasureNotTranquilityIsHighestGood:
+**** /Cicero, Against Lucius Calpurnius Piso 27.66/ :PleasureNotTranquilityIsHighestGood:
 It is his habit in all his discussions to attach higher value to the pleasures of the belly than to the delights of the eye and the ear.
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.02.0020:text%3DPis.:chapter%3D27][Cicero, Against Piso 27 (tr. Yonge, 1891) -- Perseus Digital Library; no scanned page image found despite exhaustive search]]
-*** /Zeno of Sidon, by way of Cicero, Tusculan Disputations III.17.38 (tr. King)/ :PleasureNotTranquilityIsHighestGood:
+**** /Zeno of Sidon, by way of Cicero, Tusculan Disputations III.17.38 (tr. King)/ :PleasureNotTranquilityIsHighestGood:
 Blessed is he who has the enjoyment of present pleasure and the assurance that he would have enjoyment either throughout life or for a great part of life without the intervention of pain, or should pain come, that it would be short-lived if extreme, but if prolonged it would still allow more that was pleasant than evil.
 [[https://epicurustoday.com/citationclips/cicero-tusculan-3-17-37-38-king-zenoofsidon.jpg][Cicero, Tusculan Disputations III.17.37-18.40 (tr. King, Loeb)]]
-*** /Varro, by way of Saint Augustine, City of God XIX.1/ :PleasureNotTranquilityIsHighestGood:
+**** /Varro, by way of Saint Augustine, City of God XIX.1/ :PleasureNotTranquilityIsHighestGood:
 There are four things that men naturally seek... pleasure, which is an agreeable activity of physical perception, or repose, the state in which the individual suffers no bodily discomfort, or both of these (which Epicurus calls by the single name of pleasure).
 [[https://epicurustoday.com/citationclips/augustine-cityofgod-19-1-dods.jpg][Varro via Augustine, City of God XIX.1 (tr. Marcus Dods, 1871)]]
-*** /Alexander of Aphrodisias, On the Soul II.19/ :Pleasure:
+**** /Alexander of Aphrodisias, On the Soul II.19/ :Pleasure:
 The Epicureans held that what is first congenial to us, without qualification, is pleasure. But they say that as we get older, this pleasure articulates itself in many ways.
-*** /Plutarch, That Epicurus Actually Makes a Pleasant Life Impossible 3, 1088C (tr. Einarson & De Lacy)/ :PleasureNotTranquilityIsHighestGood:KatastematicNotBestPleasure:
+**** /Plutarch, That Epicurus Actually Makes a Pleasant Life Impossible 3, 1088C (tr. Einarson & De Lacy)/ :PleasureNotTranquilityIsHighestGood:KatastematicNotBestPleasure:
 Epicurus has imposed a limit on pleasures that applies to all of them alike: the removal of all pain. For he believes that our nature adds to pleasure only up to the point where pain is abolished and does not allow it any further increase in magnitude (although the pleasure, when the state of painlessness is reached, admits of certain unessential variations). But to proceed to this point, accompanied by desire, is our stint of pleasure, and the journey is indeed short and quick.
 [[https://epicurustoday.com/citationclips/plutarch-pleasantlifeimpossible-1088c-limitofpleasure.jpg][Plutarch, That Epicurus Actually Makes a Pleasant Life Impossible 3, 1088C (tr. Einarson & De Lacy)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:2008.01.0395:section=1][Plutarch, That Epicurus Actually Makes a Pleasant Life Impossible (tr. Goodwin, 1874) -- Perseus Digital Library (same translation used for this project's citation clips; search page for exact passage)]]
-*** /Plutarch, same work, 4, 1089A (tr. Einarson & De Lacy)/ :PleasureNotTranquilityIsHighestGood:
+**** /Plutarch, same work, 4, 1089A (tr. Einarson & De Lacy)/ :PleasureNotTranquilityIsHighestGood:
 [Describing the Epicurean position] the superiority of the Sage lies above all in this: vividly remembering and keeping intact in himself the sights and feelings and movements associated with pleasure.
 [[https://epicurustoday.com/citationclips/plutarch-pleasantlifeimpossible-1089a-vividmemory.jpg][Plutarch, same work, 4, 1089A (tr. Einarson & De Lacy)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:2008.01.0395:section=1][Plutarch, That Epicurus Actually Makes a Pleasant Life Impossible (tr. Goodwin, 1874) -- Perseus Digital Library (same translation used for this project's citation clips; search page for exact passage)]]
-*** /Plutarch, same work, 4, 1089D (tr. Einarson & De Lacy)/ :PleasureNotTranquilityIsHighestGood:KatastematicNotBestPleasure:
+**** /Plutarch, same work, 4, 1089D (tr. Einarson & De Lacy)/ :PleasureNotTranquilityIsHighestGood:KatastematicNotBestPleasure:
 It is this, I believe, that has driven them, seeing for themselves the absurdities to which they were reduced, to take refuge in the "painlessness" and the "stable condition of the flesh," supposing that the pleasurable life is found in thinking of this state as about to occur in people or as being achieved; for the "stable and settled condition of the flesh," and the "trustworthy expectation" of this condition contain, they say, the highest and the most assured delight for men who are able to reflect. Now to begin with, observe their conduct here, how they keep decanting this "pleasure" or "painlessness" or "stable condition" of theirs back and forth, from body to mind and then once more from mind to body.
 [[https://epicurustoday.com/citationclips/plutarch-pleasantlifeimpossible-1089d-decantingpleasure.jpg][Plutarch, same work, 4, 1089D (tr. Einarson & De Lacy)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:2008.01.0395:section=1][Plutarch, That Epicurus Actually Makes a Pleasant Life Impossible (tr. Goodwin, 1874) -- Perseus Digital Library (same translation used for this project's citation clips; search page for exact passage)]]
-*** /Plutarch, same work, 7, 1091A (tr. Einarson & De Lacy)/ :PleasureNotTranquilityIsHighestGood:
+**** /Plutarch, same work, 7, 1091A (tr. Einarson & De Lacy)/ :PleasureNotTranquilityIsHighestGood:
 Not only is the basis that they assume for the pleasurable life untrustworthy and insecure, it is quite trivial and paltry as well, inasmuch as their 'thing delighted' -- their good -- is an escape from ills.... Epicurus too makes a similar statement to the effect that the good is a thing that arises out of your very escape from evil and from your memory and reflection and gratitude that this has happened to you. His words are these: 'For what produces a jubilation unsurpassed is the contrast of the great evil escaped; and this is the nature of good, if you apply your mind rightly and then stand firm and do not stroll about, prating meaninglessly about good.' (Einarson & De Lacy)
 [[https://epicurustoday.com/citationclips/plutarch-pleasantlifeimpossible-1091a-jubilation.jpg][Plutarch, same work, 7, 1091A (tr. Einarson & De Lacy)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:2008.01.0395:section=1][Plutarch, That Epicurus Actually Makes a Pleasant Life Impossible (tr. Goodwin, 1874) -- Perseus Digital Library (same translation used for this project's citation clips; search page for exact passage)]]
-*** /Plutarch, same work, 16, 1098D (tr. Einarson & De Lacy) (Quoting Metrodorus, Letter to His Brother Timocrates)/ :Pleasure:
+**** /Plutarch, same work, 16, 1098D (tr. Einarson & De Lacy) (Quoting Metrodorus, Letter to His Brother Timocrates)/ :Pleasure:
 We are not called to save the nation or get crowned by it for wisdom; what is called for, my dear Timocrates, is to eat and to drink wine, gratifying the belly without harming it.... It made me both happy and confident to have learned from Epicurus how to gratify the belly properly.... The belly, Timocrates, my man of wisdom, is the region that contains the highest end.
 [[https://epicurustoday.com/citationclips/plutarch-pleasantlifeimpossible-1098d-bellyofpleasure.jpg][Plutarch, same work, 16, 1098D (tr. Einarson & De Lacy) (Quoting Metrodorus, Letter to His Brother Timocrates)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:2008.01.0395:section=1][Plutarch, That Epicurus Actually Makes a Pleasant Life Impossible (tr. Goodwin, 1874) -- Perseus Digital Library (same translation used for this project's citation clips; search page for exact passage)]]
-*** /Plutarch, same work, 17, 1098D (tr. Einarson & De Lacy)/ :Pleasure:
+**** /Plutarch, same work, 17, 1098D (tr. Einarson & De Lacy)/ :Pleasure:
 Indeed these people, you might say, describing a circle with the belly as center and radius, circumscribe within it the whole area of pleasure.
 [[https://epicurustoday.com/citationclips/plutarch-pleasantlifeimpossible-1098d-bellyofpleasure.jpg][Plutarch, same work, 17, 1098D (tr. Einarson & De Lacy)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:2008.01.0395:section=1][Plutarch, That Epicurus Actually Makes a Pleasant Life Impossible (tr. Goodwin, 1874) -- Perseus Digital Library (same translation used for this project's citation clips; search page for exact passage)]]
-*** /Plutarch, Against Colotes 30, 1125A and 2, 1108C (tr. Einarson & De Lacy)/ :Pleasure:
+**** /Plutarch, Against Colotes 30, 1125A and 2, 1108C (tr. Einarson & De Lacy)/ :Pleasure:
 It is the men who look with contempt on all these things as old wives' tales, and think that our good is to be found in the belly and the other passages by which pleasure makes her entry. ... [And elsewhere] ...by those who keep shouting that the good is to be found in the belly.
 [[https://epicurustoday.com/citationclips/plutarch-againstcolotes-1125a-bellyofpleasure.jpg][Plutarch, Against Colotes 1125A (tr. Einarson & De Lacy, Loeb)]]
 [[https://epicurustoday.com/citationclips/plutarch-againstcolotes-1108c-bellyshouting.jpg][Plutarch, Against Colotes 1108C (tr. Einarson & De Lacy, Loeb)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:2008.01.0397:section=1][Plutarch, Against Colotes (tr. Goodwin, 1874) -- Perseus Digital Library (same translation used for this project's citation clips; search page for exact passage)]]
-*** /Plutarch, On Peace of Mind (De Tranquillitate Animi) 2, 465F/ :NoPoliticsDoesNotMeanQuietist:
+**** /Plutarch, On Peace of Mind (De Tranquillitate Animi) 2, 465F/ :NoPoliticsDoesNotMeanQuietist:
 Not even Epicurus believes that men who are eager for honor and glory should lead an inactive life, but that they should fulfill their natures by engaging in politics and entering public life, on the ground that, because of their natural dispositions, they are more likely to be disturbed and harmed by inactivity if they do not obtain what they desire.
 [Above is a modern paraphrase; the same real passage in Goodwin's 1878 edition ("Hence it is that Epicurus adviseth those who aspire to glory not to stagnate in their ambition, but be in perpetual motion... because they would be more tormented and would suffer greater damages by idleness") reads below, spanning pp.138-139.]
 [[https://epicurustoday.com/citationclips/plutarch-tranquillityofmind-138-goodwin1878.jpg][Plutarch, Of the Tranquillity of the Mind, ch.2 (tr. in Goodwin's Plutarch's Morals, 1878, Vol. I, p.138)]]
 [[https://epicurustoday.com/citationclips/plutarch-tranquillityofmind-139-goodwin1878.jpg][Plutarch, Of the Tranquillity of the Mind, ch.2, continued (p.139)]]
-*** /Antiochus of Ascalon, by way of Clement of Alexandria, Miscellanies II.21, 178.43 and 178.46/ :Pleasure:PleasureNotTranquilityIsHighestGood:
+**** /Antiochus of Ascalon, by way of Clement of Alexandria, Miscellanies II.21, 178.43 and 178.46/ :Pleasure:PleasureNotTranquilityIsHighestGood:
 Of those that are ruled by pleasure are the Cyrenaics and Epicurus; for these expressly said that to live pleasantly was the chief end, and that pleasure was the only perfect good. Epicurus also says that the removal of pain is pleasure. ... [And elsewhere] Epicurus also says that the removal of pain is pleasure; and says that that is to be preferred, which first attracts from itself to itself, being, that is, wholly in motion.
 [[https://epicurustoday.com/citationclips/clement-stromata-2-21-wilson.jpg][Clement of Alexandria, Stromata (Miscellanies) II.21 (tr. Wilson, Ante-Nicene Fathers Vol. II, 1885), reporting Antiochus of Ascalon's report of Epicurus]]
-*** /Alciphron, Letters III.55.8 (Autocletus to Hetoemaristus)/ :Pleasure:
+**** /Alciphron, Letters III.55.8 (Autocletus to Hetoemaristus)/ :Pleasure:
 Zenocrates the Epicurean took the harp-girls in his arms, gazing upon them from half-closed eyes with a languishing and melting look, and saying that this was 'tranquility of the flesh' and 'the full intensity of pleasure.'
 [[https://epicurustoday.com/citationclips/alciphron-letters-3-55-anon1896.jpg][Alciphron, Letters III.55 (tr. anonymous, Athenian Society, 1896)]]
-*** /Porphyry, On Abstinence I.53/ :Pleasure:CalculatingDesires:
+**** /Porphyry, On Abstinence I.53/ :Pleasure:CalculatingDesires:
 Epicurus rightly surmised that we should beware of food which we want to enjoy and which we pursue, but find disagreeable once we get it.... For this reason we should guard against excess even of simple things, and in all cases we must examine what happens as a result of enjoyment or possession, how big a thing it is, and whether it relieves any trouble of body or soul.
 [[https://epicurustoday.com/citationclips/porphyry-onabstinence-1-53-taylor-a.jpg][Porphyry, On Abstinence I.53 (tr. Taylor, 1823)]]
 [[https://epicurustoday.com/citationclips/porphyry-onabstinence-1-53-54-taylor-b.jpg][Porphyry, On Abstinence I.53-54 (tr. Taylor, 1823), continued]]
-*** /Saint Augustine, Against the Academicians III.7.16/ :PleasureNotTranquilityIsHighestGood:
+**** /Saint Augustine, Against the Academicians III.7.16/ :PleasureNotTranquilityIsHighestGood:
 If Zeno or Chrysippus were asked who the wise man is, he'll reply that the wise man is the one whom he himself has described. In return, Epicurus... will maintain instead that the wise man is the one most skilled at catching pleasures.... Elevating the name of pleasure as agreeableness and calm, with popular support, Epicurus passionately insists that without pleasure nobody could seem happy.
-*** /Saint Augustine, Confessions VI.16/ :Pleasure:
+**** /Saint Augustine, Confessions VI.16/ :Pleasure:
 I argued in those days with my friends Alypius and Nebridius concerning the limits of good and evil. Determining, in my judgment, that Epicurus should have won the garland, had I not verily believed that there remained a life for the soul after the body was dead.... And so I put the question: suppose we were to be immortal, and were to live in perpetual enjoyment of bodily pleasures, and that without fear of losing -- why should we not then be fully happy?
 [[https://epicurustoday.com/citationclips/augustine-confessions-6-16-pusey.jpg][Augustine, Confessions VI.16 (tr. Pusey, rev. ed. 1874)]]
-*** /Lactantius, Divine Institutes III.7.7 and III.17.38/ :Pleasure:
+**** /Lactantius, Divine Institutes III.7.7 and III.17.38/ :Pleasure:
 Epicurus thinks that the highest good is in the pleasure of the mind. Aristippus holds that it is in the pleasure of the body. ... [And elsewhere, paraphrasing Epicurus] Let us serve pleasure, then, in whatever way we can, for in a short time we will be nothing whatsoever. Let us suffer no day, therefore, no point of time to flow by for us without pleasure, lest, since we ourselves are at sometime to perish, the very fact that we live may perish.
 [[https://epicurustoday.com/citationclips/lactantius-divineinstitutes-3-7-fletcher.jpg][Lactantius, Divine Institutes III.7.7 (tr. Fletcher, Ante-Nicene Fathers Vol. VII, 1886)]]
 [[https://epicurustoday.com/citationclips/lactantius-divineinstitutes-3-17-38-fletcher.jpg][Lactantius, Divine Institutes III.17 (tr. Fletcher, Ante-Nicene Fathers Vol. VII, 1886)]]
-*** /Seneca, Letters to Lucilius 92.6/ :Pleasure:
+**** /Seneca, Letters to Lucilius 92.6/ :Pleasure:
 A pleasant physical sensation affects this life of ours; why therefore, do you hesitate to say that all is well with a man just because all is well with his appetite? And do you rate... among men, the person whose Supreme Good is a matter of flavors and colors and sounds?
 [[https://epicurustoday.com/citationclips/seneca-letters92-6-gummere-flavorscolorssounds.jpg][Seneca, Letters to Lucilius 92.6 (tr. Gummere, Loeb)]]
-** What Does "Absence of Pain" Really Mean? :AbsenceOfPainIsPleasure:
-*** _Commentary_
+*** What Does "Absence of Pain" Really Mean? :AbsenceOfPainIsPleasure:
+**** _Commentary_
 Epicurus recognized exactly two feelings -- pleasure and pain -- with no third, neutral state between them. Given that framework, "absence of pain" is not a separate, lesser category sitting below pleasure; it is pleasure, described from the negative side, and at its complete extent it is the greatest pleasure there is, since nothing remains to diminish it. Critics ancient and modern have treated this equation as a verbal trick -- a way of smuggling a modest, static condition in under pleasure's name to escape Plato's and the Stoics' objections. But the identification is not a dodge. Aulus Gellius, a literary scholar with no stake in the philosophical dispute, confirms that praising or condemning something by denying its opposite's faults was a completely ordinary rhetorical convention in antiquity, used by Homer and Virgil as readily as by Epicurus. And when Cicero, in Torquatus's own mouth, presses the equation as hard as it can be pressed -- demanding that Torquatus either back down or affirm it outright -- Torquatus does not hedge. He affirms it twice, in the strongest possible terms available to him.
-*** /Cicero, On Ends 2.9 (Cicero and Torquatus)/ :AbsenceOfPainIsPleasure:KatastematicNotBestPleasure:
+**** /Cicero, On Ends 2.9 (Cicero and Torquatus)/ :AbsenceOfPainIsPleasure:KatastematicNotBestPleasure:
 :PROPERTIES:
 :TRANSCLUDE: cicero-on-ends-2-9-cicero-and-torquatus
 :END:
 [[https://epicurustoday.com/citationclips/cicero-onends-2-9-negationofpain.jpg][Cicero, On Ends 2.9 (Cicero and Torquatus)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Fin.+2.9][Cicero, On Ends (De Finibus) 2.9 (Latin text only) -- Perseus Digital Library]]
-*** /Cicero, On Ends 2.11 (Cicero and Torquatus)/ :AbsenceOfPainIsPleasure:KatastematicNotBestPleasure:
+**** /Cicero, On Ends 2.11 (Cicero and Torquatus)/ :AbsenceOfPainIsPleasure:KatastematicNotBestPleasure:
 :PROPERTIES:
 :TRANSCLUDE: cicero-on-ends-2-11-cicero-and-torquatus
 :END:
 [[https://epicurustoday.com/citationclips/cicero-onends-2-11-negationofpain.jpg][Cicero, On Ends 2.11 (Cicero and Torquatus)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Fin.+2.11][Cicero, On Ends (De Finibus) 2.11 (Latin text only) -- Perseus Digital Library]]
-*** /Epicurus, Principal Doctrine 3/ :AbsenceOfPainIsPleasure:KatastematicNotBestPleasure:
+**** /Epicurus, Principal Doctrine 3/ :AbsenceOfPainIsPleasure:KatastematicNotBestPleasure:
 :PROPERTIES:
 :TRANSCLUDE: epicurus-principal-doctrine-3
 :END:
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Principal Doctrine 3 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-*** /Diogenes Laertius 10:34/ :AbsenceOfPainIsPleasure:Pleasure:
+**** /Diogenes Laertius 10:34/ :AbsenceOfPainIsPleasure:Pleasure:
 [Above: Long & Sedley excerpt. Below: the same passage in Bailey's translation.]
 [[https://epicurustoday.com/citationclips/diogeneslaertius-10-34-116-118-bailey.jpg][Diogenes Laertius X.34 (tr. Bailey)]]
 The internal sensations they say are two, pleasure and pain, which occur to every living creature, and the one is akin to nature and the other alien: by means of these two choice and avoidance are determined. (Bailey)
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Diogenes Laertius 10:34 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-*** /Aulus Gellius, Attic Nights II.6/ :AbsenceOfPainIsPleasure:Pleasure:
+**** /Aulus Gellius, Attic Nights II.6/ :AbsenceOfPainIsPleasure:Pleasure:
 :PROPERTIES:
 :TRANSCLUDE: aulus-gellius-ii6
 :END:
-*** /Cicero, On Ends 1.11 (Torquatus, the Statue of Chrysippus)/ :AbsenceOfPainIsPleasure:KatastematicNotBestPleasure:
+**** /Cicero, On Ends 1.11 (Torquatus, the Statue of Chrysippus)/ :AbsenceOfPainIsPleasure:KatastematicNotBestPleasure:
 :PROPERTIES:
 :TRANSCLUDE: cicero-on-ends-1-11-torquatus-the-statue-of-chrysi
 :END:
 [[https://epicurustoday.com/citationclips/cicero-onends-1-11-statueofchrysippus.jpg][Cicero, On Ends 1.11 (Torquatus, the Statue of Chrysippus)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Fin.+1.11][Cicero, On Ends (De Finibus) 1.11 (Latin text only) -- Perseus Digital Library]]
-*** /Cicero, On Ends 2.23 (Adversarial)/ :AbsenceOfPainIsPleasure:KatastematicNotBestPleasure:
+**** /Cicero, On Ends 2.23 (Adversarial)/ :AbsenceOfPainIsPleasure:KatastematicNotBestPleasure:
 The name of pleasure certainly has no dignity in it, and perhaps we do not exactly understand what is meant by it. Cannot we understand what pleasure is, a thing which is known to every sparrow? At another time you speak of some other highest pleasure, which is susceptible of no addition whatever, but that it is present when every sort of pain is absent, and you call it then a 'state,' not a 'motion.' Let that, then, be pleasure. (Yonge)
 [[https://epicurustoday.com/citationclips/cicero-onends-2-23-yonge-nodignity.jpg][Cicero, On Ends 2.23 (tr. Yonge)]]
 For if that were the only pleasure which tickled the senses, as it were, if I may say so, and which overflowed and penetrated them with a certain agreeable feeling, then even a hand could not be content with freedom from pain without some pleasing motion of pleasure. But if the highest pleasure is, as Epicurus asserts, to be free from pain, then, O Chrysippus, the first admission was correctly made to you, that the hand, when it was in that condition, was in want of nothing; but the second admission was not equally correct, that if pleasure were a good it would wish for it. For it would not wish for it for this reason, inasmuch as whatever is free from pain is in pleasure. (L&S-THP)
@@ -2466,427 +2675,347 @@ For if that were the only pleasure which tickled the senses, as it were, if I ma
 [[https://epicurustoday.com/citationclips/cicero-onends-2-23-yonge-chrysippushand.jpg][Cicero, On Ends 2.23 (tr. Yonge)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Fin.+2.23][Cicero, On Ends (De Finibus) 2.23 (Latin text only) -- Perseus Digital Library]]
 ***
-** Is Katastematic Pleasure The Only Pleasure Or The Best Pleasure, Or is It Only One Type Of Pleasure? :KatastematicNotBestPleasure:
-*** _Commentary_
+*** Is Katastematic Pleasure The Only Pleasure Or The Best Pleasure, Or is It Only One Type Of Pleasure? :KatastematicNotBestPleasure:
+**** _Commentary_
 Later commentary, especially hostile Stoic and Academic sources, sometimes claims that Epicurus recognized only static (katastematic) pleasure -- the mere absence of disturbance -- as legitimate, treating kinetic pleasures of motion (joy, delight, active enjoyment) as secondary. Diogenes Laertius reports Epicurus's own position directly: he admitted both kinds of pleasure, in both the body and the soul, and named each -- freedom from trouble and pain are static pleasures, while joy and exultation are kinetic ones. Neither kind is elevated as the only pleasure that counts; both are integrated into the full range of pleasurable experience that the complete Epicurean life includes. The static/kinetic distinction describes two different kinds of pleasure -- it is not a hierarchy between a superior and an inferior kind.
 Cicero's own writing supplies independent confirmation that this hierarchy was never Epicurus's actual position. Cicero repeatedly contrasts Epicurus with Hieronymus of Rhodes, a genuine "freedom-from-pain-is-the-only-good" philosopher -- a contrast that only makes rhetorical sense if Cicero understood the two men to hold different positions. If Epicurus himself had reduced the good to bare freedom from pain, Cicero's whole device of naming Hieronymus as the separate, more extreme case would collapse.
-*** /Diogenes Laertius X.136/ :KatastematicNotBestPleasure:
+**** /Diogenes Laertius X.136/ :KatastematicNotBestPleasure:
 [Above: Long & Sedley excerpt. Below: the same passage in Bailey's translation.]
 [[https://epicurustoday.com/citationclips/diogeneslaertius-10-136-137-bailey.jpg][Diogenes Laertius X.136 (tr. Bailey)]]
 Epicurus disagrees with the Cyrenaics on pleasure: they do not admit static pleasure but only the kinetic type, whereas he accepts both types, for soul and for body, as he says in his book On Choice and Avoidance and in On The End and in Book 1 of On Lives. In On Choices he speaks as follows: 'Freedom from disturbance and absence of pain are static pleasures; but joy and delight are regarded as kinetic activities.' He has a further disagreement with the Cyrenaics: they take bodily pains to be worse than mental ones, but he takes the mental ones to be worse, since the flesh is storm-tossed only in the present, but the soul in past, present and future. (L&S-THP)
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Diogenes Laertius X.136 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-*** /Cicero, Tusculan Disputations Book V.30 (Yonge)/ :KatastematicNotBestPleasure:
+**** /Cicero, Tusculan Disputations Book V.30 (Yonge)/ :KatastematicNotBestPleasure:
 'Nothing good but pleasure,' as Epicurus maintains: 'nothing good but a freedom from pain,' as Hieronymus asserts.
 [[https://epicurustoday.com/citationclips/cicero-tusculandisputations-5-30-yonge-hieronymus.jpg][Cicero, Tusculan Disputations V.30 (tr. Yonge)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Tusc.+5.30][Cicero, Tusculan Disputations 5.30 (Latin text only) -- Perseus Digital Library]]
-*** /Cicero, De Finibus Book II.5, II.7 (Yonge)/ :KatastematicNotBestPleasure:
+**** /Cicero, De Finibus Book II.5, II.7 (Yonge)/ :KatastematicNotBestPleasure:
 Why does he prefer using the term 'pleasure' rather than freedom from pain, as Hieronymus does... he never even reckons pleasure at all among the things which are desirable.
 [[https://epicurustoday.com/citationclips/cicero-onends-2-131-yonge-hieronymus-a.jpg][Cicero, On Ends II.5 (tr. Yonge)]]
 [[https://epicurustoday.com/citationclips/cicero-onends-2-134-yonge-hieronymus-b.jpg][Cicero, On Ends II.7 (tr. Yonge), continued]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Fin.+2.7][Cicero, On Ends (De Finibus) 2.7 (Latin text only) -- Perseus Digital Library]]
-*** /Diogenes of Oinoanda, Fragment 34/ :PleasureNotTranquilityIsHighestGood:
+**** /Diogenes of Oinoanda, Fragment 34/ :PleasureNotTranquilityIsHighestGood:
 When the emotions which disturb the soul are removed, those which produce pleasure enter into it to take their place.
 [Correction: Smith's edition (the master source used for this project's Oinoanda clips) explicitly labels this passage "Formerly fr. 34 VI-VII, now separate fragment" -- Smith no longer classifies it under Fragment 34. The exact new fragment number was not given on the clipped page or found elsewhere in the PDF via text search; flagged here rather than guessed. The quote itself is confirmed genuine and accurately worded.]
 [[https://epicurustoday.com/citationclips/diogenesofoinoanda-fr34-emotionsremoved.jpg][Diogenes of Oinoanda (tr. Smith) -- see correction note above on fragment numbering]]
-** Is Epicurean Philosophy Straightforward About What It Advocates, or Does It Advocate Something Not Visible On The Surface?
-*** _Commentary_
+*** Is Epicurean Philosophy Straightforward About What It Advocates, or Does It Advocate Something Not Visible On The Surface?
+**** _Commentary_
 Epicurus deliberately built a philosophy that ordinary people could grasp without technical education: the goal (pleasure), the method (trust the senses, anticipations, and feelings), and the practical guidance (examine your desires; secure the natural and necessary ones first) require no specialized training to understand or to act on. Cicero's own testimony below is the most persuasive evidence for this point precisely because it is hostile: he complains that Epicureans recruit uneducated villagers who somehow grasp Epicurus's meaning while he, a trained orator, professes confusion. The plainness of the philosophy was never a defect in Epicurus's eyes -- it was the point. A system of ethics that requires decades of technical schooling before a person can act on it is useless to the great majority of human beings, who need to live well now.
-*** /Cicero, On Ends II.13 (Reid translation)/ :EpicurusEasyToUnderstand:
+**** /Cicero, On Ends II.13 (Reid translation)/ :EpicurusEasyToUnderstand:
 So you are in the habit of telling us this, very often, that we do not understand what kind of pleasure Epicurus means. Now whenever I have been told this... I have the habit of getting now and then a little angry, though I usually bear myself with tolerable calmness in discussion. Do I not understand what ἡδονὴ means in Greek and voluptas in Latin? Which, pray, of the two languages is it that I do not know? Next, how comes it that I do not know this, though all those are aware of it, whoever they be, that have chosen to become Epicureans? And this is a point argued by your school most admirably, that a man who is to become a philosopher has no need to be acquainted with literature. Thus just as our ancestors brought old Cincinnatus from his plough to make him dictator, so you gather from every village men who are indeed worthies, but surely not very well educated. They then understand what Epicurus means, and I do not?
 [[https://epicurustoday.com/citationclips/cicero-onends-2-13-reid-cincinnatus.jpg][Cicero, On Ends II.13 (tr. Reid)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Fin.+2.13][Cicero, On Ends (De Finibus) 2.13 (Latin text only) -- Perseus Digital Library]]
-*** /Cicero, Tusculan Disputations IV.3-4 (Yonge translation)/ :EpicurusEasyToUnderstand:
+**** /Cicero, Tusculan Disputations IV.3-4 (Yonge translation)/ :EpicurusEasyToUnderstand:
 During this silence, C. Amafinius arose and took upon himself to speak; on the publishing of whose writings the people were moved, and enlisted themselves chiefly under this sect, either because the doctrine was more easily understood, or because they were invited thereto by the pleasing thoughts of amusement, or that, because there was nothing better, they laid hold of what was offered them. And after Amafinius, when many of the same sentiments had written much about them, [these doctrines] spread over all Italy: but that these doctrines should be so easily understood and approved of by the unlearned, is a great proof that they were not written with any great subtlety.
 [[https://epicurustoday.com/citationclips/cicero-tusculandisputations-4-3-4-yonge-amafinius.jpg][Cicero, Tusculan Disputations IV.3-4 (tr. Yonge)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Tusc.+4.3][Cicero, Tusculan Disputations 4.3 (Latin text only) -- Perseus Digital Library]]
-*** /Cicero, On Ends II.5 (Yonge translation)/ :EpicurusEasyToUnderstand:
+**** /Cicero, On Ends II.5 (Yonge translation)/ :EpicurusEasyToUnderstand:
 Epicurus, as I imagine, is both willing, if it is in his power, to speak intelligibly, and is also speaking, not of an obscure subject like the natural philosophers, nor of one depending on precise rules, as the mathematicians are, but he is discussing a plain and simple matter, which is a subject of common conversation among the common people.
 [[https://epicurustoday.com/citationclips/cicero-onends-2-131-yonge-hieronymus-a.jpg][Cicero, On Ends II.5 (tr. Yonge)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Fin.+2.5][Cicero, On Ends (De Finibus) 2.5 (Latin text only) -- Perseus Digital Library]]
-*** /Cassius Longinus to Cicero, Ad Familiares XV.19, January 45 BC (tr. W. Glynn Williams)/ :EpicurusEasyToUnderstand:VirtueAsContextual:
+**** /Cassius Longinus to Cicero, Ad Familiares XV.19, January 45 BC (tr. W. Glynn Williams)/ :EpicurusEasyToUnderstand:VirtueAsContextual:
 Cassius to Cicero
 Brundisium, latter half of January, 45 B.C.
 I hope that you are well. I assure you that on this tour of mine there is nothing that gives me more pleasure to do than to write to you; for I seem to be talking and joking with you face to face. And yet that does not come to pass because of those “spectres”; and, by way of retaliation for that, in my next letter I shall let loose upon you such a rabble of Stoic boors that you will proclaim Catius a true-born Athenian.
 I am glad that our friend Pansa was sped on his way by universal goodwill when he left the city in military uniform, and that not only on my own account, but also, most assuredly, on that of all our friends. For I hope that men generally will come to understand how much all the world hates cruelty, and how much it loves integrity and clemency, and that the blessings most eagerly sought and coveted by the bad ultimately find their way to the good. _For it is hard to convince men that “the good is to be chosen for its own sake”; but that pleasure and tranquillity of mind is acquired by virtue, justice, and the good is both true and demonstrable._ Why, Epicurus himself, from whom all the Catiuses and Amafiniuses in the world, incompetent translators of terms as they are, derive their origin, lays it down that “to live a life of pleasure is impossible without living a life of virtue and justice.”
 [[https://epicurustoday.com/citationclips/cicero-adfamiliares-15-19-williams-cassius-a.jpg][Cicero, Ad Familiares XV.19 (tr. W. Glynn Williams, Loeb), Cassius to Cicero]]
 [[https://epicurustoday.com/citationclips/cicero-adfamiliares-15-19-williams-cassius-b.jpg][Cicero, Ad Familiares XV.19 (tr. W. Glynn Williams, Loeb), continued]]
-*** /Cicero, Tusculan Disputations III:XXI (Yonge translation)/ :EpicurusEasyToUnderstand:
+**** /Cicero, Tusculan Disputations III:XXI (Yonge translation)/ :EpicurusEasyToUnderstand:
 And indeed the Epicureans, those best of men, for there is no order of men more innocent, complain that I take great pains to inveigh against Epicurus. We are rivals, I suppose, for some honour or distinction. I place the chief good in the mind, he in the body; I in virtue, he in pleasure; and the Epicureans are up in arms, and implore the assistance of their neighbours, and many are ready to fly to their aid.
 [[https://epicurustoday.com/citationclips/cicero-tusculandisputations-3-21-yonge-rivals.jpg][Cicero, Tusculan Disputations III.XXI (tr. Yonge)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Tusc.+3.21][Cicero, Tusculan Disputations 3.21 (Latin text only) -- Perseus Digital Library]]
-*** /Norman DeWitt, review of Mary N. Porter Packer's "Cicero's Presentation of Epicurean Ethics," American Journal of Philology (1939)/ :EpicurusEasyToUnderstand:
+**** /Norman DeWitt, review of Mary N. Porter Packer's "Cicero's Presentation of Epicurean Ethics," American Journal of Philology (1939)/ :EpicurusEasyToUnderstand:
 Cicero was a crafty old trial lawyer and he deliberately argued to make points... I do not believe he could have misrepresented the truth so successfully had he not understood it completely.
 [[https://epicurustoday.com/citationclips/dewitt-review-packer-cicero-epicureanethics-1939.jpg][Norman W. DeWitt, review of Packer, American Journal of Philology 60 (1939), p. 124]]
-** Does Epicurean Physics Remain Valuable, Or Has It Been Made Obsolete By Modern Science? :EpicureanPhysicsNotObsolete:
-*** _Commentary_
+*** Does Epicurean Physics Remain Valuable, Or Has It Been Made Obsolete By Modern Science? :EpicureanPhysicsNotObsolete:
+**** _Commentary_
 Epicurean physics is often dismissed as a historical curiosity superseded by modern science, but this confuses two different levels of claim. The specific mechanisms Epicurus proposed for particular phenomena -- the size of the sun, the causes of earthquakes -- were always offered provisionally, and Epicurus said so openly. But the foundational propositions -- that nothing comes from nothing, that the universe is composed of matter and void, that matter is conserved -- are logical arguments from universal experience, not empirical guesses awaiting better instruments. Conservation of matter and energy, atomic theory, and a universe with no true beginning or end (in some form) remain core commitments of modern physics as well. The framework endures because it was never a science textbook to begin with -- it was philosophy's guardrail against superstition, and that job is not finished.
-*** /Epicurus, Letter to Pythocles 85-88/ :EpicureanPhysicsNotObsolete:MethodOfReasoning:
+**** /Epicurus, Letter to Pythocles 85-88/ :EpicureanPhysicsNotObsolete:MethodOfReasoning:
 We should not think that any other end is served by knowledge of celestial events... than freedom from disturbance and firm confidence... neither should we force through what is impossible, nor should we in all areas keep our study similar either to discourses on the conduct of life or to those belonging to the solution of the other problems of physics, for example that the totality of things is body and intangible substance, or that there are atomic elements, and all the theses of this kind which are uniquely consistent with things evident. In the case of celestial events this is not the case: both the causes of their coming to be and the accounts of their essence are multiple. For physics should not be studied by means of empty judgments and arbitrary fiat, but in the way that things evident require... Now in respect of all things which have a multiplicity of explanations consistent with things evident, complete freedom from trepidation results when someone in the proper way lets stand whatever is plausibly suggested about them. But when someone allows one explanation while rejecting another equally consistent with what is evident, he is clearly abandoning natural philosophy altogether and descending into myth. (L&S-THP)
 [[https://epicurustoday.com/citationclips/epicurus-letterpythocles-84-86-bailey.jpg][Epicurus, Letter to Pythocles 85-86 (tr. Bailey)]]
 [[https://epicurustoday.com/citationclips/epicurus-letterpythocles-87-89-bailey.jpg][Epicurus, Letter to Pythocles 87-88 (tr. Bailey)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Letter to Pythocles 85-88 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-*** /Epicurus, Principal Doctrine 12/ :EpicureanPhysicsNotObsolete:ScienceNecessaryForHappiness:
+**** /Epicurus, Principal Doctrine 12/ :EpicureanPhysicsNotObsolete:ScienceNecessaryForHappiness:
 A man cannot dispel his fear about the most important matters if he does not know what is the nature of the universe but suspects the truth of some mythical story. So that without natural science it is not possible to attain our pleasures unalloyed.
 [[https://epicurustoday.com/citationclips/epicurus-pd-7-14-bailey.jpg][Epicurus, Principal Doctrine 12 (tr. Bailey), same page also carries PD 7-14]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Principal Doctrine 12 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-** Is It True That Epicurus Was Not An Atheist As We Today Understand That Term? :EpicurusNotAnAtheist:
-*** _Commentary_
-The charge of atheism against Epicurus is understandable but wrong, and Epicurus's own words settle it directly: "gods there are, since the knowledge of them is by clear vision." What Epicurus denied was not the existence of divine beings but the popular mythology attached to them -- the belief that gods are supernatural and punish, reward, or otherwise intervene in human affairs out of anger or favor. He defined piety in reverse: the truly impious person is not the one who denies the gods of popular superstition, but the one who projects human pettiness -- anger, favor, meddling -- onto beings whose blessed and immortal nature, by definition, cannot include those things. This is a correction of theology, not a denial of divinity.
-*** /Epicurus, Letter to Menoeceus [123]/ :EpicurusNotAnAtheist:
-First of all believe that god is a being immortal and blessed, even as the common idea of a god is engraved on men's minds, and do not assign to him anything alien to his immortality or ill-suited to his blessedness: but believe about him everything that can uphold his blessedness and immortality. For gods there are, since the knowledge of them is by clear vision. But they are not such as the many believe them to be: for indeed they do not consistently represent them as they believe them to be. And the impious man is not he who popularly denies the gods of the many, but he who attaches to the gods the beliefs of the many.
-[[https://epicurustoday.com/citationclips/epicurus-lettermenoeceus-122-123-bailey.jpg][Epicurus, Letter to Menoeceus 123 (tr. Long & Sedley -- Bailey clip supplied for context)]]
-[[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Letter to Menoeceus [123] -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-*** /Cicero, On the Nature of the Gods 1.44 (Rackham translation)/ :EpicurusNotAnAtheist:NatureOfGods:
-It is doubtless therefore truer to say, as the good friend of us all, Posidonius, argued in the fifth book of his On the Nature of the Gods, that Epicurus does not really believe in the gods at all, and that he said what he did about the immortal gods only for the sake of deprecating popular odium. In the first place, a being of this nature is an absolute impossibility, and Epicurus was aware of this, and so actually abolishes the gods, although professedly retaining them.
-[[https://epicurustoday.com/citationclips/cicero-natureofgods-1-44-posidonius.jpg][Cicero, On the Nature of the Gods 1.44 (Rackham translation)]]
-[[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+N.+D.+1.44][Cicero, On the Nature of the Gods 1.44 (Latin text only) -- Perseus Digital Library]]
-** Are Anticipations True or False, Or Are They Neither As They Are Not Opinions? :AnticipationsAreNotOpinions:
-*** _Commentary_
+*** Are Anticipations True or False, Or Are They Neither As They Are Not Opinions? :AnticipationsAreNotOpinions:
+**** _Commentary_
 Anticipations (prolepseis) occupy a distinct category in the Epicurean Canon, separate from and prior to opinion. A preconception -- the general concept of "man" or "horse" built up from repeated experience -- is not itself a claim that can be true or false; it is the standard against which claims (opinions) are subsequently checked. When someone asks whether the thing standing yonder is a horse or a cow, they can only investigate the question because they already possess, prior to any judgment, the preconception of what a horse and a cow look like. Opinion is the judgment added on top of a preconception or a sensation, and it is opinion -- not the anticipation itself -- that can go wrong. Treating anticipations as if they were themselves opinions collapses a distinction Epicurus considered foundational to the whole theory of knowledge.
-*** /Diogenes Laertius X.33 (Letter to Herodotus)/ :AnticipationsAreNotOpinions:CriteriaOfTruth:
+**** /Diogenes Laertius X.33 (Letter to Herodotus)/ :AnticipationsAreNotOpinions:CriteriaOfTruth:
 [[https://epicurustoday.com/citationclips/diogeneslaertius-10-32-34-bailey.jpg][Diogenes Laertius X.33 (tr. Bailey)]]
 The concept they speak of as an apprehension or right opinion or thought or general idea stored within the mind, that is to say a recollection of what has often been presented from without... Therefore the first signification of every name is immediate and clear evidence. And we could not look for the object of our search, unless we have first known it... So the concepts are clear and immediate evidence. Further, the decision of opinion depends on some previous clear and immediate evidence, to which we refer when we express it.
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Diogenes Laertius X.33 (Letter to Herodotus) -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-** Was Epicurus A Complete Empiricist, Or Did He Rely on Reason In Reaching His Conclusions? :EpicurusNotCompleteEmpiricist:
-*** _Commentary_
+*** Was Epicurus A Complete Empiricist, Or Did He Rely on Reason In Reaching His Conclusions? :EpicurusNotCompleteEmpiricist:
+**** _Commentary_
 Epicurus grounded all knowledge in the senses, but he was not a naive empiricist who accepted only what could be directly observed. His Canon explicitly authorizes reasoned inference about things imperceptible to the senses -- atoms, void, the causes of distant phenomena -- built from analogy, combination, and similarity with what is actually observed. This inferential method, later developed at length by his followers in the debate over sign-inference, is how Epicurus justified confidence in unseen entities like atoms while keeping that reasoning tethered to sensory evidence at every step. The difference between Epicurus and a naive empiricist is that his reasoning about the non-evident was always disciplined by and answerable to direct experience -- never permitted to float free of it, as Platonic or Stoic abstraction did.
-*** /Diogenes Laertius X.32 (Letter to Herodotus)/ :EpicurusNotCompleteEmpiricist:SensationAsBasisOfKnowledge:MethodOfReasoning:
+**** /Diogenes Laertius X.32 (Letter to Herodotus)/ :EpicurusNotCompleteEmpiricist:SensationAsBasisOfKnowledge:MethodOfReasoning:
 [[https://epicurustoday.com/citationclips/diogeneslaertius-10-32-34-bailey.jpg][Diogenes Laertius X.32 (tr. Bailey)]]
 Nor is there anything which can refute the sensations... From this it follows that as regards the imperceptible we must draw inferences from phenomena. For all thoughts have their origin in sensations by means of coincidence and analogy and similarity and combination, reasoning too contributing something.
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Diogenes Laertius X.32 (Letter to Herodotus) -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-** Not All Desire Is Itself Painful :AllDesireNotPainful:
-*** _Commentary_
+*** Not All Desire Is Itself Painful :AllDesireNotPainful:
+**** _Commentary_
 It is sometimes claimed that desire itself is inherently a form of suffering, so that the only escape from pain is the extinguishing of desire altogether. Epicurus's own classification of desires refutes this directly: only some desires cause pain if left unfulfilled -- the natural and necessary ones; others, left unfulfilled, involve nothing worse than a craving that is easily dispelled, with no pain attached at all. Desire is not uniformly painful; whether an unfulfilled desire hurts depends on which category it falls into and how firmly it is examined. This is why Epicurus's answer to an unwanted desire was never simply "extinguish all desire," but "examine the desire and ask what will happen if it is, or is not, satisfied."
-*** /Epicurus, Principal Doctrine 26/ :AllDesireNotPainful:CalculatingDesires:
+**** /Epicurus, Principal Doctrine 26/ :AllDesireNotPainful:CalculatingDesires:
 Of desires, all that do not lead to a sense of pain, if they are not satisfied, are not necessary, but involve a craving which is easily dispelled, when the object is hard to procure or they seem likely to produce harm.
 [[https://epicurustoday.com/citationclips/epicurus-pd-22-29-bailey.jpg][Epicurus, Principal Doctrine 26 (tr. Bailey), same page also carries PD 22-25 and 27-29]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Principal Doctrine 26 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-** Does Avoiding Politics Mean Passive Withdrawal From The World? :NoPoliticsDoesNotMeanQuietist:
-*** _Commentary_
-Epicurus's advice to avoid formal office-seeking is often mistaken for a blanket counsel of passivity. But Diogenes Laertius's own description of the Epicurean Wise Man shows an active life: he engages in lawsuits, writes and leaves behind treatises, gathers a school, and lectures in public when asked. What he avoids is the specific mechanism of formal political ambition -- competing for office, delivering set-piece political oratory -- because that mechanism ties one's happiness to the unstable opinions of a crowd. The historical example of Cassius Longinus, an open and self-identified Epicurean who organized armed resistance to Caesar's tyranny, along with other Epicurean figures in Roman public life, puts the passive-withdrawal caricature to rest.
-The physical facts of where Epicurus actually lived and worked are further evidence against the recluse caricature. The Garden was not a remote retreat: Diogenes Laertius records that Epicurus paid eighty minae for the property, a substantial sum indicating a sizeable estate, not a modest cottage. Cicero's own dialogue places the Garden on ground his characters pass while strolling from central Athens, treating a visit there as an unremarkable stop along a well-traveled route, not an expedition to somewhere secluded. And the historical record of individual Epicureans confirms the same pattern at the level of lived example: Torquatus's own family was known for battlefield courage, not withdrawal from duty, which is precisely why Cicero chose a Torquatus, of all people, to voice the Epicurean position in *On Ends* -- an Epicurean spokesman whose family history made the passive-withdrawal caricature immediately implausible to a Roman audience.
-*** /Diogenes Laertius X.119-121/ :NoPoliticsDoesNotMeanQuietist:HowToLive:
-[[https://epicurustoday.com/citationclips/diogeneslaertius-10-118-121-bailey.jpg][Diogenes Laertius X.119-121 (tr. Bailey)]]
-Nor will he take part in public life, as he says in the first book On Lives. Nor will he act the tyrant, or live like the Cynics... He will engage in lawsuits and will leave writings behind him, but will not deliver speeches on public occasions. He will be careful of his possessions and will provide for the future... He will care more than other men for public spectacles. And he will gather together a school, but never so as to become a popular leader. He will give lectures in public, but never unless asked; he will give definite teaching and not profess doubt. He will pay court to a king, if occasion demands. (Bailey)
-[[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Diogenes Laertius X.119-121 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-*** /Epicurus, Principal Doctrine 14/ :NoPoliticsDoesNotMeanQuietist:
-The most unalloyed source of protection from men, which is secured to some extent by a certain force of expulsion, is in fact the immunity which results from a quiet life and the retirement from the world. (Bailey)
-[[https://epicurustoday.com/citationclips/epicurus-pd-7-14-bailey.jpg][Epicurus, Principal Doctrine 14 (tr. Bailey), same page also carries PD 7-14]]
-[[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Principal Doctrine 14 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-*** /Diogenes Laertius X.10-11/ :NoPoliticsDoesNotMeanQuietist:
-[[https://epicurustoday.com/citationclips/diogeneslaertius-10-9-11-eightyminae-bailey.jpg][Diogenes Laertius X.10-11 (tr. Bailey)]]
-And he bought the garden for eighty minae; ... Apollodorus in his Chronicles says the Garden was bought for eighty minae. (Bailey)
-[[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Diogenes Laertius X.10-11 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-*** /Cicero, On Ends II.73 (Rackham) (Cicero, invoking Torquatus's ancestor's battlefield courage against him)/ :NoPoliticsDoesNotMeanQuietist:VirtueAsContextual:
-[Note: this passage is Cicero's own rhetorical challenge to Torquatus in Book II, not Torquatus's own narration in Book I as an earlier version of this entry had it -- corrected against the rendered page, De Finibus II.73.] But I return to old Torquatus. If it was to win pleasure that he accepted the Gallic warrior's challenge to single combat on the banks of the Anio, and if he despoiled him and assumed his necklet and the corresponding surname for any other reason than that he thought such deeds became a man, I do not consider him brave.
-[[https://epicurustoday.com/citationclips/cicero-onends-2-73-rackham-torquatusancestor.jpg][Cicero, On Ends II.73 (tr. Rackham)]]
-[[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Fin.+2.73][Cicero, On Ends (De Finibus) 2.73 (Latin text only) -- Perseus Digital Library]]
-** Does Happiness Require The Complete Absence Of All Pain, And If So How Could Epicurus Say He Was Happy While Dying Of Kidney Disease? :HappinessDoesNotRequireCompleteAbsenceOfPain:
-*** _Commentary_
-If happiness required the total absence of all pain, Epicurus's own deathbed testimony would be incoherent -- he was dying in severe pain from disease of the bladder and stomach, and he called it "this truly happy day of my life." The resolution is that happiness is a property of a whole, weighed life, not a fragile state destroyed by any pain whatsoever - even a severe one. Principal Doctrine 4 states plainly that chronic illness can still leave a predominance of pleasure over pain in the flesh. The limit of pleasure is reached when all pain is removed, but reaching that limit in the mind, through right understanding of what matters, does not require that the body and mind never experience pain at all.
-*** /Epicurus, Letter to Idomeneus (his last letter, on his deathbed)/ :HappinessDoesNotRequireCompleteAbsenceOfPain:FriendshipAsPleasurable:
-On this truly happy day of my life, as I am at the point of death, I write this to you. The disease in my bladder and stomach are pursuing their course, lacking nothing of their natural severity: but against all this is the joy in my heart at the recollection of my conversations with you.
-[[https://epicurustoday.com/citationclips/epicurus-fragments-23-30-bailey-anaxarchusidomeneus.jpg][Epicurus, Fragment 30, Letter to Idomeneus (tr. Bailey), same page also carries Fragment 23 "To Anaxarchus"]]
-[[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Letter to Idomeneus (his last letter, on his deathbed) -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-*** /Cicero, On Ends 2.96-98 (Cicero's own comment on the same dying letter, mid-argument AGAINST Epicurean ethics)/ :HappinessDoesNotRequireCompleteAbsenceOfPain:FriendshipAsPleasurable:
-[Note: this is Cicero quoting the very same letter to Idomeneus at length, then commenting in his own voice -- while actively disputing Epicurean ethics throughout this book, Cicero nonetheless ranks Epicurus's own conduct in dying alongside legendary heroic deaths. Strong evidence against reading Epicurus as passive or quietist: even a hostile witness treats his end as active, dignified, and admirable rather than merely resigned.]
-'...these words,' he says, 'on the happiest, and the last, day of my life. I am suffering from diseases of the bladder and intestines, which are of the utmost possible severity.' Unhappy creature! If pain is the Chief Evil, that is the only thing to be said. But let us hear his own words. 'Yet all my sufferings,' he continues, 'are counterbalanced by the joy which I derive from remembering my theories and discoveries. I charge you, by the devotion which from your youth up you have displayed towards myself and towards philosophy, to protect the children of Metrodorus.' When I read this I rank the death-scene of Epicurus on a level with those of Epaminondas and of Leonidas. Epaminondas had defeated the Lacedaemonians at Mantinea, and perceived himself to be mortally wounded. As soon as he opened his eyes he inquired if his shield were safe. His weeping followers told him that it was. He asked, were the enemy routed? Satisfied on this point also, he bade them pluck out the spear that pierced his side. A rush of blood followed, and so in the hour of joy and victory he died. Leonidas, king of the Lacedaemonians, had to choose between dishonourable flight and a glorious death; with the three hundred warriors that he had brought from Sparta he confronted the foe at Thermopylae. A great commander's death is famous; but philosophers mostly die in their beds. Still it makes a difference how they die. Epicurus counts himself happy in his last moments. All honour to him. 'My joy,' he writes, 'counterbalances the severest pain.' The words of a philosopher, Epicurus, command my attention; but you forget what you logically ought to say. (Rackham)
-[[https://epicurustoday.com/citationclips/cicero-onends-2-96-98-rackham-epicurusdeathscene.jpg][Cicero, On Ends II.96-98 (tr. Rackham)]]
-[[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Fin.+2.96][Cicero, On Ends (De Finibus) 2.96 (Latin text only) -- Perseus Digital Library]]
-*** /Epicurus, Principal Doctrine 4/ :HappinessDoesNotRequireCompleteAbsenceOfPain:
-Pain does not last continuously in the flesh, but the acutest pain is there for a very short time, and even that which just exceeds the pleasure in the flesh does not continue for many days at once. But chronic illnesses permit a predominance of pleasure over pain in the flesh.
-[[https://epicurustoday.com/citationclips/epicurus-pd-1-6-bailey.jpg][Epicurus, Principal Doctrine 4 (tr. Bailey), same page also carries PD 1-6]]
-[[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Principal Doctrine 4 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-*** /Diogenes of Oinoanda, Fragment 44 (Lower Margin)/ :HappinessDoesNotRequireCompleteAbsenceOfPain:
-Pain in the flesh does not last continuously: extreme pain is present a very short time; pain which only just outweighs pleasure in the flesh does not last many days; and chronic illnesses permit a preponderance of pleasure over pain in the flesh. (Smith)
-[[https://epicurustoday.com/citationclips/diogenesofoinoanda-fr44-lowermargin-painnotcontinuous.jpg][Diogenes of Oinoanda, Fragment 44 (Lower Margin) (tr. Smith)]]
-** Does "Live Unknown" Mean To Live In Isolation?  If Not, What Does It Mean? :LiveUnknownDoesNotMeanIsolation:
-*** _Commentary_
-"Live unknown" (lathe biosas) is routinely quoted, especially by hostile ancient sources like Plutarch, as if it counseled total withdrawal from the world. But the advice was aimed at the pursuit of political careerism, reputation, and office specifically -- not at social or civic invisibility as such. The historical record contradicts the isolationist reading directly: the Garden sat on Athens's busiest ceremonial road, its gate carried a welcoming sign addressed to strangers, and Epicurus corresponded prolifically with students and friends across the Greek world. Declining to compete for political office and public fame is not the same thing as declining to engage with other human beings.
-*** /Epicurus, Vatican Saying 86 and Vatican Saying 58/ :LiveUnknownDoesNotMeanIsolation:
-Live unknown.
-We must release ourselves from the prison of affairs and politics.
-[[https://epicurustoday.com/citationclips/epicurus-fragment-86-liveunknown-bailey.jpg][Epicurus, Fragment 86 "Live Unknown" (tr. Bailey) -- note: this is Bailey's separate numbered Fragments collection, not the 81-item Vatican Sayings Gnomologium]]
-[[https://epicurustoday.com/citationclips/epicurus-vs-51-61-bailey.jpg][Epicurus, Vatican Saying 58 (tr. Bailey), same page also carries VS 51-57 and 61]]
-*** /Seneca, Letters to Lucilius 21.10/ :LiveUnknownDoesNotMeanIsolation:PleasureNotTranquilityIsHighestGood:
-:PROPERTIES:
-:TRANSCLUDE: seneca-letters-to-lucilius-21-10
-:END:
-** Did Epicurus Live On Bread And Water And Limit Himself To An Ascetic Diet?
-*** Commentary
-*** /Seneca, Epist. ad Luc, 18, 9 [11]/
-Even Epicurus, the teacher of pleasure, used to observe _stated intervals,_ during which he satisfied his hunger in niggardly fashion; he wished to see whether he thereby fell short of full and complete happiness, and, if so, by what amount he fell short, and whether this amount was worth purchasing at the price of great effort. At any rate, he makes such a statement in the well known letter written to Polyaenus in the archonship of Charinus. Indeed, he boasts that he himself lived on less than a penny, but that Metrodorus, whose progress was not yet so great, needed a whole penny.
-**** Even Epicurus, the teacher of pleasure, used to observe _stated intervals,_ during which he satisfied his hunger in niggardly fashion; he wished to see whether he thereby fell short of full and complete happiness, and, if so, by what amount he fell short, and whether this amount was worth purchasing at the price of great effort. At any rate, he makes such a statement in the well known letter written to Polyaenus in the archonship of Charinus. Indeed, he boasts that he himself lived on less than a penny, but that Metrodorus, whose progress was not yet so great, needed a whole penny.
-** Does An Epicurean Limit Himself Only To Desires That Are Natural And Necessary, Or Can He Pursue "Unnecessary" Desires That Lead To More Pleasure Than Pain? :NotLimitedToNaturalAndNecessaryDesires:
-*** _Commentary_
+*** Does An Epicurean Limit Himself Only To Desires That Are Natural And Necessary, Or Can He Pursue "Unnecessary" Desires That Lead To More Pleasure Than Pain? :NotLimitedToNaturalAndNecessaryDesires:
+**** _Commentary_
 A persistent misreading reduces Epicurus to a philosopher of minimalism, as if only the bare natural-and-necessary desires -- food, shelter, basic security -- are legitimate to pursue. Epicurus's own words say otherwise: Vatican Saying 21 explicitly endorses fulfilling "the physical" desires -- natural but not strictly necessary -- so long as they cause no harm, which is best understood as more pain than pleasure.  The Letter to Menoeceus praises the ability to enjoy luxury when it is available without becoming dependent on it. The three-category classification of desires (natural-and-necessary, natural-but-unnecessary, neither natural nor necessary) is a tool for judging which desires are worth pursuing and at what cost -- not a fence restricting the good life to only the first category.
-*** /Epicurus, Vatican Saying 21/ :NotLimitedToNaturalAndNecessaryDesires:CalculatingDesires:
+**** /Epicurus, Vatican Saying 21/ :NotLimitedToNaturalAndNecessaryDesires:CalculatingDesires:
 We must not violate nature, but obey her; and we shall obey her if we fulfill the necessary desires and also the physical, if they bring no harm to us, but sternly reject the harmful.
 [[https://epicurustoday.com/citationclips/epicurus-vs-14-27-bailey.jpg][Epicurus, Vatican Saying 21 (tr. Bailey), same page also carries VS 14(cont.)-19, 23-27]]
-*** /Epicurus, Letter to Menoeceus [130]/ :NotLimitedToNaturalAndNecessaryDesires:CalculatingDesires:
+**** /Epicurus, Letter to Menoeceus [130]/ :NotLimitedToNaturalAndNecessaryDesires:CalculatingDesires:
 Independence of desire we think a great good -- not that we may at all times enjoy but a few things, but that, if we do not possess many, we may enjoy the few in the genuine persuasion that those have the sweetest pleasure in luxury who least need it... And so plain savours bring us a pleasure equal to a luxurious diet, when all the pain due to want is removed.
 [[https://epicurustoday.com/citationclips/epicurus-lettermenoeceus-129-131-bailey.jpg][Epicurus, Letter to Menoeceus 130 (tr. Bailey), same page also carries sec. 129 and 131]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Letter to Menoeceus [130] -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-** Are Sex, Marriage, And Children Things To Be Pursued, Or Not, And How Do You Know? :SexMarriageAndChildrenAreNatural:
-*** _Commentary_
+*** Are Sex, Marriage, And Children Things To Be Pursued, Or Not, And How Do You Know? :SexMarriageAndChildrenAreNatural:
+**** _Commentary_
 Sexual desire, romantic partnership, and the desire for children belong among the natural desires in Epicurus's own classification -- as natural as hunger and thirst -- and Diogenes Laertius reports that Epicurus taught the wise man will marry and have children, adapting the decision to his own circumstances in life; translators have long disputed the exact force of that passage, but a piece of evidence no translation dispute can touch is Epicurus's own will, which arranges a marriage for Metrodorus's orphaned daughter. Lucretius develops the same point at length in Book IV of *On The Nature Of Things*, tracing sexual desire to nature's own design while distinguishing the natural pleasure of the act from the pathology of obsessive, deranged romantic passion. Nothing in Epicurean philosophy recommends celibacy or withdrawal from ordinary family life as a superior path -- the philosophy was never designed for monks. Nor does the classification of sex as natural rule out caution: Epicurus's own warning that intercourse "has never done anyone any good" is prudential advice about reckless pursuit, not a general suspicion of sex, and is answered the same way any other desire is judged -- by weighing the actual balance of pleasure and pain it produces in one's own circumstances, not by a rule that forbids or requires it in advance.
-*** /Diogenes Laertius X.19 (Epicurus's Will)/ :SexMarriageAndChildrenAreNatural:FriendshipAsPleasurable:
+**** /Diogenes Laertius X.19 (Epicurus's Will)/ :SexMarriageAndChildrenAreNatural:FriendshipAsPleasurable:
 [[https://epicurustoday.com/citationclips/diogeneslaertius-10-19-will-bailey.jpg][Diogenes Laertius X.19 (tr. Bailey)]]
 Amynomachus and Timocrates shall take care of Epicurus, the son of Metrodorus, and of the son of Polyaenus, provided they devote themselves to philosophy and live with Hermarchus. Likewise they shall take care of Metrodorus' daughter, and when she comes of age shall give her in marriage to one of his disciples whom Hermarchus shall choose, provided she is well-behaved and obedient to Hermarchus. Amynomachus and Timocrates shall set aside for the maintenance of these children such sum out of the revenues of my estate as shall seem good to them each year in consultation with Hermarchus. (Bailey)
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Diogenes Laertius X.19 (Epicurus's Will) -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-*** /Diogenes Laertius X.119/ :SexMarriageAndChildrenAreNatural:
+**** /Diogenes Laertius X.119/ :SexMarriageAndChildrenAreNatural:
 [[https://epicurustoday.com/citationclips/diogeneslaertius-10-118-121-bailey.jpg][Diogenes Laertius X.119 (tr. Bailey)]]
 Moreover, the wise man will marry and have children, as Epicurus says in the Problems and in the work On Nature. But he will marry according to the circumstances of his life.
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Diogenes Laertius X.119 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-*** /Diogenes Laertius X.118/ :SexMarriageAndChildrenAreNatural:CalculatingDesires:
+**** /Diogenes Laertius X.118/ :SexMarriageAndChildrenAreNatural:CalculatingDesires:
 [[https://epicurustoday.com/citationclips/diogeneslaertius-10-118-121-bailey.jpg][Diogenes Laertius X.118 (tr. Bailey)]]
 Sexual intercourse, they say, has never done a man good, and he is fortunate if it has not injured him.
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Diogenes Laertius X.118 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-*** /Lucretius, De Rerum Natura 4.1037-1057 and 4.1073-1084/ :SexMarriageAndChildrenAreNatural:Pleasure:
+**** /Lucretius, De Rerum Natura 4.1037-1057 and 4.1073-1084/ :SexMarriageAndChildrenAreNatural:Pleasure:
 There is stirred in us that seed, whereof we spoke before, when first the age of manhood strengthens our limbs. For one cause moves and rouses one thing, a different cause another; from man only the influence of man stirs human seed. And as soon as it has been aroused, bursting forth it makes its way from out the whole body through the limbs and frame, coming together into fixed places, and straightway rouses at last the natural parts of the body; and there arises the desire to seek that body, by which the mind is smitten with love. For as a rule all men fall towards the wound, and the blood spirts out in that direction, whence we are struck by the blow, and, if it is near at hand, the red stream reaches our foe. Thus, then, he who receives a blow from the darts of Venus, whoso'er it be who wounds him, inclines to that whereby he is smitten; for an unspoken desire foretells the pleasure to come.
 Nor is he who shuns love bereft of the fruits of Venus, but rather he chooses those joys which bring no pain. For surely the pleasure from these things is more untainted for the heart-whole than for the love-sick; for in the very moment of possession the passion of lovers ebbs and flows with undetermined current, nor are they sure what first to enjoy with eyes or hands. (Bailey)
 [[https://epicurustoday.com/citationclips/lucretius-4-1024-1060-bailey-dartsofvenus-a.jpg][Lucretius, De Rerum Natura IV.1024-1089 (tr. Bailey)]]
 [[https://epicurustoday.com/citationclips/lucretius-4-1060-1089-bailey-shunslovefruits-b.jpg][Lucretius, De Rerum Natura IV.1024-1089 (tr. Bailey), continued]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.02.0131:book=4:line=1037][Lucretius 4.1037 (tr. Leonard) -- Perseus Digital Library]]
-** Did Epicurus And His School Engage Combatively With Rival Philosophers, Or Avoid Public Dispute? :EpicureanMockeryOfRivals:
-*** _Commentary_
-Epicurus is sometimes pictured as a gentle, withdrawn teacher who avoided confrontation. The historical record of how he actually spoke about rival philosophers refutes this directly. Diogenes Laertius preserves a whole catalog of pointed, personal epithets Epicurus coined for his opponents -- epithets that functioned as compact philosophical criticism, not mere name-calling, since each one targeted a specific doctrinal failure alongside the personal jab. This same combative habit continued in the school after him: Philodemus's polemic against the Stoics traces Zeno's doctrine back to the Cynic Diogenes of Sinope specifically to taint the Stoic school at its philosophical root. Later hostile tradition mocked Epicurean atomism itself with the epithet "Power of Air," attacking Epicurus's naturalism directly rather than any supposed passivity -- itself a sign that opponents understood him as an active target worth attacking, not a quietist to be ignored. (This specific epithet is preserved in modern secondary retellings rather than a pinned ancient primary-source line; treat it as a lead for further sourcing, not a settled citation.) A school this willing to mock its rivals by name, in print, was not a school of passive withdrawal.
-*** /Diogenes Laertius X.8/ :EpicureanMockeryOfRivals:
-[[https://epicurustoday.com/citationclips/diogeneslaertius-10-6-8-bailey.jpg][Diogenes Laertius X.8 (tr. Bailey)]]
-[Diogenes Laertius's biography preserves a set of personal epithets Epicurus applied to rival philosophers and schools, each doubling as a doctrinal jab: Nausiphanes (Epicurus's repudiated teacher, whose Pyrrhonist-tinged suspension of judgment left him with no genuine perceptive "grip" on reality) was "the Mollusk" (or "Jellyfish"); Plato was "the Golden" or "Gilded" (impressive but unsound); Plato's followers were "Flatterers of Dionysus"; Aristotle was "the Debauchee"; Protagoras was "Basketbearer"; Heraclitus was "the Agitator"; Democritus was "Lerocritus" (nonsense-monger); Antidorus was "Wood-Giver"; the Cyzicenes were "Enemies of Greece"; the Megarian Dialecticians were "the Grand Wreckers"; and Pyrrho was "the Uneducated Fool."]
-[[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Diogenes Laertius X.8 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-*** /Sextus Empiricus, Against the Mathematicians I.3/ :EpicureanMockeryOfRivals:
-[Independent, non-Epicurean corroboration of one entry in the Diogenes Laertius catalog above.] Confirms that Nausiphanes was called "the Mollusk" (pleumon) "as one without sensation."
-[[https://epicurustoday.com/citationclips/sextusempiricus-againstprofessors-1-3-6-bury.jpg][Sextus Empiricus, Against the Professors I.3-6 (tr. Bury, Loeb) -- Bury renders the insult "Stockfish" rather than "Mollusk," but confirms the same passage: Epicurus mocking Nausiphanes as a senseless sea-creature]]
-*** /Philodemus, On the Stoics (PHerc. 155/339)/ :EpicureanMockeryOfRivals:
-[No personal epithet from Epicurus himself survives against Zeno of Citium -- the two founders were near-exact contemporaries, and the fiercest Epicurean-Stoic rivalry emerged a generation later. The school's anti-Stoic polemic instead survives in this text of Philodemus, which traces Zeno's doctrine back to the Cynic Diogenes of Sinope, tainting the Stoic school at its foundation.]
-[No scanned page image located -- this fragmentary papyrus (Dorandi's 1982 critical edition with Italian translation is the standard scholarly text) has no known older English translation avaible. An English rendering of the Diogenes-of-Sinope material does exist online rather than as a page scan:]
-[[https://www.attalus.org/translate/philodemus.html][English Source at attalus.org -- Philodemus, On the Stoics (tr. R. Dobbin, from "The Cynic Philosophers," 2012)]]
-** Does Nietzsche's Philosophy Independently Confirm Epicurean Physics And Canonics, Or Is The Comparison Merely Superficial? :NietzscheConfirmsCanon:
-*** _Commentary_
+*** Does Nietzsche's Philosophy Independently Confirm Epicurean Physics And Canonics, Or Is The Comparison Merely Superficial? :NietzscheConfirmsCanon:
+**** _Commentary_
 Two thousand years apart and using entirely different vocabulary, Nietzsche arrived independently at several of Epicurus's central conclusions -- and said so himself. Both philosophers reject the idea of a "true world" standing behind or above the world of ordinary sensation and hold that this natural, changing world is the only one there is. Both hold that the senses themselves do not lie -- error enters only through what judgment subsequently adds to a sense-report. And Nietzsche did not merely converge on Epicurus's positions by accident; he named Epicurus directly, and credited him with having already fought and nearly won the battle that Christianity later reopened. The comparison has real limits -- Nietzsche's "will to power" and emphasis on struggle and self-overcoming differ in emphasis from Epicurus's focus on net pleasure and friendship -- but on the core rejection of a "true world" beyond nature, and on the reliability of the senses, the convergence is explicit and, on Nietzsche's own telling, not coincidental.
-*** /Nietzsche, Twilight of the Idols, "Reason in Philosophy" §2 (1888)/ :NietzscheConfirmsCanon:SensationAsBasisOfKnowledge:
+**** /Nietzsche, Twilight of the Idols, "Reason in Philosophy" §2 (1888)/ :NietzscheConfirmsCanon:SensationAsBasisOfKnowledge:
 The senses do not lie. What we make of their testimony, that alone introduces lies.
 [[https://epicurustoday.com/citationclips/nietzsche-twilightoftheidols-reasoninphilosophy2-ludovici.jpg][Nietzsche, Twilight of the Idols, "Reason in Philosophy" §2 (tr. Ludovici, 1927 Levy edition) -- older translation renders the same point as "They do not lie at all. The interpretations we give to their evidence is what first introduces falsehood into it."]]
-*** /Nietzsche, Twilight of the Idols, "How the 'True World' Finally Became a Fable" (1888)/ :NietzscheConfirmsCanon:
+**** /Nietzsche, Twilight of the Idols, "How the 'True World' Finally Became a Fable" (1888)/ :NietzscheConfirmsCanon:
 The true world -- we have abolished it: what world has remained? The apparent world perhaps? But no! With the true world we have also abolished the apparent one.
 [[https://epicurustoday.com/citationclips/nietzsche-twilightoftheidols-trueworldfable-ludovici.jpg][Nietzsche, Twilight of the Idols, "How the 'True World' Became a Fable," item 6 (tr. Ludovici, 1927 Levy edition)]]
-*** /Nietzsche, The Antichrist, §58/ :NietzscheConfirmsCanon:
+**** /Nietzsche, The Antichrist, §58/ :NietzscheConfirmsCanon:
 One has but to read Lucretius to know what Epicurus made war upon -- not paganism, but "Christianity"... Epicurus would have won; each respectable mind was Epicurean in the Roman Empire: and then Paul arrived.
 [[https://epicurustoday.com/citationclips/nietzsche-antichrist-58-ludovici.jpg][Nietzsche, The Antichrist §58 (tr. Ludovici, 1927 Levy edition)]]
-** The Demiurge vs. Self-Moving, Eternal Atoms :DemiurgeVsSelfMovingAtoms:
-*** _Commentary_
+** Rebellion Against Platonism
+*** The Demiurge vs. Self-Moving, Eternal Atoms :DemiurgeVsSelfMovingAtoms:
+**** _Commentary_
 Plato's cosmos requires a mind to set it in motion: a benevolent craftsman-god who imposes order on inert, pre-existing material. Epicurus's Elementary Principles leave no room for any such incorporeal orderer. Matter is not inert; motion is inherent in the atoms themselves, by virtue of weight, so no external mover -- divine or otherwise -- is needed to explain why the universe moves at all. See the companion article [[https://epicurustoday.com/02-key-sources/pleasureofrebellingagainstplato/][Epicurus and the Pleasure of Rebelling Against Plato]], Physics section.
-*** /Plato, Timaeus 29e (tr. Jowett)/ :DemiurgeVsSelfMovingAtoms:
+**** /Plato, Timaeus 29e (tr. Jowett)/ :DemiurgeVsSelfMovingAtoms:
 He was good, and one who is good can never have any grudge against anything. And being free from jealousy, he desired that all things should come as near as possible to being like himself.
 [[https://epicurustoday.com/citationclips/plato-timaeus-29e-demiurge.jpg][Plato, Timaeus 29e (tr. Jowett)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0180:text=Tim.:section=29e][Plato, Timaeus 29e (tr. Lamb, Loeb) -- Perseus Digital Library]]
-*** /DeWitt, Epicurus and His Philosophy, Ch. IX ("The New Physics")/ :DemiurgeVsSelfMovingAtoms:
+**** /DeWitt, Epicurus and His Philosophy, Ch. IX ("The New Physics")/ :DemiurgeVsSelfMovingAtoms:
 His argument, however, was no worse than that of Aristotle... So with volition, and apart from it the sole causes in the universe were the blind motions of the atoms... Thus to him motion was inherent in matter and no external cause of motion existed, while to Plato matter was inert and the cause of motion was external to it.
 [[https://epicurustoday.com/citationclips/dewitt-ch9-motioninherentinmatter.jpg][DeWitt, Epicurus and His Philosophy, Ch. IX ("The New Physics")]]
-*** /Paul Shorey, "Plato, Lucretius, and Epicurus," Harvard Studies in Classical Philology 12 (1901), p. 205/ :DemiurgeVsSelfMovingAtoms:
+**** /Paul Shorey, "Plato, Lucretius, and Epicurus," Harvard Studies in Classical Philology 12 (1901), p. 205/ :DemiurgeVsSelfMovingAtoms:
 [Noting a further point of objection, beyond the parallels catalogued by Munro:] The emphasis laid upon the idea of cause at the outset[,] though for opposite ends. [Both systems open by fixing the idea of cause, Plato to install a designing mind behind the cosmos, Lucretius to deny that any such mind is needed.] ... The common background of chaos derived from Hesiod and the Pre-Socratics[, from which Plato's demiurge imposes order by design, while Lucretius's atoms fall into their combinations by chance collision alone].
 [[https://epicurustoday.com/citationclips/shorey-platolucretiusepicurus-causeandbeing.jpg][Paul Shorey, "Plato, Lucretius, and Epicurus," Harvard Studies in Classical Philology 12 (1901), p. 205]]
-** Being vs. Becoming: An Eternal Realm of "Being" vs. One Continuum of Nature :BeingVsBecoming:
-*** _Commentary_
+*** Being vs. Becoming: An Eternal Realm of "Being" vs. One Continuum of Nature :BeingVsBecoming:
+**** _Commentary_
 Before he can describe how the cosmos was built, Plato sorts everything that exists into two kinds: what always is and never becomes, and what is always becoming and never really is. Only what reason grasps -- the Forms -- qualifies as fully real; everything the senses touch is demoted to a lesser, "becoming" status. Epicurus does not simply delete Plato's "Being" -- he relocates permanence into the physical world itself. Compounds arise and perish ("becoming"), but the atoms that compose them do not change at all. Nature runs, without a break, from imperishable atom to perishable compound, and the senses can reach every part of it -- there is no separate, higher order of Being that only reason can enter. See the companion article [[https://epicurustoday.com/02-key-sources/pleasureofrebellingagainstplato/][Epicurus and the Pleasure of Rebelling Against Plato]], Physics section.
-*** /Plato, Timaeus 27d-28a (tr. Jowett)/ :BeingVsBecoming:
+**** /Plato, Timaeus 27d-28a (tr. Jowett)/ :BeingVsBecoming:
 First then, in my judgment, we must make a distinction and ask, What is that which always is and has no becoming; and what is that which is always becoming and never is? That which is apprehended by intelligence and reason is always in the same state; but that which is conceived by opinion with the help of sensation and without reason, is always in a process of becoming and perishing and never really is.
 [[https://epicurustoday.com/citationclips/plato-timaeus-27d28a-beingbecoming.jpg][Plato, Timaeus 27d-28a (tr. Jowett)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0180:text=Tim.:section=27d][Plato, Timaeus 27d-28a (tr. Lamb, Loeb) -- Perseus Digital Library]]
-*** /Epicurus, Letter to Herodotus §54 (tr. Bailey)/ :BeingVsBecoming:
+**** /Epicurus, Letter to Herodotus §54 (tr. Bailey)/ :BeingVsBecoming:
 Moreover, we must suppose that the atoms do not possess any of the qualities belonging to perceptible things, except shape, weight, and size, and all that necessarily goes with shape. For every quality changes; but the atoms do not change at all, since there must needs be something which remains solid and indissoluble at the dissolution of compounds, which can cause changes... For this reason it is essential that the bodies which shift their position should be imperishable and should not possess the nature of what changes, but parts and configuration of their own.
 [[https://epicurustoday.com/citationclips/epicurus-letterherodotus-54-atomsunchanging.jpg][Epicurus, Letter to Herodotus §54 (tr. Bailey)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Letter to Herodotus §54 (tr. Bailey) -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-*** /Paul Shorey, "Plato, Lucretius, and Epicurus," Harvard Studies in Classical Philology 12 (1901), p. 205/ :BeingVsBecoming:
+**** /Paul Shorey, "Plato, Lucretius, and Epicurus," Harvard Studies in Classical Philology 12 (1901), p. 205/ :BeingVsBecoming:
 The distinction between permanent and transitory being and the protest, though with different application, against confounding the two by the double meaning of the verb "to be." [Shorey independently names this same issue -- Plato's and Lucretius's shared vocabulary for "being" masking a live disagreement over what, if anything, is permanent -- as one of the clearest points of contact, and of friction, between the two systems.]
 [[https://epicurustoday.com/citationclips/shorey-platolucretiusepicurus-causeandbeing.jpg][Paul Shorey, "Plato, Lucretius, and Epicurus," Harvard Studies in Classical Philology 12 (1901), p. 205]]
-*** /Ada Bronowski, "Epicureans and Stoics on Universals," in Universals in Ancient Philosophy (2018), p. 259, citing Plutarch, Against Colotes 1114F-1116E/ :BeingVsBecoming:
+**** /Ada Bronowski, "Epicureans and Stoics on Universals," in Universals in Ancient Philosophy (2018), p. 259, citing Plutarch, Against Colotes 1114F-1116E/ :BeingVsBecoming:
 Plutarch presents the Platonist view that there are two kinds of ways of being, one of things which properly are (i.e. of the Ideas) and the other, of things which are forever becoming (τὰ γιγνόμενα) [citing Plato, Timaeus 27d5-7 -- the same passage quoted above]. Colotes, a student of Epicurus and nominal target of the work, and the Epicureans in general, are accused of saying that all that, according to them, is part of reality (body and void) exists in the same way [i.e. rejecting Plato's two-tier distinction between real Being and mere Becoming outright, on the authority of Epicurus's own pupil Colotes, in a work titled On the Impossibility of Living According to the Doctrines of the Other Philosophers, aimed squarely at Plato].
 [[https://epicurustoday.com/citationclips/plutarch-againstcolotes-1114-1116-goodwin-ideasvsbecoming.jpg][Plutarch, Against Colotes 1114F-1116E (tr. Goodwin, 1874), cited by Ada Bronowski (2018), p.259]]
-** A Finite, Spherical Cosmos vs. An Infinite Universe :FiniteVsInfiniteUniverse:
-*** _Commentary_
+*** A Finite, Spherical Cosmos vs. An Infinite Universe :FiniteVsInfiniteUniverse:
+**** _Commentary_
 Plato's Timaeus describes a single, finite, deliberately-shaped sphere with no "outside," and therefore no meaningful up or down. Epicurus's universe is infinite in every direction, stocked with an infinite supply of atoms in infinite void. DeWitt notes that Epicurus took direct aim at Plato's finitism by name, refusing even to grant the terms of the argument. See the companion article [[https://epicurustoday.com/02-key-sources/pleasureofrebellingagainstplato/][Epicurus and the Pleasure of Rebelling Against Plato]], Physics section.
-*** /DeWitt, Epicurus and His Philosophy, Ch. IX, reporting Plato's position/ :FiniteVsInfiniteUniverse:
+**** /DeWitt, Epicurus and His Philosophy, Ch. IX, reporting Plato's position/ :FiniteVsInfiniteUniverse:
 Plato flouted this theory on the ground that the universe was spherical, which implied that it was finite... Epicurus in a single paragraph essays to immunize the minds of his disciples against certain views propounded by Plato and by Aristotle.
 [[https://epicurustoday.com/citationclips/dewitt-ch9-platofloutedfinitism.jpg][DeWitt, Epicurus and His Philosophy, Ch. IX, reporting Plato's position]]
-*** /Epicurus, Letter to Herodotus/ :FiniteVsInfiniteUniverse:
+**** /Epicurus, Letter to Herodotus/ :FiniteVsInfiniteUniverse:
 There are infinite worlds both like and unlike this world of ours.
 [[https://epicurustoday.com/citationclips/epicurus-letterherodotus-infiniteworlds.jpg][Epicurus, Letter to Herodotus]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Letter to Herodotus -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-** Worn, Divisible Geometric Atoms vs. Truly Uncuttable Atoms :AtomsAreUncuttable:
-*** _Commentary_
+*** Worn, Divisible Geometric Atoms vs. Truly Uncuttable Atoms :AtomsAreUncuttable:
+**** _Commentary_
 Plato, in the Timaeus, imagined the smallest particles of the elements as geometric solids with edges that could wear down over time -- his mechanism for explaining the decay of old age. Epicurus's atoms are by definition "uncuttable," and he devoted a whole treatise, /The Corner in the Atom/, to attacking Plato's geometric-solid theory directly. DeWitt traces the same geometric-atomism to the root of the theory of Forms itself: deny that atoms are perfect, unchanging geometric solids, and the analogy Plato uses to argue from geometry to an eternal Form of Justice collapses with it. See the companion article [[https://epicurustoday.com/02-key-sources/pleasureofrebellingagainstplato/][Epicurus and the Pleasure of Rebelling Against Plato]], Physics section.
-*** /DeWitt, Epicurus and His Philosophy, Ch. IX, describing Plato's Timaeus/ :AtomsAreUncuttable:
+**** /DeWitt, Epicurus and His Philosophy, Ch. IX, describing Plato's Timaeus/ :AtomsAreUncuttable:
 [DeWitt infers the point of Epicurus's lost treatise /The Corner in the Atom/ from the fact] that Plato had accounted for the phenomena of old age by postulating the detrition of the sharp edges of his angular atoms.
 [[https://epicurustoday.com/citationclips/dewitt-ch6-cornerintheatom.jpg][DeWitt, Epicurus and His Philosophy, Ch. IX, describing Plato's Timaeus]]
-*** /Epicurus, Letter to Herodotus, First Elementary Principles/ :AtomsAreUncuttable:
+**** /Epicurus, Letter to Herodotus, First Elementary Principles/ :AtomsAreUncuttable:
 [Epicurus's principles state that] the universe consists of nothing but atoms and void, and that the atoms -- "uncuttable" by definition -- can neither be created nor destroyed.
 [[https://epicurustoday.com/citationclips/epicurus-letterherodotus-40-42-bailey.jpg][Epicurus, Letter to Herodotus (tr. Bailey), summarizing secs. 40-41 (the universe is bodies and void; atoms are indivisible)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Letter to Herodotus, First Elementary Principles -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-** Geometry and Dialectic as the Path to Truth vs. Irrelevant to the Happy Life :GeometryAndDialecticRejected:
-*** _Commentary_
+*** Geometry and Dialectic as the Path to Truth vs. Irrelevant to the Happy Life :GeometryAndDialecticRejected:
+**** _Commentary_
 Plato's curriculum in the Academy ran through geometry and astronomy as the disciplines that trained the mind to grasp eternal, unchanging truth -- the same faculties that let the philosopher glimpse the Forms. Epicurus threw the whole apparatus out of his own curriculum, rejecting geometry as having no bearing on the happy life. See the companion articles [[https://epicurustoday.com/02-key-sources/pleasureofrebellingagainstplato/][Epicurus and the Pleasure of Rebelling Against Plato]], Physics section, and [[https://epicurustoday.com/02-key-sources/againstgeometers/][Let All Who Would Free Themselves From the False Claims Of The Geometers Enter Here]].
-*** /DeWitt, Epicurus and His Philosophy, Ch. VI ("The New Education"), describing Plato's Academy/ :GeometryAndDialecticRejected:
+**** /DeWitt, Epicurus and His Philosophy, Ch. VI ("The New Education"), describing Plato's Academy/ :GeometryAndDialecticRejected:
 [Plato's Academy curriculum ran through geometry and astronomy as disciplines that trained the mind to grasp eternal, unchanging truth, and thereby to glimpse the Forms themselves.]
 [[https://epicurustoday.com/citationclips/dewitt-ch6-academygeometryastronomy.jpg][DeWitt, Epicurus and His Philosophy, Ch. VI ("The New Education")]]
-*** /DeWitt, Epicurus and His Philosophy, Ch. VI ("The New Education")/ :GeometryAndDialecticRejected:
+**** /DeWitt, Epicurus and His Philosophy, Ch. VI ("The New Education")/ :GeometryAndDialecticRejected:
 In his rejection of dialectic and mathematics Epicurus was motivated partly by his animosity toward Platonism... Geometry was repudiated as having no bearing upon the happy life.
 [[https://epicurustoday.com/citationclips/dewitt-ch6-geometryrepudiated.jpg][DeWitt, Epicurus and His Philosophy, Ch. VI ("The New Education")]]
-** God as World-Governor vs. God as Object of Emulation Only :GodsDoNotGovern:
-*** _Commentary_
+*** God as World-Governor vs. God as Object of Emulation Only :GodsDoNotGovern:
+**** _Commentary_
 Plato assigned god two distinct jobs: world-governor and object of human emulation. Epicurus, as David Sedley observes, accepted only the second. His gods are worth contemplating and emulating precisely because they are blessed and untroubled -- models of the pleasant life at its most complete -- but they never govern anything. See the companion article [[https://epicurustoday.com/02-key-sources/pleasureofrebellingagainstplato/][Epicurus and the Pleasure of Rebelling Against Plato]], Physics section.
-*** /David Sedley, "Epicurus: Theological Innatism," reporting Plato's position/ :GodsDoNotGovern:
+**** /David Sedley, "Epicurus: Theological Innatism," reporting Plato's position/ :GodsDoNotGovern:
 Plato had assigned god a double role: world governor and object of human emulation. Epicurus argued vehemently against the first role, but endorsed the second.
 [[https://epicurustoday.com/citationclips/sedley-theologicalinnatism-doublerole.jpg][David Sedley, "Epicurus: Theological Innatism," reporting Plato's position]]
-*** /David Sedley, "Epicurus: Theological Innatism"/ :GodsDoNotGovern:
+**** /David Sedley, "Epicurus: Theological Innatism"/ :GodsDoNotGovern:
 Are we born already possessing some kind of awareness of the gods, albeit in a suppressed form, in the way that Platonists believe us to be born with latent knowledge of the Forms? That idea can be quickly eliminated as unacceptable to Epicureans: notoriously, the Platonist version of innatism relies on the hypothesis that the soul pre-existed its present incarnation ... a doctrine which cannot fail to be anathema to any Epicurean.
 [[https://epicurustoday.com/citationclips/sedley-theologicalinnatism-latentknowledge.jpg][David Sedley, "Epicurus: Theological Innatism"]]
-** Reason (the Divided Line) vs. Sensation as the Test of Truth :SensationNotReasonIsTheCanon:
-*** _Commentary_
+*** Reason (the Divided Line) vs. Sensation as the Test of Truth :SensationNotReasonIsTheCanon:
+**** _Commentary_
 Plato's Divided Line and Allegory of the Cave rank sense-perception at the bottom of a hierarchy topped by reason contemplating the Forms -- the senses show only shadows, and only the trained philosopher who turns from them ever sees the truth. Epicurus's Canon rejects this wholesale and turns it on its head: sensations, anticipations, and feelings -- not reason -- are the tests of truth. See the companion article [[https://epicurustoday.com/02-key-sources/pleasureofrebellingagainstplato/][Epicurus and the Pleasure of Rebelling Against Plato]], Canonics section.
-*** /DeWitt, Epicurus and His Philosophy, Ch. VII, reporting Plato's position/ :SensationNotReasonIsTheCanon:
+**** /DeWitt, Epicurus and His Philosophy, Ch. VII, reporting Plato's position/ :SensationNotReasonIsTheCanon:
 In the judgment of Epicurus Plato also ranked as a skeptic, because he belittled the sensations as undependable and phenomena as deceptive, the only real and eternal existences being the ideas.
 [[https://epicurustoday.com/citationclips/dewitt-ch7-platorankedskeptic.jpg][DeWitt, Epicurus and His Philosophy, Ch. VII, reporting Plato's position]]
-*** /Epicurus, quoted in DeWitt, Ch. VII/ :SensationNotReasonIsTheCanon:
+**** /Epicurus, quoted in DeWitt, Ch. VII/ :SensationNotReasonIsTheCanon:
 Not even reason can refute the sensations, for reason depends wholly upon them.
 [[https://epicurustoday.com/citationclips/dewitt-ch7-reasoncannotrefute.jpg][Epicurus, quoted in DeWitt, Ch. VII]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, quoted in DeWitt, Ch. VII -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-** Dialectic (Definition by Division) vs. Names As People Find Them :DialecticIsMotionWithoutDestination:
-*** _Commentary_
+*** Dialectic (Definition by Division) vs. Names As People Find Them :DialecticIsMotionWithoutDestination:
+**** _Commentary_
 Plato practices /diaeresis/ -- definition by division -- at length in dialogues like the Sophist and the Statesman, elevating categories like "Same," "Other," and "Essence" to the status of fundamental realities. Epicurus considered this "sound without sense" once the Ideas behind such categories were denied, and rejected dialectic as a method through which one could wander for a lifetime without ever touching the question that actually matters: does this get me closer to living well? See the companion article [[https://epicurustoday.com/02-key-sources/pleasureofrebellingagainstplato/][Epicurus and the Pleasure of Rebelling Against Plato]], Canonics section.
-*** /DeWitt, Epicurus and His Philosophy, Ch. VII, describing Plato's Timaeus and dialogues/ :DialecticIsMotionWithoutDestination:
+**** /DeWitt, Epicurus and His Philosophy, Ch. VII, describing Plato's Timaeus and dialogues/ :DialecticIsMotionWithoutDestination:
 [DeWitt points to Plato's Timaeus, where categories like "Same," "Other," and "Essence" are elevated to the status of fundamental realities, as exactly the kind of abstraction Epicurus considered "sound without sense" once the Ideas behind them were denied.]
 [[https://epicurustoday.com/citationclips/dewitt-ch7-timaeussameotheressence.jpg][DeWitt, Epicurus and His Philosophy, Ch. VII]]
-*** /Diogenes Laertius, quoted in DeWitt, Ch. VII/ :DialecticIsMotionWithoutDestination:
+**** /Diogenes Laertius, quoted in DeWitt, Ch. VII/ :DialecticIsMotionWithoutDestination:
 Dialectic they reject as superfluous, for it should suffice physicists to get along with the names of things as they find them.
 [[https://epicurustoday.com/citationclips/dewitt-ch7-dialecticsuperfluous.jpg][Diogenes Laertius, quoted in DeWitt, Ch. VII]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Diogenes Laertius, quoted in DeWitt, Ch. VII -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-** The Political, Tripartite Soul vs. Pleasure As Every Creature's Own Guide :PoliticalSoulVsPleasureAsGuide:
-*** _Commentary_
+*** The Political, Tripartite Soul vs. Pleasure As Every Creature's Own Guide :PoliticalSoulVsPleasureAsGuide:
+**** _Commentary_
 Plato's Republic builds its account of the virtuous soul directly out of the structure of the ideal city -- reason, spirit, and appetite in the soul, mirrored by guardians, auxiliaries, and producers in the state -- so that access to the good depends on training and station most people never receive. Epicurus starts from the opposite premise: the good life is something nature communicates directly to every living creature at birth, before it has acquired any opinions at all, and requires no philosopher-king to certify it. See the companion article [[https://epicurustoday.com/02-key-sources/pleasureofrebellingagainstplato/][Epicurus and the Pleasure of Rebelling Against Plato]], Ethics section.
-*** /Plato, Republic 588c-d (tr. Jowett)/ :PoliticalSoulVsPleasureAsGuide:
+**** /Plato, Republic 588c-d (tr. Jowett)/ :PoliticalSoulVsPleasureAsGuide:
 Model in words a kind of multifarious and many-headed beast that has, in a circle, all sorts of heads of tame and wild beasts and is able to change and produce out of itself all such growths.
 [[https://epicurustoday.com/citationclips/plato-republic-588cd-manyheadedbeast.jpg][Plato, Republic 588c-d (tr. Jowett)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0168:book=9:page=588][Plato, Republic 588c (tr. Shorey, Loeb) -- Perseus Digital Library]]
-*** /Epicurus, quoted by Cicero, in DeWitt Ch. XII ("The New Hedonism")/ :PoliticalSoulVsPleasureAsGuide:
+**** /Epicurus, quoted by Cicero, in DeWitt Ch. XII ("The New Hedonism")/ :PoliticalSoulVsPleasureAsGuide:
 Every living creature, the moment it is born, reaches out for pleasure and rejoices in it as the highest good, shrinks from pain as the greatest evil.
 [[https://epicurustoday.com/citationclips/dewitt-ch12-newborncreaturepleasure.jpg][Epicurus, quoted by Cicero, in DeWitt Ch. XII ("The New Hedonism")]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, quoted by Cicero, in DeWitt Ch. XII ("The New Hedonism") -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-** Unlimited Desire (the Many-Headed Beast) vs. Pleasure's Natural Ceiling :PleasureHasANaturalLimit:
-*** _Commentary_
+*** Unlimited Desire (the Many-Headed Beast) vs. Pleasure's Natural Ceiling :PleasureHasANaturalLimit:
+**** _Commentary_
 Plato's many-headed appetitive beast craves more and more without limit -- one reason he denies pleasure can be any kind of stable, self-limiting good. Epicurus insists pleasure has a natural ceiling, fixed by Nature and reachable by anyone regardless of wealth or station: the removal of all pain. DeWitt is explicit that Epicurus established this ceiling directly against Plato. See the companion article [[https://epicurustoday.com/02-key-sources/pleasureofrebellingagainstplato/][Epicurus and the Pleasure of Rebelling Against Plato]], Ethics section.
-*** /Plato, Republic 588c-d (tr. Jowett), via DeWitt Ch. XII/ :PleasureHasANaturalLimit:
+**** /Plato, Republic 588c-d (tr. Jowett), via DeWitt Ch. XII/ :PleasureHasANaturalLimit:
 This was the fixed ceiling for pleasure, which he endeavors to establish in opposition to Plato, who compared the appetitive part of the soul to "a many-headed beast" and held to the opinion that desires increase endlessly and that pleasure defied the fixing of a limit.
 [[https://epicurustoday.com/citationclips/dewitt-ch12-fixedceilingforpleasure.jpg][Plato, Republic 588c-d (tr. Jowett), via DeWitt Ch. XII]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0168:book=9:page=588][Plato, Republic 588c (tr. Shorey, Loeb) -- Perseus Digital Library]]
-*** /Epicurus, Principal Doctrine 3/ :PleasureHasANaturalLimit:
+**** /Epicurus, Principal Doctrine 3/ :PleasureHasANaturalLimit:
 The removal of all pain is the limit of the magnitude of pleasures, and wherever a pleasant feeling is present, for as long as it is present, there is no feeling of pain.
 [[https://epicurustoday.com/citationclips/epicurus-pd-1-6-bailey.jpg][Epicurus, Principal Doctrine 3 (tr. Bailey), same page also carries PD 1-6]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Principal Doctrine 3 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-** Pleasure As Mere "Becoming" vs. Pleasure As Complete "Being" :PleasureIsBeingNotMereBecoming:
-*** _Commentary_
+*** Pleasure As Mere "Becoming" vs. Pleasure As Complete "Being" :PleasureIsBeingNotMereBecoming:
+**** _Commentary_
 Plato argues in the Philebus that pleasure is a /genesis/ -- a "generation," a process aimed at something beyond itself -- and for that reason cannot be /ousia/, real "being." This is the being/becoming distinction from Plato's physics, redeployed against ethics: whatever is merely "becoming" cannot be the good. Epicurus holds that a pleasure is a motion when looked at as it unfolds and a complete state when the whole of a life is in view, with PD3 fixing the exact point of completeness. The Epicureans' own image for that completeness was a /filled/ vessel, not Plato's static "being." See the companion articles [[https://epicurustoday.com/02-key-sources/pleasureofrebellingagainstplato/][Epicurus and the Pleasure of Rebelling Against Plato]], Ethics section, and [[https://epicurustoday.com/02-key-sources/cicero-completeness-argument/][The Completeness Argument, Cicero's Knowledge Of It, And The Epicurean Response]].
-*** /Plato, Philebus 53c-55a (tr. Jowett)/ :PleasureIsBeingNotMereBecoming:
+**** /Plato, Philebus 53c-55a (tr. Jowett)/ :PleasureIsBeingNotMereBecoming:
 Then, as I said at first, we ought to be very grateful to him who first pointed out that pleasure was a generation only, and had no true being at all; for he is clearly one who laughs at the notion of pleasure being a good.
 [[https://epicurustoday.com/img/plato-completeness-philebus-generation.jpg][Plato, Philebus 53c-55a (tr. Jowett)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0174:text=Phileb.:section=53c][Plato, Philebus 53c-55a (tr. Fowler, Loeb) -- Perseus Digital Library]]
-*** /Lucretius, De Rerum Natura VI.17-21 (tr. Munro)/ :PleasureIsBeingNotMereBecoming:
+**** /Lucretius, De Rerum Natura VI.17-21 (tr. Munro)/ :PleasureIsBeingNotMereBecoming:
 ...he then perceived that the vessel itself did cause the corruption and that by its corruption all the things that came into it and were gathered from abroad, however salutary were spoilt within it; partly because he saw it to be leaky and full of holes so that it could never by any means be filled full...
 [[https://epicurustoday.com/citationclips/lucretius-drn6-17-leakingvessel.jpg][Lucretius, De Rerum Natura VI.17-21 (tr. Munro)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.02.0131:book=6:line=17][Lucretius 6.17 (tr. Leonard) -- Perseus Digital Library]]
-** Mixed Pleasure and Pain vs. Pleasure's Presence Excluding Pain by Definition :NoMixedPleasureAndPain:
-*** _Commentary_
+*** Mixed Pleasure and Pain vs. Pleasure's Presence Excluding Pain by Definition :NoMixedPleasureAndPain:
+**** _Commentary_
 Plato's Philebus builds an entire class of "mixed" pleasures -- the itch that is pleasant because it is also painful to scratch, grief mixed with the pleasure of a sad story -- because on his view pleasure and pain can genuinely coincide. Epicurus's PD3 leaves no logical room for that coincidence: wherever pleasure is present in full, pain is simply not there to be mixed in. The ancient commentator Damascius recognized PD3 as a direct rejoinder to Plato on exactly this point. See the companion article [[https://epicurustoday.com/02-key-sources/pleasureofrebellingagainstplato/][Epicurus and the Pleasure of Rebelling Against Plato]], Ethics section.
-*** /Damascius, In Philebum 197, quoted in David Wolfsdorf, Pleasure in Ancient Greek Philosophy (2013)/ :NoMixedPleasureAndPain:
+**** /Damascius, In Philebum 197, quoted in David Wolfsdorf, Pleasure in Ancient Greek Philosophy (2013)/ :NoMixedPleasureAndPain:
 Epicurus thinks that pain cannot [simultaneously] mix with pleasure ... Plato, on the contrary, holds that this does occur, both in the soul and in the body and in combination.
 [[https://epicurustoday.com/citationclips/wolfsdorf-pleasureinancientgreekphilosophy-damasciusmixedpleasure.jpg][Damascius, In Philebum 197, quoted in David Wolfsdorf, Pleasure in Ancient Greek Philosophy (2013)]]
-*** /Epicurus, Principal Doctrine 3/ :NoMixedPleasureAndPain:
+**** /Epicurus, Principal Doctrine 3/ :NoMixedPleasureAndPain:
 The removal of all pain is the limit of the magnitude of pleasures, and wherever a pleasant feeling is present, for as long as it is present, there is no feeling of pain.
 [[https://epicurustoday.com/citationclips/epicurus-pd-1-6-bailey.jpg][Epicurus, Principal Doctrine 3 (tr. Bailey), same page also carries PD 1-6]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Principal Doctrine 3 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-** The Soul's Pre-Existence and Imprisonment in the Body vs. Soul Born and Dying With the Body :NoPreexistenceOfSoul:
-*** _Commentary_
+*** The Soul's Pre-Existence and Imprisonment in the Body vs. Soul Born and Dying With the Body :NoPreexistenceOfSoul:
+**** _Commentary_
 For Plato, the soul exists before birth and may be recollecting truths seen in a prior, disembodied state (the doctrine of /anamnesis/ worked out in the Phaedo and the Meno); life in the body is itself a kind of confinement. Epicurus's soul, by contrast, is born and dies with the body -- there is no pre-existence and no afterlife. See the companion article [[https://epicurustoday.com/02-key-sources/pleasureofrebellingagainstplato/][Epicurus and the Pleasure of Rebelling Against Plato]], Ethics section.
-*** /DeWitt, Epicurus and His Philosophy, Ch. I/ :NoPreexistenceOfSoul:
+**** /DeWitt, Epicurus and His Philosophy, Ch. I/ :NoPreexistenceOfSoul:
 [Plato inherited from Pythagoras] the belief that the body was a tomb or prison-house, which blurred the vision of reason and prevented perfection of knowledge.
 [[https://epicurustoday.com/citationclips/dewitt-ch1-tombprisonhouse.jpg][DeWitt, Epicurus and His Philosophy, Ch. I]]
-*** /DeWitt, Epicurus and His Philosophy, Ch. XII/ :NoPreexistenceOfSoul:
+**** /DeWitt, Epicurus and His Philosophy, Ch. XII/ :NoPreexistenceOfSoul:
 There was for Epicureans no pre-existence, as Plato believed, and no afterlife, as the majority of mankind believed.
 [[https://epicurustoday.com/citationclips/dewitt-ch12-nopreexistence.jpg][DeWitt, Epicurus and His Philosophy, Ch. XII]]
-** The Lover's Flattering Nicknames: A Model of Philosophic Love vs. A Diagnosis of Self-Deception :FlatteringNicknamesForBlemishes:
-*** _Commentary_
+*** The Lover's Flattering Nicknames: A Model of Philosophic Love vs. A Diagnosis of Self-Deception :FlatteringNicknamesForBlemishes:
+**** _Commentary_
 Paul Shorey notes that H. A. J. Munro, in his edition of Lucretius, had already catalogued a set of close verbal parallels between Lucretius and Plato that most likely reached Lucretius by way of Epicurus. This is not a case of agreement: Plato and Lucretius describe the identical human habit -- lovers coining flattering pet names for a beloved's physical defects -- and draw opposite morals from it. Socrates uses the catalogue approvingly, as a charming illustration of how the true philosopher, like an indiscriminate lover, finds something to love in every kind of knowledge. Lucretius uses the identical catalogue as a clinical diagnosis of the self-deception bred by uncontrolled passion, immediately before warning that this same blindness is what traps a man in the "strong bonds of Venus." Same observation of human psychology; opposite verdicts on whether it is admirable or a warning sign to be guarded against.
 Source of this observation: Paul Shorey, "Plato, Lucretius, and Epicurus," /Harvard Studies in Classical Philology/, Vol. 12, Goodwin Volume (1901), pp. 201-210, footnote 1 on p. 204-205, where Shorey lists "the hypocoristic lover 4, 1160 with Republic 474 D" among the parallels he says are "cited by Munro."
 [[https://epicurustoday.com/citationclips/shorey-platolucretiusepicurus-munro-parallels-list.jpg][Paul Shorey, "Plato, Lucretius, and Epicurus," Harvard Studies in Classical Philology, Vol. 12 (1901), pp. 204-205, footnote 1]]
-*** /Plato, Republic 474d-475a (tr. Jowett)/ :FlatteringNicknamesForBlemishes:
+**** /Plato, Republic 474d-475a (tr. Jowett)/ :FlatteringNicknamesForBlemishes:
 Is not this a way you have with the fair: one has a snub nose, and you praise his charming face; the hook-nose of another has, you say, a royal look; while he who is neither snub nor hooked has the grace of regularity; the dark visage is manly, the fair are children of the gods; and as to the sweet "honey pale," as they are called, what is the very name but the invention of a lover who talks in diminutives, and is not averse to paleness if appearing on the cheek of youth? In a word, there is no excuse which you will not make, and nothing which you will not say, in order not to lose a single flower that blooms in the spring-time of youth.
 [[https://epicurustoday.com/citationclips/plato-republic-474d-flatteringnicknames.jpg][Plato, Republic 474d-475a (tr. Jowett)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0168:book=5:page=474][Plato, Republic 474d-475a (tr. Shorey, Loeb) -- Perseus Digital Library]]
-*** /Lucretius, De Rerum Natura IV.1153-1160 (tr. Munro)/ :FlatteringNicknamesForBlemishes:
+**** /Lucretius, De Rerum Natura IV.1153-1160 (tr. Munro)/ :FlatteringNicknamesForBlemishes:
 For this men usually do, blinded by passion, and attribute to the beloved those advantages which are not really theirs. We therefore see women in ways manifold deformed and ugly to be objects of endearment and held in the highest admiration... The black is a brune, the filthy and rank has not the love of order; the cat-eyed is a miniature Pallas, the stringy and wizened a gazelle; the dumpy and dwarfish is one of the graces, from top to toe all grace; the big and overgrown is awe-inspiring and full of dignity.
 [[https://epicurustoday.com/citationclips/lucretius-drn4-1153-flatteringnicknames.jpg][Lucretius, De Rerum Natura IV.1153-1160 (tr. Munro)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.02.0131:book=4:line=1153][Lucretius 4.1153 (tr. Leonard) -- Perseus Digital Library]]
-** The Soul Feared to Disperse Like Smoke vs. The Soul That Actually Does :SoulDispersesLikeSmoke:
-*** _Commentary_
+*** The Soul Feared to Disperse Like Smoke vs. The Soul That Actually Does :SoulDispersesLikeSmoke:
+**** _Commentary_
 In the Phaedo, Cebes voices the ordinary person's fear about death: that the soul, on leaving the body, might simply disperse like smoke or breath and vanish into nothing. Socrates treats this as a fear to be argued away, and spends the rest of the dialogue building proofs that the soul is imperishable. Lucretius takes the identical image -- the soul dissolving like smoke -- and affirms it as the literal, physical truth, then draws the opposite conclusion from Socrates: since the soul cannot survive the body's dissolution, there is no posthumous subject left to suffer, and death is nothing to fear. Both philosophers start from the same picture of what death might mean for the soul; one treats it as the nightmare to be disproven, the other as the sober fact that removes the nightmare.
 Source of this observation: Paul Shorey, "Plato, Lucretius, and Epicurus," /Harvard Studies in Classical Philology/, Vol. 12, Goodwin Volume (1901), pp. 201-210, footnote 1 on p. 204-205, where Shorey lists "the dissipation of the soul like smoke or vapor, 3, 456 with Phaedo 70" among the parallels he says are "cited by Munro."
 [[https://epicurustoday.com/citationclips/shorey-platolucretiusepicurus-munro-parallels-list.jpg][Paul Shorey, "Plato, Lucretius, and Epicurus," Harvard Studies in Classical Philology, Vol. 12 (1901), pp. 204-205, footnote 1]]
-*** /Plato, Phaedo 70a (tr. Jowett), Cebes speaking/ :SoulDispersesLikeSmoke:
+**** /Plato, Phaedo 70a (tr. Jowett), Cebes speaking/ :SoulDispersesLikeSmoke:
 [Men fear] that when [the soul] has left the body her place may be nowhere, and that on the very day of death she may perish and come to an end -- immediately on her release from the body, issuing forth dispersed like smoke or air, and in her flight vanishing away into nothingness.
 [[https://epicurustoday.com/citationclips/plato-phaedo-70a-souldispersessmoke.jpg][Plato, Phaedo 70a (tr. Jowett), Cebes speaking]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0170:text=Phaedo:section=70a][Plato, Phaedo 70a (tr. Fowler, Loeb) -- Perseus Digital Library]]
-*** /Lucretius, De Rerum Natura III.455-458 (tr. Munro)/ :SoulDispersesLikeSmoke:
+**** /Lucretius, De Rerum Natura III.455-458 (tr. Munro)/ :SoulDispersesLikeSmoke:
 It naturally follows then that the whole nature of the soul is dissolved, like smoke, into the high air; since we see it is begotten along with the body and grows up along with it and, as I have shown, breaks down at the same time worn out with age.
 [[https://epicurustoday.com/citationclips/lucretius-drn3-455-souldispersessmoke.jpg][Lucretius, De Rerum Natura III.455-458 (tr. Munro)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.02.0131:book=3:line=455][Lucretius 3.455 (tr. Leonard) -- Perseus Digital Library]]
-** The Child's Fear of the Dark: Cured By Proof of Immortality vs. Cured By Nature :ChildrensFearOfTheDarkCuredByNature:
-*** _Commentary_
+*** The Child's Fear of the Dark: Cured By Proof of Immortality vs. Cured By Nature :ChildrensFearOfTheDarkCuredByNature:
+**** _Commentary_
 Both philosophers reach for the identical image of a child terrified of imaginary hobgoblins in the dark as their picture of the irrational fear of death -- and both propose an antidote administered like a "charm," repeated until the fear is gone. There the agreement ends. Socrates's charm is philosophical argument for the soul's immortality: face the fear down by proving there is no ultimate loss to fear. Lucretius's charm is the opposite doctrine applied to the same fear: not the light of the sun, but the study of nature, showing that the soul does not survive to suffer anything after death at all. The two men agree, almost word for word, on the diagnosis and on the method of cure (a repeated argument, not brute reassurance) -- and flatly disagree on which argument does the curing.
 Source of this observation: Paul Shorey, "Plato, Lucretius, and Epicurus," /Harvard Studies in Classical Philology/, Vol. 12, Goodwin Volume (1901), pp. 201-210, footnote 1 on p. 204-205, where Shorey lists "the comparison of our fear of death to the terrors of children in the dark, 2, 55, Phaedo 77 E" among the parallels he says are "cited by Munro."
 [[https://epicurustoday.com/citationclips/shorey-platolucretiusepicurus-munro-parallels-list.jpg][Paul Shorey, "Plato, Lucretius, and Epicurus," Harvard Studies in Classical Philology, Vol. 12 (1901), pp. 204-205, footnote 1]]
-*** /Plato, Phaedo 77d-e (tr. Jowett)/ :ChildrensFearOfTheDarkCuredByNature:
+**** /Plato, Phaedo 77d-e (tr. Jowett)/ :ChildrensFearOfTheDarkCuredByNature:
 There is a child within us to whom death is a sort of hobgoblin; him too we must persuade not to be afraid when he is alone in the dark. ... Let then the voice of the charmer be applied daily until you have charmed away the fear.
 [[https://epicurustoday.com/citationclips/plato-phaedo-77de-childsfearofdark.jpg][Plato, Phaedo 77d-e (tr. Jowett)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0170:text=Phaedo:section=77d][Plato, Phaedo 77d (tr. Fowler, Loeb) -- Perseus Digital Library]]
-*** /Lucretius, De Rerum Natura II.55-58 (tr. Munro)/ :ChildrensFearOfTheDarkCuredByNature:
+**** /Lucretius, De Rerum Natura II.55-58 (tr. Munro)/ :ChildrensFearOfTheDarkCuredByNature:
 For even as children are flurried and dread all things in the thick darkness, thus we in the daylight fear at times things not a whit more to be dreaded than what children shudder at in the dark and fancy sure to be. This terror therefore and darkness of mind must be dispelled, not by the rays of the sun and glittering shafts of day, but by the aspect and law of nature.
 [[https://epicurustoday.com/citationclips/lucretius-drn2-55-childrenafraidofdark.jpg][Lucretius, De Rerum Natura II.55-58 (tr. Munro)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.02.0131:book=2:line=55][Lucretius 2.55 (tr. Leonard) -- Perseus Digital Library]]
-** Articulate Speech As A Divine Gift vs. Articulate Speech As Mere Anatomy :ArticulateSpeechNaturalNotDivine:
-*** _Commentary_
+*** Articulate Speech As A Divine Gift vs. Articulate Speech As Mere Anatomy :ArticulateSpeechNaturalNotDivine:
+**** _Commentary_
 In Protagoras's myth, man invents "articulate speech and names" only once he already possesses the divine-derived skill stolen from the gods by Prometheus -- language belongs to a story of theft from, and kinship with, the gods. Lucretius locates the same capacity for articulate speech in nothing more exalted than the tongue and lips mechanically shaping breath forced up from the chest -- an entirely natural, anatomical account with no myth and no debt to any god, consistent with his fuller argument elsewhere (Book V) that language grew up by natural utility, not divine bestowal.
 Source of this observation: Paul Shorey, "Plato, Lucretius, and Epicurus," /Harvard Studies in Classical Philology/, Vol. 12, Goodwin Volume (1901), pp. 201-210, footnote 1 on p. 204-205, where Shorey lists "the use of articulat[e] 4, 551 with that of διηρθρώσατο Protag. 322 A" among the parallels he says are "cited by Munro."
 [[https://epicurustoday.com/citationclips/shorey-platolucretiusepicurus-munro-parallels-list.jpg][Paul Shorey, "Plato, Lucretius, and Epicurus," Harvard Studies in Classical Philology, Vol. 12 (1901), pp. 204-205, footnote 1]]
-*** /Plato, Protagoras 322a (tr. Jowett)/ :ArticulateSpeechNaturalNotDivine:
+**** /Plato, Protagoras 322a (tr. Jowett)/ :ArticulateSpeechNaturalNotDivine:
 Now man, having a share of the divine attributes, was at first the only one of the animals who had any gods, because he alone was of their kindred; and he would raise altars and images of them. He was not long in inventing articulate speech and names.
 [[https://epicurustoday.com/citationclips/plato-protagoras-322a-articulatespeechdivine.jpg][Plato, Protagoras 322a (tr. Jowett)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0178:text=Prot.:section=322a][Plato, Protagoras 322a (tr. Lamb, Loeb) -- Perseus Digital Library]]
-*** /Lucretius, De Rerum Natura IV.549-551 (tr. Munro)/ :ArticulateSpeechNaturalNotDivine:
+**** /Lucretius, De Rerum Natura IV.549-551 (tr. Munro)/ :ArticulateSpeechNaturalNotDivine:
 When therefore we force these voices forth from the depths of our body and discharge them straight out at the mouth, the pliant tongue, deft fashioner of words, gives them articulate utterance and the structure of the lips does its part in shaping them.
 [[https://epicurustoday.com/citationclips/lucretius-drn4-549-articulatespeechanatomy.jpg][Lucretius, De Rerum Natura IV.549-551 (tr. Munro)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.02.0131:book=4:line=549][Lucretius 4.549 (tr. Leonard) -- Perseus Digital Library]]
-** Justice As A Strawman To Be Refuted vs. Justice As The Correct Account :JusticeAsCompactEmbracedNotRefuted:
-*** _Commentary_
+*** Justice As A Strawman To Be Refuted vs. Justice As The Correct Account :JusticeAsCompactEmbracedNotRefuted:
+**** _Commentary_
 Glaucon, at the opening of Republic II, states the conventionalist theory of justice -- that it is merely a compact among the weak, neither to do nor suffer wrong, adopted only because no one is strong enough to always get away with injustice -- precisely so that Socrates can spend the rest of the dialogue refuting it in favor of justice as an intrinsic good, part of the soul's own health, worth choosing even for a man wearing the ring of Gyges. Epicurus does not answer this challenge on Plato's terms. He embraces, as the correct and sufficient account of justice, exactly the compact-among-the-weak theory Glaucon offers as a foil to be defeated. There is no deeper metaphysical fact -- no Form of Justice, no intrinsic virtue of the soul -- for Epicurean justice to answer to.
 Source of this observation: Paul Shorey, "Plato, Lucretius, and Epicurus," /Harvard Studies in Classical Philology/, Vol. 12, Goodwin Volume (1901), pp. 201-210, footnote 1 on p. 204-205, where Shorey lists "the social compact 5, 1020 with Republic 358-359" among the parallels he says are "cited by Munro."
 [[https://epicurustoday.com/citationclips/shorey-platolucretiusepicurus-munro-parallels-list.jpg][Paul Shorey, "Plato, Lucretius, and Epicurus," Harvard Studies in Classical Philology, Vol. 12 (1901), pp. 204-205, footnote 1]]
-*** /Plato, Republic 358e-359b (tr. Jowett), Glaucon speaking/ :JusticeAsCompactEmbracedNotRefuted:
+**** /Plato, Republic 358e-359b (tr. Jowett), Glaucon speaking/ :JusticeAsCompactEmbracedNotRefuted:
 They say that to do injustice is, by nature, good; to suffer injustice, evil... when men... have had experience of both, [and being] not able to avoid the one and obtain the other, they think it expedient to make a compact with one another to have neither... this they affirm to be the origin and nature of justice; it is a mean or compromise between the best of all, which is to do injustice and not be punished, and the worst of all, which is to suffer injustice without the power of retaliation.
 [[https://epicurustoday.com/citationclips/plato-republic-358e359b-justiceascompact.jpg][Plato, Republic 358e-359b (tr. Jowett), Glaucon speaking]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0168:book=2:page=358][Plato, Republic 358e-359b (tr. Shorey, Loeb) -- Perseus Digital Library]]
-*** /Lucretius, De Rerum Natura V.1011-1023 (tr. Munro)/ :JusticeAsCompactEmbracedNotRefuted:
+**** /Lucretius, De Rerum Natura V.1011-1023 (tr. Munro)/ :JusticeAsCompactEmbracedNotRefuted:
 Then too neighbors began to join in a league of friendship mutually desiring neither to do nor suffer harm; and asked for indulgence to children and womankind... And though harmony could not be established without exception, yet a very large portion observed their agreements with good faith, or else the race of man would then have been wholly cut off, nor could breeding have continued their generations to this day.
 [[https://epicurustoday.com/citationclips/lucretius-drn5-1011-justiceascompact.jpg][Lucretius, De Rerum Natura V.1011-1023 (tr. Munro)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.02.0131:book=5:line=1011][Lucretius 5.1011 (tr. Leonard) -- Perseus Digital Library]]
-** The Soul As "Attunement": Refuted By An Argument From Degree, Then Mocked By The Same Argument Turned On Itself :SoulAsAttunementParodied:
-*** _Commentary_
+*** The Soul As "Attunement": Refuted By An Argument From Degree, Then Mocked By The Same Argument Turned On Itself :SoulAsAttunementParodied:
+**** _Commentary_
 In the Phaedo, Simmias proposes that the soul is merely an "attunement" (harmonia) of the body, the way a lyre's tuning is a property of its strings. Socrates refutes this with an argument from degree: no soul is more fully a soul than another, but attunement plainly does come in degrees (an instrument can be more or less in tune), so soul and attunement cannot be the same thing. David Sedley reports that Epicurus, whose own opposition to Plato's dialectic was total, did not answer this with a rival theory of the soul but with a parody exposing the argument-form itself as worthless: sweetness comes in degrees, Epicurus pointed out, yet no one concludes that honey itself is therefore "not really honey." If Socrates's inference were valid, it would dissolve identities everywhere, not just refute the harmony theory -- proof, for Epicurus, that this kind of argument by degree is a trick of dialectic rather than a genuine path to truth, exactly the complaint pressed at length in the Canonics section of the companion article [[https://epicurustoday.com/02-key-sources/pleasureofrebellingagainstplato/][Epicurus and the Pleasure of Rebelling Against Plato]].
-*** /Plato, Phaedo 93a-c (tr. Jowett), Socrates speaking/ :SoulAsAttunementParodied:
+**** /Plato, Phaedo 93a-c (tr. Jowett), Socrates speaking/ :SoulAsAttunementParodied:
 We have already admitted that no soul is more a soul than another; which is equivalent to admitting that harmony is not more or less harmony, or more or less completely a harmony... And that which is not more or less harmonized cannot have more or less of harmony, but only an equal harmony... And having neither more nor less of harmony or of discord, one soul has no more vice or virtue than another, if vice be discord and virtue harmony.
 [[https://epicurustoday.com/citationclips/plato-phaedo-93ac-soulasattunement.jpg][Plato, Phaedo 93a-c (tr. Jowett), Socrates speaking]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0170:text=Phaedo:section=93a][Plato, Phaedo 93a (tr. Fowler, Loeb) -- Perseus Digital Library]]
-*** /Epicurus, testimony preserved in Philoponus, In Aristotelis De Anima, reported in David Sedley, "Epicurus on Dialectic," in Epicurus and Philosophical Debates in the Hellenistic and Roman World (2024)/ :SoulAsAttunementParodied:
+**** /Epicurus, testimony preserved in Philoponus, In Aristotelis De Anima, reported in David Sedley, "Epicurus on Dialectic," in Epicurus and Philosophical Debates in the Hellenistic and Roman World (2024)/ :SoulAsAttunementParodied:
 [Sedley's summary of the testimony:] Epicurus' parodic equivalent [to Socrates's argument in the Phaedo] was to argue that in that case honey is not (or not essentially?) sweet, on the grounds that there are degrees of sweetness but not of honey.
 [[https://epicurustoday.com/citationclips/sedley-epicurusondialectic-p88-honeysweetness.jpg][David Sedley, "Epicurus on Dialectic," p. 88, citing Philoponus, In Aristotelis De Anima 143.3-6]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, testimony preserved in Philoponus, In Aristotelis De Anima, reported in David Sedley, "Epicurus on Dialectic," in Epicurus and Philosophical Debates in the Hellenistic and Roman World (2024) -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
