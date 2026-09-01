@@ -11,7 +11,7 @@
 *** EpicurusToday.com is a website prepared by Cassius Amicus dedicated to presenting Classical Epicurean philosophy to a general audience and providing charts, tables, and other resources to aid in the study of Epicurus.  The site is explicitly corrective and restorative in orientation: it aims to recover the Epicurus actually found in the surviving texts from beneath five adulterating traditions -- Stoicism, Platonism, Supernatural Religion, Skepticism, and Humanism -- each of which substitutes some other highest good (virtue, abstract Form, divine will, radical doubt, or rational self-restraint) for the pleasure that Epicurus held Nature actually gives us as our guide.
 
 * *PHYSICS - The Universe Is Entirely Natural*
-** Nothing Comes From Nothing or Goes To Nothing Supernaturally
+** The Universe Operates Naturally Though Atoms and Space
 *** The Study Of Nature Is Essential To Happiness
 **** _Commentary_ :ScienceNecessaryForHappiness:
 In contrast to Socrates, Epicurus emphasized that the study of natural science is essential to happiness. This is not because natural science is intrinsically interesting or academically valuable, but because it is the only reliable instrument for removing the three great sources of groundless fear that destroy happiness: fear of the gods' involvement in natural events and human affairs, fear of death and what follows it, and fear of fate or necessity. Without natural philosophy, we are left with mythology  --  which has reliably generated anxiety across all human cultures. With it, we can demonstrate that the gods are blessed and undisturbed beings who take no interest in human affairs, that death is simply the end of sensation with no subsequent suffering, and that human beings have genuine freedom of choice. These demonstrations are not mere intellectual conclusions: they are the therapeutic core of Epicurean philosophy. Epicurus's own enormous output  --  Diogenes Laertius reports he surpassed all other philosophers in the number of books he composed  --  reflects how urgently he regarded the communication of this understanding as a practical necessity, not a scholarly exercise.
@@ -187,10 +187,6 @@ Therefore one must grasp that, according to Epicurus, of 'intangible substance',
 [[https://epicurustoday.com/citationclips/epicurus-letterherodotus-42-45-bailey.jpg][Diogenes Laertius X.40-42 (tr. Bailey) -- same passage already clipped as part of the Letter to Herodotus (DL embeds the letter verbatim at this point in Book X)]]
 The atoms have no qualities at all except shape, weight and size and the properties that of necessity belong to shape. Every quality changes, but the atoms do not change at all. The shapes of atoms are incomprehensibly many but not infinite, for there are not atoms of every size. (Bailey, adapted)
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Diogenes Laertius 10.40-41 (Atomic Shapes Are Vastly Many But Not Infinite) -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
-**** /Lucretius 1:430 (Body and Void Are the Only Two Existents)/ :Atoms:Void:
-Besides these there is nothing which you could say is parted from all body and sundered from void, which could be discovered, as it were a third nature in the list. For whatever shall exist, must needs be something in itself; and if it suffer touch, however small and light, it will increase the count of body by a bulk great or maybe small, if it exists at all, and be added to its sum. But if it is not to be touched, inasmuch as it cannot on any side check anything from wandering through it and passing on its way, in truth it will be that which we call empty void. Or again, whatsoever exists by itself, will either do something or suffer itself while other things act upon it, or it will be such that things may exist and go on in it. But nothing can do or suffer without body, nor afford room again, unless it be void and empty space. And so besides void and bodies no third nature by itself can be left in the list of things, which might either at any time fall within the purview of our senses, or be grasped by any one through reasoning of the mind. (Bailey)
-[[https://epicurustoday.com/citationclips/lucretius-1-420-451-bailey-thirdnature.jpg][Lucretius, De Rerum Natura I.420-451 (tr. Bailey)]]
-[[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.02.0131:book=1:line=430][Lucretius 1.430 (tr. Leonard) -- Perseus Digital Library]]
 *** Atoms Cannot Be Infinitely Divided
 **** _Commentary_
 Epicurus holds that atoms are not infinitely divisible, a position starkly in disagreement with earlier philosophers who held that there is no downward limit to division, as a result of which they reached absurd conclusions such as motion being impossible.  As with all of the major components of atomism, this again arises from deductive reasoning, given that atoms cannot be perceived by human senses.
@@ -426,6 +422,18 @@ Also, all notions arise from the senses by means of confrontation, analogy, simi
 **** /Epicurus, Vatican Saying 24/ :Images:NatureOfGods:
 Dreams have no divine character nor any prophetic force, but they originate from the influx of images. (Bailey)
 [[https://epicurustoday.com/citationclips/epicurus-vs-14-27-bailey.jpg][Epicurus, Vatican Saying 24 (tr. Bailey), same page also carries VS 14(cont.)-19, 21, 23, 25-27]]
+** Other Than Atoms and Space There is Nothing Else - No Third Nature - No Supernatural Forces
+*** Nothing Exists Except Atoms and Void - No Third Nature
+**** _Commentary_ :NoThirdNature:
+Epicurus's physics exhaustively divides everything that exists into just two categories: bodies (atoms and the compounds they form) and void, the empty space in which bodies exist and move. There is no third kind of thing standing alongside or behind these two -- no separate immaterial substance, no realm of Forms or essences, no supernatural power operating outside of and upon nature. The argument is not merely asserted but proved: whatever is real either can be touched, in which case it counts as body, or cannot be touched and offers no resistance to movement, in which case it is void. Since every conceivable third candidate must fall into one of these two cases, nothing is left over for a third nature to occupy. This is the same principle, applied generally, that elsewhere rules out supernatural creation and supernatural governance of the universe: there is no third kind of stuff or power from which a god could fashion the world or through which a god could act upon it from outside nature.
+**** /Lucretius, De Rerum Natura I.420-451 (No Third Nature Beyond Body and Void)/ :NoThirdNature:
+:PROPERTIES:
+:TRANSCLUDE: lucretius-1-329-45
+:END:
+**** /Epicurus, Letter to Herodotus 39-40 (Beyond Body and Void Nothing Can Be Conceived)/ :NoThirdNature:
+:PROPERTIES:
+:TRANSCLUDE: epicurus-letter-to-herodotus-39-40
+:END:
 ** The Universe Is Infinite In Size And Eternal In Time And Has No Gods Over It
 *** The Universe Is Infinite In Size And Eternal In Time And Has No Gods Over It.
 **** _Commentary_ :UniverseInfiniteAndEternal:NatureOfGods:NothingFromNothing:
