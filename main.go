@@ -180,6 +180,10 @@ func main() {
 }
 
 func openBrowser(url string) {
+	if cmd := appModeCommand(url); cmd != nil {
+		cmd.Start()
+		return
+	}
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
@@ -190,4 +194,26 @@ func openBrowser(url string) {
 		cmd = exec.Command("xdg-open", url)
 	}
 	cmd.Start()
+}
+
+// appModeCommand looks for an installed Chromium-based browser and, if
+// found, returns a command that opens url in "app mode": a chrome-less
+// window with no tabs, address bar, or bookmarks bar. This makes epicorg
+// look and feel like a small standalone app rather than a browser tab.
+// Returns nil if no such browser is found, so the caller can fall back to
+// the platform's default URL opener.
+func appModeCommand(url string) *exec.Cmd {
+	candidates := []string{
+		"vivaldi-stable", "vivaldi",
+		"thorium-browser", "brave-browser", "brave",
+		"google-chrome-stable", "google-chrome",
+		"chromium-browser", "chromium",
+		"microsoft-edge-stable", "microsoft-edge",
+	}
+	for _, name := range candidates {
+		if path, err := exec.LookPath(name); err == nil {
+			return exec.Command(path, "--app="+url)
+		}
+	}
+	return nil
 }
