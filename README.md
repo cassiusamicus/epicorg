@@ -153,6 +153,13 @@ browser (React/htm)       Go server              disk
 
 **Conflict resolution** uses SHA-256 hashes. If the file changed on disk since last load, epicorg runs `git merge-file` for a three-way merge. Clean merges apply automatically; conflicts produce standard markers surfaced in the UI.
 
+## Running as a standalone app window
+
+By default epicorg just opens in a regular browser tab. If you'd rather have it behave
+like a native app — its own window, its own taskbar/dock icon, no address bar or
+tabs — see [DESKTOP-APP.md](DESKTOP-APP.md) for how to set that up on Linux with a
+minimal browser like luakit.
+
 ## Building
 
 ```bash
