@@ -1353,7 +1353,10 @@ header h1 {
   padding: 5px 10px;
   border: none;
   background: transparent;
-  color: var(--text-dim);
+  /* Halfway between --text-dim and full --text — the plain dim shade was
+     hard to make out against the toolbar background; this keeps inactive
+     icons visually secondary to the active one without going full-bright. */
+  color: color-mix(in srgb, var(--text-dim) 50%, var(--text) 50%);
   border-radius: 4px;
   cursor: pointer;
   display: flex;
@@ -5802,20 +5805,8 @@ a.org-file-link {
 /* --- Global search button (magnifying glass after filter box) --- */
 
 
-/* --- Text search dialog --- */
-
-.text-search-dialog {
-  background: var(--panel-bg);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
-  width: 520px;
-  max-width: 92vw;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  position: relative;
-}
+/* --- Shared small-dialog header/input styling (Add Tag, Link to Note/File,
+   Workspace Paths, Save Imported Markdown As, etc.) --- */
 
 .text-search-header {
   display: flex;
@@ -5832,18 +5823,6 @@ a.org-file-link {
   color: var(--text);
 }
 
-.text-search-body {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.text-search-input-row {
-  display: flex;
-  gap: 8px;
-}
-
 .text-search-input {
   flex: 1;
   background: var(--input-bg, var(--focused-bg));
@@ -5857,43 +5836,6 @@ a.org-file-link {
 .text-search-input:focus {
   border-color: var(--accent);
 }
-
-.text-search-go {
-  flex-shrink: 0;
-  padding: 7px 16px;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: opacity 0.12s;
-}
-.text-search-go:hover { opacity: 0.85; }
-.text-search-go:disabled { opacity: 0.4; cursor: default; }
-
-.text-search-md-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-dim);
-  margin-top: 8px;
-  cursor: pointer;
-  user-select: none;
-}
-
-.text-search-hint {
-  font-size: 12px;
-  color: var(--text-dim);
-  line-height: 1.6;
-  border-top: 1px solid var(--border);
-  padding-top: 12px;
-}
-.text-search-hint p { margin: 0 0 6px; }
-.text-search-hint p:last-child { margin-bottom: 0; }
-.text-search-hint strong { color: var(--text); font-weight: 600; }
 
 /* --- File link picker ([[ autocomplete) --- */
 
@@ -6945,30 +6887,16 @@ a.wiki-link:hover { border-bottom-style: solid; }
 
 /* ── Search panel ───────────────────────────────────────────────────────────── */
 /* Sticky header at top of outline-pane — outline scrolls below it; height set via inline style (draggable) */
-.search-panel { position: sticky; top: 0; z-index: 50; background: var(--bg); display: flex; flex-direction: column; border-bottom: 2px solid var(--border); flex-shrink: 0; overflow: hidden; }
+.search-panel { background: var(--bg); display: flex; flex-direction: column; height: 100%; overflow: hidden; }
 
-/* Mode bar — always visible across all three tabs */
+/* Mode bar */
 .sp-mode-bar { display: flex; align-items: stretch; border-bottom: 1px solid var(--border); background: var(--panel-bg, var(--bg)); flex-shrink: 0; }
-.sp-mode-btn { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 14px; border: none; border-right: 1px solid var(--border); background: none; color: var(--text); cursor: pointer; text-align: left; transition: background 0.1s; }
-.sp-mode-btn:hover { background: var(--focused-bg); }
-.sp-mode-btn.sp-mode-active { background: color-mix(in srgb, var(--accent) 10%, var(--bg)); border-bottom: 2px solid var(--accent); margin-bottom: -1px; }
-.sp-mode-name { font-size: 12px; font-weight: 600; color: var(--text-dim); }
-.sp-mode-btn.sp-mode-active .sp-mode-name { color: var(--text); }
-.sp-mode-hint { font-size: 10px; color: var(--text-dim); line-height: 1.3; }
+.sp-mode-bar-title { flex: 1; display: flex; align-items: center; padding: 8px 14px; font-size: 13px; font-weight: 600; color: var(--text); }
 .sp-close-btn { padding: 0 14px; border: none; background: none; color: var(--text-dim); cursor: pointer; font-size: 20px; line-height: 1; flex-shrink: 0; }
 .sp-close-btn:hover { color: var(--text); }
 
 /* Tab bodies */
 .sp-tab-body { background: var(--panel-bg, var(--bg)); display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
-.sp-filter-body { flex-direction: column; gap: 0; padding: 0; }
-.sp-filter-row { display: flex; align-items: center; gap: 0; padding: 8px 12px; border-bottom: 1px solid var(--border); position: relative; }
-.sp-filter-row .sp-input { flex: 1; }
-.sp-filter-clear { position: absolute; right: 18px; border: none; background: none; color: var(--text-dim); font-size: 16px; cursor: pointer; line-height: 1; padding: 0 4px; }
-.sp-filter-clear:hover { color: var(--text); }
-.sp-filter-depth { display: flex; align-items: center; gap: 6px; padding: 6px 12px; }
-.sp-filter-depth-label { font-size: 11px; color: var(--text-dim); flex-shrink: 0; }
-.sp-depth-btn { padding: 3px 10px; border: 1px solid var(--border); border-radius: 4px; background: none; color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer; }
-.sp-depth-btn:hover { background: var(--focused-bg); border-color: var(--accent); color: var(--accent); }
 
 /* Input row */
 .sp-input-row { display: flex; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--panel-bg, var(--bg)); }
@@ -7092,10 +7020,6 @@ a.wiki-link:hover { border-bottom-style: solid; }
 .sp-ctx-body { font-size: 12px; color: var(--text-dim); white-space: pre-wrap; line-height: 1.5; }
 .sp-ctx-more { font-size: 11px; color: var(--text-dim); font-style: italic; padding: 4px 0; }
 mark.sp-mark { background: color-mix(in srgb, var(--accent) 28%, transparent); color: inherit; border-radius: 2px; padding: 0 1px; }
-
-/* Drag resize handle at bottom of search panel */
-.sp-resize-handle { position: absolute; bottom: 0; left: 0; right: 0; height: 5px; cursor: ns-resize; z-index: 10; background: var(--border); opacity: 0.4; transition: opacity 0.15s; flex-shrink: 0; }
-.sp-resize-handle:hover, .sp-resize-handle:active { opacity: 1; background: var(--accent); }
 
 /* Result row: text body + open button */
 .sp-result { position: relative; display: flex; align-items: flex-start; gap: 4px; }

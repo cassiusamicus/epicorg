@@ -453,6 +453,64 @@ export function joinNodes(nodes, id) {
   return { nodes: mapNode(nodes, parent.id, (n) => ({ ...n, children: newList })), cursorPos };
 }
 
+// Joins a node's title into the line immediately above it in the rendered
+// outline — Backspace at the very start of a title, the reverse of
+// splitNode's Alt+Enter. "The line above" means the same thing ↑
+// navigation and convertNodeToNote use: the previous sibling's last visible
+// descendant, or this node's own parent if there's no previous sibling.
+//
+// That's only ever a plain, expected merge when the line above is a true
+// same-parent preceding sibling (the joinNodes case above, reused
+// directly). Anywhere else — the line above is this node's own parent, or
+// a distant descendant reached only because an earlier sibling happens to
+// be folded — merging is surprising enough that the caller should confirm
+// with the user first: this returns { needsConfirm: true, ... } instead of
+// merging unless force is passed (after the user has confirmed).
+export function joinWithPrevious(nodes, id, force = false) {
+  const flat = flattenVisible(nodes);
+  const idx = flat.findIndex((n) => n.id === id);
+  if (idx <= 0) return { nodes, ok: false, reason: "no-prior" };
+
+  const cur = flat[idx];
+  const prev = flat[idx - 1];
+  const curInfo = findParentInfo(nodes, id);
+  const prevInfo = findParentInfo(nodes, prev.id);
+  const curParentId = curInfo?.parent ? curInfo.parent.id : null;
+  const prevParentId = prevInfo?.parent ? prevInfo.parent.id : null;
+  const simple = !!(curInfo && prevInfo && curParentId === prevParentId && prevInfo.index === curInfo.index - 1);
+
+  if (simple) {
+    const cursorPos = (prev.title || "").length;
+    const result = joinNodes(nodes, prev.id);
+    return { nodes: result.nodes, ok: true, needsConfirm: false, prevId: prev.id, cursorPos };
+  }
+
+  if (!force) {
+    const isParent = curParentId === prev.id;
+    return {
+      nodes, ok: true, needsConfirm: true, prevId: prev.id,
+      prevTitle: prev.title || "(untitled)", curTitle: cur.title || "(untitled)",
+      reason: isParent ? "parent" : "distant",
+    };
+  }
+
+  // Confirmed cross-branch merge: prev and cur don't share a parent list,
+  // so this can't reuse joinNodes' array splice — remove `id` from wherever
+  // it actually lives, then fold its title/body/children onto prev (the
+  // same remove-then-reattach-elsewhere shape indentNode uses).
+  const cursorPos = (prev.title || "").length;
+  const sep = (prev.title && cur.title) ? " " : "";
+  const withoutCur = removeNode(nodes, id);
+  const merged = mapNode(withoutCur, prev.id, (n) => ({
+    ...n,
+    title: (n.title || "") + sep + (cur.title || ""),
+    body: [n.body, cur.body].filter(Boolean).join("\n"),
+    collapsed: cur.children?.length > 0 ? false : n.collapsed,
+    children: [...(n.children || []), ...(cur.children || [])],
+  }));
+  return { nodes: merged, ok: true, needsConfirm: false, prevId: prev.id, cursorPos };
+}
+
 // Split a node's body/note at pos: left part stays as this node's body,
 // right part becomes a new sibling's body, inserted immediately after (empty
 // title, no children — mirrors splitNode's title-split shape).

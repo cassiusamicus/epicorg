@@ -1583,6 +1583,102 @@ test("convertNodeToNote: refuses when the node is the very first node in the doc
   assertEqual(result, t);
 });
 
+// --- joinWithPrevious ---
+
+test("joinWithPrevious: simple case merges title into the preceding sibling and removes the node", () => {
+  const t = [node("a", "First"), node("b", "Second")];
+  const { nodes: result, ok, needsConfirm, prevId, cursorPos } = tree.joinWithPrevious(t, "b");
+  assert(ok);
+  assert(!needsConfirm);
+  assertEqual(prevId, "a");
+  assertEqual(cursorPos, "First".length);
+  assertEqual(result.length, 1);
+  assertEqual(result[0].id, "a");
+  assertEqual(result[0].title, "First Second");
+});
+
+test("joinWithPrevious: merges bodies (newline) and children (concatenated) too", () => {
+  const t = [
+    { ...node("a", "First"), body: "A's note." },
+    { ...node("b", "Second", [node("b1", "B's child")]), body: "B's note." },
+  ];
+  const { nodes: result } = tree.joinWithPrevious(t, "b");
+  const a = tree.findNode(result, "a");
+  assertEqual(a.title, "First Second");
+  assertEqual(a.body, "A's note.\nB's note.");
+  assertEqual(a.children.map((c) => c.id), ["b1"]);
+});
+
+test("joinWithPrevious: empty previous title has no separator space", () => {
+  const t = [node("a", ""), node("b", "Second")];
+  const { nodes: result } = tree.joinWithPrevious(t, "b");
+  assertEqual(tree.findNode(result, "a").title, "Second");
+});
+
+test("joinWithPrevious: refuses when the node is the very first node in the document", () => {
+  const t = [node("a", "First"), node("b", "Second")];
+  const { nodes: result, ok, reason } = tree.joinWithPrevious(t, "a");
+  assertEqual(ok, false);
+  assertEqual(reason, "no-prior");
+  assertEqual(result, t);
+});
+
+test("joinWithPrevious: asks for confirmation when the line above is the node's own parent, and leaves the tree unchanged until forced", () => {
+  const t = [node("parent", "Parent", [node("a", "Child")])];
+  const { nodes: result, ok, needsConfirm, prevId, reason } = tree.joinWithPrevious(t, "a");
+  assert(ok);
+  assert(needsConfirm);
+  assertEqual(reason, "parent");
+  assertEqual(prevId, "parent");
+  assertEqual(result, t);
+});
+
+test("joinWithPrevious: forcing a parent join merges the title and lifts the node's own children up onto the parent", () => {
+  const t = [node("parent", "Parent", [node("a", "Child", [node("a1", "Grandchild")])])];
+  const { nodes: result, ok, needsConfirm, prevId, cursorPos } = tree.joinWithPrevious(t, "a", true);
+  assert(ok);
+  assert(!needsConfirm);
+  assertEqual(prevId, "parent");
+  assertEqual(cursorPos, "Parent".length);
+  const parent = tree.findNode(result, "parent");
+  assertEqual(parent.title, "Parent Child");
+  assertEqual(parent.children.map((c) => c.id), ["a1"]);
+});
+
+test("joinWithPrevious: asks for confirmation when the line above is a distant descendant reached only via an earlier expanded sibling", () => {
+  const t = [
+    node("a", "First", [node("a1", "First's child")]),
+    node("b", "Second"),
+  ];
+  const { ok, needsConfirm, prevId, reason } = tree.joinWithPrevious(t, "b");
+  assert(ok);
+  assert(needsConfirm);
+  assertEqual(reason, "distant");
+  assertEqual(prevId, "a1");
+});
+
+test("joinWithPrevious: forcing a distant join merges into the actual previous visible node, not the nominal sibling", () => {
+  const t = [
+    node("a", "First", [node("a1", "First's child")]),
+    node("b", "Second"),
+  ];
+  const { nodes: result, prevId } = tree.joinWithPrevious(t, "b", true);
+  assertEqual(prevId, "a1");
+  assertEqual(tree.findNode(result, "a1").title, "First's child Second");
+  assertEqual(tree.findNode(result, "b"), null);
+});
+
+test("joinWithPrevious: a collapsed previous sibling's hidden children are skipped — merges into the sibling directly, no confirmation needed", () => {
+  const t = [
+    { ...node("a", "First", [node("a1", "First's child")]), collapsed: true },
+    node("b", "Second"),
+  ];
+  const { ok, needsConfirm, prevId } = tree.joinWithPrevious(t, "b");
+  assert(ok);
+  assert(!needsConfirm);
+  assertEqual(prevId, "a");
+});
+
 // --- isPastedUrl / wrapSelectionAsLink ---
 
 test("isPastedUrl: recognizes http/https/mailto/file URLs", () => {

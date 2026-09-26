@@ -3992,9 +3992,9 @@ const SHORTCUT_DEFS = [
 
 const TOOLBAR_ITEMS = [
   { id: "home",          label: "Home button",          desc: "Jump to your configured home file" },
-  { id: "quickSwitcher", label: "Quick switcher",       desc: "Jump to any file (Ctrl+K)" },
+  { id: "quickSwitcher", label: "Quick switcher & search", desc: "Jump to any file (Ctrl+K), search all files (Ctrl+Shift+F)" },
   { id: "navArrows",     label: "Back / Forward",       desc: "Navigate recently viewed files" },
-  { id: "foldLevels",    label: "Fold level buttons",   desc: "Collapse outline to heading levels 1–3 (outline only)" },
+  { id: "foldLevels",    label: "Fold level buttons",   desc: "Collapse outline to heading levels 1–4, expand all, and filter headings (outline only)" },
   { id: "moveGroup",     label: "Move / Notes / Hoist", desc: "Outline movement panel, inline notes, hoist (outline only)" },
   { id: "undoRedo",      label: "Undo / Redo",          desc: "Undo and redo editing actions" },
   { id: "viewTabs",      label: "View switcher",        desc: "Switch between Outline, Agenda, TODO, Journal" },
@@ -4041,6 +4041,10 @@ function matchesKey(combo, e) {
 }
 
 function matchShortcut(id, e) {
+  // Alt+Enter is a fixed alias for Split At Cursor Location, alongside its
+  // rebindable Ctrl+Shift+S — common enough (outliners, editors) that it's
+  // worth supporting unconditionally rather than making users rebind it.
+  if (id === "splitNode" && e.key === "Enter" && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) return true;
   return matchesKey(getShortcutCombo(id), e);
 }
 
@@ -4294,6 +4298,19 @@ function handleKey(e, wrapperId, contentId, dispatch, linkifySelectionFromClipbo
     return;
   }
   if (key === "Backspace" && e.target.value === "") { e.preventDefault(); dispatch(wrapperId, "delete"); return; }
+  // Plain Backspace with the cursor flush against the bullet (position 0,
+  // non-empty title, no modifiers — leave Ctrl/Alt+Backspace's native
+  // word-delete alone) joins this line into whatever's immediately above it
+  // in the outline — the mirror of Alt+Enter's split. See
+  // tree.joinWithPrevious for what "immediately above" means and when it
+  // asks for confirmation instead of merging outright.
+  if (key === "Backspace" && e.target.value !== ""
+      && e.target.selectionStart === 0 && e.target.selectionEnd === 0
+      && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
+    e.preventDefault();
+    dispatch(contentId, "join-with-previous");
+    return;
+  }
 }
 
 // --- Date stamp ---
@@ -4935,7 +4952,7 @@ const UNDOABLE_ACTIONS = new Set([
   "change-preamble", "change", "change-body", "update-properties", "update-tags", "update-bookmarks",
   "set-status", "set-priority", "cycle-status", "new-sibling", "new-sibling-before", "delete", "duplicate", "paste-node", "indent", "outdent", "move-up", "move-down",
   "indent-only", "outdent-only", "move-up-only", "move-down-only",
-  "split-at-cursor", "split-body-at-cursor", "join-with-next", "convert-note-to-node", "convert-node-to-note",
+  "split-at-cursor", "split-body-at-cursor", "join-with-next", "join-with-previous", "convert-note-to-node", "convert-node-to-note",
 ]);
 // Of those, typing actions get debounced into one undo step per "burst"
 // rather than one per keystroke.
@@ -5433,12 +5450,8 @@ function findNodeWithAncestors(nodes, predicate, ancestors = []) {
 // Find tab embeds the FindBar; Search tab shows a compact results list;
 // Filter tab focuses the header search and shows a hint.
 function SearchPanel({ nodes, currentFile, homeDir,
-  findQuery, setFindQuery, findMatchIds, findIdx, findNavigate, findInputRef, setFindOpen,
-  replaceQuery, setReplaceQuery, replaceCurrentMatch, replaceAllMatches, replaceMessage,
-  filterQuery, setFilterQuery, onFoldToLevel,
   onNavigate, onJumpToNode, onClose,
   onSaveSearch, activeSavedSearch, onActiveSavedSearchConsumed }) {
-  const [tab, setTab] = useState("search");
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState("all");
   const [includeMarkdown, setIncludeMarkdown] = useState(() => {
@@ -5463,56 +5476,11 @@ function SearchPanel({ nodes, currentFile, homeDir,
   const [mdMatchIdx, setMdMatchIdx] = useState(0);
   const [mdPathCopied, setMdPathCopied] = useState(false);
   const mdPreviewRef = useRef(null);
-  const [panelHeight, setPanelHeight] = useState(380);
   const searchInputRef = useRef(null);
-  const filterInputRef = useRef(null);
   const resultsRef = useRef(null);
   const debounceRef = useRef(null);
   const ctxCacheRef = useRef(new Map());
   const mdCacheRef = useRef(new Map());
-  const isDragging = useRef(false);
-  const dragStartY = useRef(0);
-  const heightAtDrag = useRef(0);
-
-  useEffect(() => {
-    const onMove = (e) => {
-      if (!isDragging.current) return;
-      const delta = e.clientY - dragStartY.current;
-      setPanelHeight(Math.max(120, Math.min(window.innerHeight * 0.88, heightAtDrag.current + delta)));
-    };
-    const onUp = () => { isDragging.current = false; };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
-  }, []);
-
-  const onResizeStart = (e) => {
-    isDragging.current = true;
-    dragStartY.current = e.clientY;
-    heightAtDrag.current = panelHeight;
-    e.preventDefault();
-  };
-
-  const switchTab = (t) => {
-    if (t === tab) return;
-    // Carry the current search term into the destination tab
-    const carry = tab === "filter" ? filterQuery : tab === "find" ? findQuery : query;
-    if (tab === "find") { setFindOpen(false); setFindQuery(""); }
-    setTab(t);
-    if (t === "find") {
-      if (carry) setFindQuery(carry);
-      setFindOpen(true);
-      requestAnimationFrame(() => findInputRef.current?.focus());
-    }
-    if (t === "filter") {
-      if (carry) setFilterQuery(carry);
-      requestAnimationFrame(() => filterInputRef.current?.focus());
-    }
-    if (t === "search") {
-      if (carry) setQuery(carry);
-      requestAnimationFrame(() => searchInputRef.current?.focus());
-    }
-  };
 
   useEffect(() => { requestAnimationFrame(() => searchInputRef.current?.focus()); }, []);
 
@@ -5521,7 +5489,6 @@ function SearchPanel({ nodes, currentFile, homeDir,
 
   useEffect(() => {
     if (!activeSavedSearch) return;
-    setTab("search");
     setQuery(activeSavedSearch.query);
     setScope(activeSavedSearch.scope || "all");
     onActiveSavedSearchConsumed?.();
@@ -5530,7 +5497,7 @@ function SearchPanel({ nodes, currentFile, homeDir,
 
   useEffect(() => {
     clearTimeout(debounceRef.current);
-    if (tab !== "search" || !query.trim()) { setResults([]); setSelectedIdx(0); return; }
+    if (!query.trim()) { setResults([]); setSelectedIdx(0); return; }
     if (scope === "note") {
       const matches = [];
       const q = query.toLowerCase();
@@ -5573,7 +5540,7 @@ function SearchPanel({ nodes, currentFile, homeDir,
       }, 280);
       return () => clearTimeout(debounceRef.current);
     }
-  }, [tab, query, scope, nodes, currentFile, includeMarkdown]);
+  }, [query, scope, nodes, currentFile, includeMarkdown]);
 
   useEffect(() => {
     resultsRef.current?.children[selectedIdx]?.scrollIntoView({ block: "nearest" });
@@ -5725,67 +5692,13 @@ function SearchPanel({ nodes, currentFile, homeDir,
   };
 
   return html`
-    <div className="search-panel" style=${{ height: panelHeight + "px" }}>
+    <div className="search-panel">
       <div className="sp-mode-bar">
-        <button className=${"sp-mode-btn" + (tab === "filter" ? " sp-mode-active" : "")}
-                onClick=${() => switchTab("filter")}>
-          <span className="sp-mode-name">⊟ Filter Headings</span>
-          <span className="sp-mode-hint">collapses non-matching headings · depth 1|2|3|4</span>
-        </button>
-        <button className=${"sp-mode-btn" + (tab === "find" ? " sp-mode-active" : "")}
-                onClick=${() => switchTab("find")}>
-          <span className="sp-mode-name">⌕ Find in this file</span>
-          <span className="sp-mode-hint">highlights every match · navigate with ↑↓ · Ctrl+F</span>
-        </button>
-        <button className=${"sp-mode-btn" + (tab === "search" ? " sp-mode-active" : "")}
-                onClick=${() => switchTab("search")}>
-          <span className="sp-mode-name">≡ Search all files</span>
-          <span className="sp-mode-hint">full-text across every file in this workspace</span>
-        </button>
-        <button className="sp-close-btn" onClick=${() => { if (tab === "find") { setFindOpen(false); setFindQuery(""); } onClose(); }}>×</button>
+        <span className="sp-mode-bar-title">Search All Files</span>
+        <button className="sp-close-btn" onClick=${onClose}>×</button>
       </div>
 
-      ${tab === "filter" && html`
-        <div className="sp-tab-body sp-filter-body">
-          <div className="sp-filter-row">
-            <input ref=${filterInputRef} type="search" className="sp-input"
-                   placeholder="Filter headings…"
-                   value=${filterQuery}
-                   autoComplete="off" data-form-type="other" data-bwignore="true"
-                   onInput=${(e) => setFilterQuery(e.target.value)}
-                   onKeyDown=${(e) => { if (e.key === "Escape") { setFilterQuery(""); onClose(); } }} />
-            ${filterQuery && html`
-              <button className="sp-filter-clear" onClick=${() => setFilterQuery("")} title="Clear filter">×</button>
-            `}
-          </div>
-          <div className="sp-filter-depth">
-            <span className="sp-filter-depth-label">Fold to depth:</span>
-            ${[1, 2, 3, 4].map((d) => html`
-              <button key=${d} className="sp-depth-btn" onClick=${() => onFoldToLevel(d)}
-                      title=${"Collapse outline to level " + d + " headings (Alt+" + d + ")"}>${d}</button>
-            `)}
-          </div>
-        </div>
-      `}
-
-      ${tab === "find" && html`
-        <${FindBar}
-          query=${findQuery}
-          matchCount=${findMatchIds.length}
-          matchIdx=${findIdx}
-          onQuery=${setFindQuery}
-          onNext=${() => findNavigate(1)}
-          onPrev=${() => findNavigate(-1)}
-          onClose=${() => { switchTab("search"); }}
-          inputRef=${findInputRef}
-          replaceQuery=${replaceQuery}
-          onReplaceQuery=${setReplaceQuery}
-          onReplaceOne=${replaceCurrentMatch}
-          onReplaceAll=${replaceAllMatches}
-          replaceMessage=${replaceMessage} />
-      `}
-
-      ${tab === "search" && html`
+      ${html`
         <div className="sp-tab-body sp-search-body">
           <div className="sp-input-row">
             <input ref=${searchInputRef} type="search" className="sp-input"
@@ -5941,7 +5854,6 @@ function SearchPanel({ nodes, currentFile, homeDir,
           </div>
         </div>
       `}
-      <div className="sp-resize-handle" onMouseDown=${onResizeStart} />
     </div>
   `;
 }
@@ -6111,7 +6023,6 @@ function App() {
   const [showJournalFolderPicker, setShowJournalFolderPicker] = useState(false);
   const [showTagListFilePicker, setShowTagListFilePicker] = useState(false);
   const [showBookmarkListFilePicker, setShowBookmarkListFilePicker] = useState(false);
-  const [showTextSearch, setShowTextSearch] = useState(false);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
   const [workspaceConfig, setWorkspaceConfig] = useState(null);
   const [savedWorkspaceProfiles, setSavedWorkspaceProfiles] = useState([]);
@@ -6136,7 +6047,7 @@ function App() {
   }, []);
   const runSavedSearch = useCallback((s) => {
     setActiveSavedSearch(s);
-    setSearchPanelOpen(true);
+    setView("searchall");
   }, []);
   // Unified search results: { type: "tag"|"text", query, results } | null
   const [searchResults, setSearchResults] = useState(null);
@@ -6147,7 +6058,6 @@ function App() {
   const [wikiEntries, setWikiEntries] = useState([]);
   const wikiEntriesRef = useRef([]);
   const [showQuickSwitcher, setShowQuickSwitcher] = useState(false);
-  const [searchPanelOpen, setSearchPanelOpen] = useState(false);
   const [hoverPopup, setHoverPopup] = useState(null);
   const hoverTimerRef = useRef(null);
   const previewCacheRef = useRef(new Map());
@@ -7092,7 +7002,7 @@ function App() {
         return;
       }
       if (matchShortcut("textSearch", e)) {
-        e.preventDefault(); setShowTextSearch(true); return;
+        e.preventDefault(); setView((v) => v === "searchall" ? "outline" : "searchall"); return;
       }
       if (matchShortcut("copyFormatted", e)) {
         e.preventDefault(); copyFormattedRef.current?.(); return;
@@ -7521,19 +7431,6 @@ function App() {
       return next;
     });
   }, [scrollToRawMatch]);
-
-  const runTextSearch = useCallback(async (query, includeMarkdown) => {
-    setShowTextSearch(false);
-    setSearchResults({ type: "text", query, results: null });
-    setView("search");
-    try {
-      const url = "/api/search/text?q=" + encodeURIComponent(query) + (includeMarkdown ? "&md=1" : "");
-      const data = await api.get(url);
-      setSearchResults({ type: "text", query, results: data.results || [] });
-    } catch {
-      setSearchResults({ type: "text", query, results: [] });
-    }
-  }, []);
 
   // Load file list on mount. The file the user last had open (persisted
   // across refreshes) takes priority over the launch -file default, so
@@ -8755,6 +8652,13 @@ function App() {
     }
   }, [jumpToNode, currentFile, loadFile, navDispatch]);
 
+  // Backspace at the very start of a title (join-with-previous) only merges
+  // immediately when the line above is a plain same-parent preceding
+  // sibling — see joinWithPrevious's comment. Anywhere else, dispatch sets
+  // this instead of mutating, and the ConfirmDialog below re-dispatches
+  // with force:true on confirm.
+  const [pendingJoinConfirm, setPendingJoinConfirm] = useState(null);
+
   // Dispatch: all operations are local state mutations
   const dispatch = useCallback((nodeId, action, value) => {
     maybeSnapshotForUndo(action, nodeId);
@@ -8987,6 +8891,33 @@ function App() {
       markDirty(); return;
     }
 
+    if (action === "join-with-previous") {
+      const force = value === true;
+      // setNodes's updater here does NOT run synchronously before this call
+      // returns (unlike a plain useState setter) — every follow-up action
+      // (focusNode, markDirty, opening the confirm dialog) has to happen
+      // from inside the updater itself, the same way split-body-at-cursor
+      // above does it. Reading a side-effect variable after this call, the
+      // way join-with-next above does, silently no-ops here: verified live
+      // that the updater runs after this whole dispatch call has returned.
+      setNodes((p) => {
+        const result = tree.joinWithPrevious(p, nodeId, force);
+        if (!result.ok) {
+          showToast("No prior node to join into");
+          return p;
+        }
+        if (result.needsConfirm) {
+          setPendingJoinConfirm({ nodeId, ...result });
+          return p;
+        }
+        pendingCursorPosRef.current = result.cursorPos;
+        focusNode(result.prevId);
+        markDirty();
+        return result.nodes;
+      });
+      return;
+    }
+
     if (action === "split-body-at-cursor") {
       const pos = typeof value === "number" ? value : 0;
       setNodes((p) => {
@@ -9037,6 +8968,13 @@ function App() {
       return;
     }
   }, [focusNode, markDirty, maybeSnapshotForUndo, showToast]);
+
+  const confirmJoinWithPrevious = useCallback(() => {
+    if (!pendingJoinConfirm) return;
+    const { nodeId } = pendingJoinConfirm;
+    setPendingJoinConfirm(null);
+    dispatch(nodeId, "join-with-previous", true);
+  }, [pendingJoinConfirm, dispatch]);
 
   // Node clipboard for the per-node menu's Cut/Copy/Paste — explicit-id
   // versions (like toggleHoistNode/copyNodeAsFormatted above) since the menu
@@ -9925,9 +9863,8 @@ function App() {
                   onClearTagListFile=${clearTagListFile}
                   bookmarkListFile=${bookmarkListFile} onPickBookmarkListFile=${() => setShowBookmarkListFilePicker(true)}
                   onClearBookmarkListFile=${clearBookmarkListFile}
-                  onOpenTextSearch=${() => setShowTextSearch(true)}
-                  onOpenSearchPanel=${() => setSearchPanelOpen((v) => !v)}
-                  searchPanelOpen=${searchPanelOpen}
+                  onOpenTextSearch=${() => setView("searchall")}
+                  onOpenSearchPanel=${() => setView((v) => v === "searchall" ? "outline" : "searchall")}
                   canGoBack=${canGoBack} canGoForward=${canGoForward}
                   onGoBack=${goBack} onGoForward=${goForward}
                   homeFile=${homeFile} onGoHome=${() => { if (homeFile) { loadFile(homeFile); setView("outline"); } }}
@@ -9978,7 +9915,7 @@ function App() {
           toggleLevelPanel, levelPanelVisible,
           foldToLevel, expandAllWithNotes,
           setView, view,
-          setShowPicker, openFilePicker, setShowTextSearch, setShowFolderPicker,
+          setShowPicker, openFilePicker, setFilterExpanded, searchInputRef, setShowFolderPicker,
           setShowHelp, insertFootnote, insertDateStamp,
           joinFocusedWithNext, outlineAction,
                 exportToHtml, exportToPdf, exportToOrg, exportToMarkdown, exportToReveal, exportToRevealPdf, revealSettings, currentFile,
@@ -10046,11 +9983,6 @@ function App() {
           onSelect=${changeBookmarkListFile}
           onCancel=${() => setShowBookmarkListFilePicker(false)} />
       `}
-      ${showTextSearch && html`
-        <${TextSearchDialog}
-          onSearch=${runTextSearch}
-          onCancel=${() => setShowTextSearch(false)} />
-      `}
       ${showWorkspaceModal && html`
         <${WorkspaceModal}
           workspaceConfig=${workspaceConfig}
@@ -10083,6 +10015,16 @@ function App() {
           confirmLabel="Delete"
           onConfirm=${confirmDeleteFileNow}
           onCancel=${() => setConfirmDeleteFile(null)} />
+      `}
+      ${pendingJoinConfirm && html`
+        <${ConfirmDialog}
+          title="Join With Previous Line?"
+          message=${pendingJoinConfirm.reason === "parent"
+            ? html`The line above is this item's parent heading — <strong>${pendingJoinConfirm.prevTitle}</strong>. Joining will merge <strong>${pendingJoinConfirm.curTitle}</strong> into it as one line. Continue?`
+            : html`The line above — <strong>${pendingJoinConfirm.prevTitle}</strong> — isn't a sibling of this item; it's only adjacent because an earlier section is collapsed. Joining will merge <strong>${pendingJoinConfirm.curTitle}</strong> into it. Continue?`}
+          confirmLabel="Join"
+          onConfirm=${confirmJoinWithPrevious}
+          onCancel=${() => setPendingJoinConfirm(null)} />
       `}
       ${showImportFolderSourcePicker && html`
         <${FileSystemPicker}
@@ -10148,7 +10090,7 @@ function App() {
             onDeleteFile=${setConfirmDeleteFile}
             onClearRecentFiles=${clearRecentFiles}
             onOpenQuickSwitcher=${() => setShowQuickSwitcher(true)}
-            onOpenTextSearch=${() => setShowTextSearch(true)}
+            onOpenTextSearch=${() => setView("searchall")}
             onOpenWorkspace=${() => setShowWorkspaceModal(true)}
             savedSearches=${savedSearches}
             onRunSavedSearch=${runSavedSearch}
@@ -10202,34 +10144,7 @@ function App() {
               setFocusedId(null);
             }
           }}>
-            ${searchPanelOpen && html`
-              <${SearchPanel}
-                nodes=${nodes}
-                currentFile=${currentFile}
-                homeDir=${homeDir}
-                findQuery=${findQuery}
-                setFindQuery=${setFindQuery}
-                findMatchIds=${findMatchIds}
-                findIdx=${findIdx}
-                findNavigate=${findNavigate}
-                findInputRef=${findInputRef}
-                setFindOpen=${setFindOpen}
-                replaceQuery=${replaceQuery}
-                setReplaceQuery=${setReplaceQuery}
-                replaceCurrentMatch=${replaceCurrentMatch}
-                replaceAllMatches=${replaceAllMatches}
-                replaceMessage=${replaceMessage}
-                filterQuery=${searchQuery}
-                setFilterQuery=${setSearchQuery}
-                onFoldToLevel=${foldToLevel}
-                onNavigate=${loadFile}
-                onJumpToNode=${jumpToNode}
-                onClose=${() => setSearchPanelOpen(false)}
-                onSaveSearch=${saveSavedSearch}
-                activeSavedSearch=${activeSavedSearch}
-                onActiveSavedSearchConsumed=${() => setActiveSavedSearch(null)} />
-            `}
-            ${!searchPanelOpen && findOpen && html`
+            ${findOpen && html`
               <${FindBar}
                 query=${findQuery}
                 matchCount=${findMatchIds.length}
@@ -10318,6 +10233,20 @@ function App() {
                 searchQuery=${searchQuery}
               />
             </div>
+          </div>
+        `}
+        ${view === "searchall" && html`
+          <div className="outline-pane">
+            <${SearchPanel}
+              nodes=${nodes}
+              currentFile=${currentFile}
+              homeDir=${homeDir}
+              onNavigate=${loadFile}
+              onJumpToNode=${jumpToNode}
+              onClose=${() => setView("outline")}
+              onSaveSearch=${saveSavedSearch}
+              activeSavedSearch=${activeSavedSearch}
+              onActiveSavedSearchConsumed=${() => setActiveSavedSearch(null)} />
           </div>
         `}
         ${view === "search" && searchResults && html`
@@ -10741,19 +10670,6 @@ function IconLightning() {
   </svg>`;
 }
 
-function IconSearchPanel() {
-  return html`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <line x1="12" y1="6" x2="6" y2="1"/>
-    <line x1="12" y1="6" x2="12" y2="1"/>
-    <line x1="12" y1="6" x2="18" y2="1"/>
-    <line x1="9" y1="7.5" x2="3" y2="7.5"/>
-    <line x1="15" y1="7.5" x2="21" y2="7.5"/>
-    <rect x="9" y="6" width="6" height="3" rx="0.5"/>
-    <path d="M10 9 L8 21 L16 21 L14 9 Z"/>
-    <line x1="6" y1="21" x2="18" y2="21"/>
-  </svg>`;
-}
-
 // Hoist: corners point inward (toward each other) when off — clicking
 // narrows the view. Once hoisted, they point outward — clicking expands
 // back to the full outline. Same convention as a fullscreen toggle, just
@@ -10997,7 +10913,15 @@ function QuickSwitcher({ entries, currentFile, onSelect, onCreate, onCancel }) {
   const inputRef = useRef(null);
   const listRef = useRef(null);
 
-  useEffect(() => { requestAnimationFrame(() => inputRef.current?.focus()); }, []);
+  useEffect(() => {
+    // A single rAF focus() can lose a race against whatever the previously
+    // focused element (an outline title/body, or the toolbar button that
+    // opened this) does on blur — re-assert focus once more shortly after
+    // to make sure the caret actually lands in the input.
+    requestAnimationFrame(() => inputRef.current?.focus());
+    const t = setTimeout(() => inputRef.current?.focus(), 50);
+    return () => clearTimeout(t);
+  }, []);
 
   const filtered = useMemo(() => {
     const q = filter.toLowerCase();
@@ -11036,6 +10960,7 @@ function QuickSwitcher({ entries, currentFile, onSelect, onCreate, onCancel }) {
         <input ref=${inputRef} className="qs-input" type="search"
                placeholder="Jump to note…"
                value=${filter}
+               autoFocus=${true}
                autoComplete="off"
                data-form-type="other"
                data-lpignore="true"
@@ -11394,72 +11319,6 @@ function ImportMarkdownSaveDialog({ suggestedName, existingNames, onConfirm, onC
 
 // Full-text search modal — input + syntax hint; submitting kicks off the
 // search and shows results in the main panel.
-function TextSearchDialog({ onSearch, onCancel }) {
-  const [query, setQuery] = useState("");
-  const [includeMarkdown, setIncludeMarkdown] = useState(() => {
-    try { return localStorage.getItem("epicorg.searchIncludeMarkdown") === "1"; } catch { return false; }
-  });
-  const inputRef = useRef(null);
-
-  useEffect(() => { inputRef.current?.focus(); }, []);
-
-  const toggleIncludeMarkdown = () => {
-    setIncludeMarkdown((prev) => {
-      const next = !prev;
-      try { localStorage.setItem("epicorg.searchIncludeMarkdown", next ? "1" : "0"); } catch {}
-      return next;
-    });
-  };
-
-  const submit = () => {
-    const q = query.trim();
-    if (q) onSearch(q, includeMarkdown);
-  };
-
-  return html`
-    <div className="folder-picker-overlay" onMouseDown=${(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-      <div className="text-search-dialog">
-        <div className="text-search-header">
-          <span className="text-search-title">Search All Files</span>
-          <button className="folder-picker-close" onClick=${onCancel}>×</button>
-        </div>
-        <div className="text-search-body">
-          <div className="text-search-input-row">
-            <input
-              ref=${inputRef}
-              className="text-search-input"
-              type="text"
-              placeholder="Enter search terms…"
-              value=${query}
-              onInput=${(e) => setQuery(e.target.value)}
-              onKeyDown=${(e) => {
-                if (e.key === "Enter") { e.preventDefault(); submit(); }
-                if (e.key === "Escape") onCancel();
-              }}
-            />
-            <button className="text-search-go" onClick=${submit} disabled=${!query.trim()}>
-              Search
-            </button>
-          </div>
-          <label className="text-search-md-toggle">
-            <input type="checkbox" checked=${includeMarkdown} onChange=${toggleIncludeMarkdown} />
-            Include Markdown (.md) files
-          </label>
-          <div className="text-search-hint">
-            <p>Searches headlines and notes in all org files in the home folder.</p>
-            <p>
-              <strong>word word</strong> — all words must appear (AND)<br/>
-              <strong>"exact phrase"</strong> — match phrase as written<br/>
-              <strong>word "some phrase" word</strong> — mix freely
-            </p>
-            <p>Case-insensitive. Results show the matching node and a context snippet.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
 // WorkspaceModal — lets the user configure which folders are included or
 // excluded from the workspace (file listing and search).
 function WorkspaceModal({ workspaceConfig, homeDir, onSave, onCancel }) {
@@ -13242,7 +13101,7 @@ function OutlineActionsPanel({ onAction, focusedId, onClose }) {
   `;
 }
 
-function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, filterExpanded, setFilterExpanded, rawFindMatches, rawFindIdx, onRawFindNavigate, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat, globalFont, onSetGlobalFont, levelFonts, onSetLevelFont, globalColor, onSetGlobalColor, levelColors, onSetLevelColor, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, onOpenSearchPanel, searchPanelOpen, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer, onExportToOrg, onExportToHtml, onOpenSettings, onOpenQuickSwitcher }) {
+function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, filterExpanded, setFilterExpanded, rawFindMatches, rawFindIdx, onRawFindNavigate, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat, globalFont, onSetGlobalFont, levelFonts, onSetLevelFont, globalColor, onSetGlobalColor, levelColors, onSetLevelColor, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, onOpenSearchPanel, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer, onExportToOrg, onExportToHtml, onOpenSettings, onOpenQuickSwitcher }) {
   // Whether the toolbar/search/etc. actually fit is measured, not guessed
   // from viewport width — a long filename or a pile of tags eats into the
   // same space a phone-width media query would assume is free. Rather than
@@ -13331,7 +13190,9 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
           ${toolbarConfig.quickSwitcher && !hide("quickSwitcher") && html`
             <div className="view-toggle">
               <button className="view-tab" onClick=${onOpenQuickSwitcher}
-                      title="Quick switcher (Ctrl+K)"><${IconLightning} /></button>
+                      title="Quick switcher — jump to a file by title (Ctrl+K)"><${IconLightning} /></button>
+              <button className=${"view-tab" + (view === "searchall" ? " active" : "")} onClick=${onOpenSearchPanel}
+                      title=${view === "searchall" ? "Back to outline" : "Search all files — full-text across the workspace (Ctrl+Shift+F)"}><${IconSearch} /></button>
             </div>
           `}
           ${toolbarConfig.navArrows && !hide("navArrows") && html`
@@ -13354,6 +13215,57 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
                       disabled=${textMode}
                       onClick=${() => onFoldToLevel(9)}
                       title=${textMode ? "Not available in reveal codes mode" : "Expand all levels (Alt+9)"}>∞</button>
+            </div>
+            <div className=${"search-box" + ((filterExpanded || searchQuery) ? " search-box-expanded" : "") + (textMode ? " search-box-textmode" : "")}>
+              ${(filterExpanded || searchQuery) ? html`
+                <input
+                  ref=${isProbe ? null : searchInputRef}
+                  type="text"
+                  className="search-input"
+                  placeholder=${textMode ? "Find in text…" : "Filter headings…"}
+                  autoFocus=${!isProbe}
+                  value=${searchQuery || ""}
+                  onChange=${(e) => setSearchQuery(e.target.value)}
+                  onBlur=${() => { if (!searchQuery) setFilterExpanded(false); }}
+                  onKeyDown=${(e) => {
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      setSearchQuery("");
+                      setFilterExpanded(false);
+                      e.target.blur();
+                    }
+                    if (textMode && e.key === "Enter") {
+                      e.preventDefault();
+                      onRawFindNavigate?.(e.shiftKey ? -1 : 1);
+                    }
+                  }}
+                />
+                ${textMode && searchQuery && html`
+                  <div className="search-raw-controls">
+                    <span className="search-match-count">
+                      ${rawFindMatches.length > 0 ? `${rawFindIdx + 1}/${rawFindMatches.length}` : "0"}
+                    </span>
+                    <button className="search-nav-btn" disabled=${rawFindMatches.length === 0}
+                            onMouseDown=${(e) => e.preventDefault()}
+                            onClick=${() => onRawFindNavigate?.(-1)} title="Previous match (Shift+Enter)">‹</button>
+                    <button className="search-nav-btn" disabled=${rawFindMatches.length === 0}
+                            onMouseDown=${(e) => e.preventDefault()}
+                            onClick=${() => onRawFindNavigate?.(1)} title="Next match (Enter)">›</button>
+                  </div>
+                `}
+                ${searchQuery && html`
+                  <button className="search-clear"
+                          onClick=${() => { setSearchQuery(""); setFilterExpanded(false); }}
+                          title="Clear (Esc)">×</button>
+                `}
+              ` : html`
+                <div className="view-toggle">
+                  <button className="view-tab" title=${textMode ? "Find in text" : "Filter headings — collapse non-matching headings"}
+                          onClick=${() => setFilterExpanded(true)}>
+                    <${IconFilter} />
+                  </button>
+                </div>
+              `}
             </div>
           `}
           ${view === "outline" && toolbarConfig.moveGroup && !hide("moveGroup") && html`
@@ -13408,64 +13320,6 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
               </button>
             </div>
             ${textModeError && html`<span className="text-mode-error" title="Couldn't switch modes — see console">Error</span>`}
-          `}
-        </div>
-        <div className="view-toggle" style=${{ opacity: textMode ? 0.4 : 1, pointerEvents: textMode ? "none" : "auto" }}>
-          <button className=${"view-tab" + (searchPanelOpen ? " active" : "")}
-                  title=${searchPanelOpen ? "Close search panel" : "Search panel — filter, find, search all files"}
-                  onClick=${onOpenSearchPanel}>
-            <${IconSearchPanel} />
-          </button>
-        </div>
-        <div className=${"search-box" + ((filterExpanded || searchQuery) ? " search-box-expanded" : "") + (textMode ? " search-box-textmode" : "")}>
-          ${(filterExpanded || searchQuery) ? html`
-            <input
-              ref=${isProbe ? null : searchInputRef}
-              type="text"
-              className="search-input"
-              placeholder=${textMode ? "Find in text…" : "Filter… (Ctrl+K)"}
-              autoFocus=${!isProbe}
-              value=${searchQuery || ""}
-              onChange=${(e) => setSearchQuery(e.target.value)}
-              onBlur=${() => { if (!searchQuery) setFilterExpanded(false); }}
-              onKeyDown=${(e) => {
-                if (e.key === "Escape") {
-                  e.preventDefault();
-                  setSearchQuery("");
-                  setFilterExpanded(false);
-                  e.target.blur();
-                }
-                if (textMode && e.key === "Enter") {
-                  e.preventDefault();
-                  onRawFindNavigate?.(e.shiftKey ? -1 : 1);
-                }
-              }}
-            />
-            ${textMode && searchQuery && html`
-              <div className="search-raw-controls">
-                <span className="search-match-count">
-                  ${rawFindMatches.length > 0 ? `${rawFindIdx + 1}/${rawFindMatches.length}` : "0"}
-                </span>
-                <button className="search-nav-btn" disabled=${rawFindMatches.length === 0}
-                        onMouseDown=${(e) => e.preventDefault()}
-                        onClick=${() => onRawFindNavigate?.(-1)} title="Previous match (Shift+Enter)">‹</button>
-                <button className="search-nav-btn" disabled=${rawFindMatches.length === 0}
-                        onMouseDown=${(e) => e.preventDefault()}
-                        onClick=${() => onRawFindNavigate?.(1)} title="Next match (Enter)">›</button>
-              </div>
-            `}
-            ${searchQuery && html`
-              <button className="search-clear"
-                      onClick=${() => { setSearchQuery(""); setFilterExpanded(false); }}
-                      title="Clear (Esc)">×</button>
-            `}
-          ` : html`
-            <div className="view-toggle">
-              <button className="view-tab" title=${textMode ? "Find in text (Ctrl+F)" : "Filter this note (Ctrl+K)"}
-                      onClick=${() => setFilterExpanded(true)}>
-                <${IconFilter} />
-              </button>
-            </div>
           `}
         </div>
         </div>
@@ -13533,7 +13387,7 @@ function buildCommands(ctx) {
     toggleLevelPanel, levelPanelVisible,
     foldToLevel, expandAllWithNotes,
     setView, view,
-    setShowPicker, openFilePicker, setShowTextSearch, setShowFolderPicker, setShowHelp,
+    setShowPicker, openFilePicker, setFilterExpanded, searchInputRef, setShowFolderPicker, setShowHelp,
     insertFootnote, insertDateStamp,
     joinFocusedWithNext, outlineAction,
     exportToHtml, exportToPdf, exportToOrg, exportToMarkdown, exportToReveal, exportToRevealPdf, revealSettings, currentFile,
@@ -13594,7 +13448,7 @@ function buildCommands(ctx) {
     { category: "Edit", label: "Clean Up Pasted Text",    desc: "Remove extra spaces, leading indentation, and hard line breaks from the selected text (keeps paragraph breaks)", keys: "", action: cleanUpSelectedText },
     { category: "Edit", label: "Insert Footnote",         desc: "Add [fn:N] at cursor in notes",  keys: displayCombo(getShortcutCombo("insertFootnote")),  action: insertFootnote },
     { category: "Edit", label: "Insert Date Stamp",       desc: "Insert formatted date/time at cursor", keys: displayCombo(getShortcutCombo("insertDateStamp")), action: insertDateStamp },
-    { category: "Edit", label: "Split At Cursor Location", desc: "Split the focused title into two sibling nodes, or the focused note into a new node's note directly after", keys: displayCombo(getShortcutCombo("splitNode")), action: splitAtCursorLocation },
+    { category: "Edit", label: "Split At Cursor Location", desc: "Split the focused title into two sibling nodes, or the focused note into a new node's note directly after (also: Alt+Enter)", keys: displayCombo(getShortcutCombo("splitNode")), action: splitAtCursorLocation },
     { category: "Edit", label: "Join with Next Node",     desc: "Merge this node with the next sibling",        keys: displayCombo(getShortcutCombo("joinNode")),   action: joinFocusedWithNext },
     { category: "Outline", label: "Demote Node (Indent)",       desc: "Move the focused node and its children one level deeper",    keys: displayCombo(getShortcutCombo("indent")),      action: () => outlineAction("indent") },
     { category: "Outline", label: "Promote Node (Outdent)",     desc: "Move the focused node and its children one level shallower", keys: displayCombo(getShortcutCombo("outdent")),     action: () => outlineAction("outdent") },
@@ -13609,7 +13463,8 @@ function buildCommands(ctx) {
     { category: "Edit", label: "Insert Center Block",     desc: "Insert #+begin_center around the cursor — wraps the selected note text, or the whole note if nothing's selected — centering it while inline markup still applies", keys: "", action: wrapAsCenterBlockAtFocus },
     { category: "Edit", label: "Hoist / Unhoist",         desc: isHoisted ? "Unhoist — show full tree" : "Hoist focused item", keys: displayCombo(getShortcutCombo("hoist")), action: toggleHoist },
     // Search
-    { category: "Search", label: "Full-text Search…",    desc: "Search across all org files",    keys: displayCombo(getShortcutCombo("textSearch")),      action: () => setShowTextSearch(true) },
+    { category: "Search", label: "Search All Files…",    desc: "Full-text search across every file in this workspace", keys: displayCombo(getShortcutCombo("textSearch")), action: () => setView("searchall") },
+    { category: "Search", label: "Filter Headings…",     desc: "Collapse headings in this file that don't match", keys: "", action: () => { setFilterExpanded(true); requestAnimationFrame(() => searchInputRef.current?.focus()); } },
     { category: "Search", label: "Find and Replace…",    desc: "Find and replace text across the whole file", keys: "Ctrl+F", action: () => { setFindOpen(true); requestAnimationFrame(() => findInputRef.current?.focus()); } },
     // Settings
     { category: "Settings", label: "Toggle Dark/Light Theme", desc: "Switch colour theme",       keys: "",              action: toggleTheme },
