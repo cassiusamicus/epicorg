@@ -1316,6 +1316,19 @@ header h1 {
   gap: 8px;
   flex-shrink: 0;
 }
+/* Second toolbar row for whatever groups the width-collapse (see the
+   Header component's `stage`) dropped from the main row — toggled by the
+   overflow ("more") button in header-right, so a narrow window never makes
+   a toolbar group fully unreachable. */
+.toolbar-overflow-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 0 12px;
+  margin: -4px 0 8px;
+  border-bottom: 1px solid var(--border);
+}
 .toolbar-sep {
   width: 1px;
   height: 20px;
@@ -1571,12 +1584,13 @@ header h1 {
 }
 
 /* Tinted top bar — bleed out of #root's 24px/32px padding so color fills
-   edge-to-edge, then restore inner spacing with padding. */
-header.header-tinted {
-  margin-top: -24px;
-  margin-left: -32px;
-  margin-right: -32px;
-  padding: 24px 32px 12px;
+   edge-to-edge, then restore inner spacing with padding. The overflow row
+   (see .toolbar-overflow-row.tinted) shares the same background/variable
+   treatment so it reads as a continuation of the header, not a mismatched
+   box floating below it — it just isn't the first child under #root, so it
+   only needs the left/right bleed, not header's negative top margin. */
+header.header-tinted,
+.toolbar-overflow-row.tinted {
   /* Override CSS variables so all child elements adapt to dark bg */
   --text: rgba(255, 255, 255, 0.95);
   --text-dim: rgba(255, 255, 255, 0.68);
@@ -1589,6 +1603,18 @@ header.header-tinted {
   --toggle-bg: rgba(255, 255, 255, 0.18);
   --shadow: rgba(0, 0, 0, 0.25);
   --link: rgba(255, 255, 255, 0.90);
+}
+header.header-tinted {
+  margin-top: -24px;
+  margin-left: -32px;
+  margin-right: -32px;
+  padding: 24px 32px 12px;
+}
+.toolbar-overflow-row.tinted {
+  margin-left: -32px;
+  margin-right: -32px;
+  padding-left: 32px;
+  padding-right: 32px;
 }
 
 /* Top bar color chips in hamburger menu */
@@ -3879,6 +3905,16 @@ body.dnd-dragging, body.dnd-dragging * { cursor: move !important; user-select: n
   align-self: center;
 }
 
+.node-mark-cb {
+  flex-shrink: 0;
+  margin-left: 8px;
+  align-self: center;
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
 .node-tag-chip {
   font-size: 10px;
   font-weight: 600;
@@ -5637,6 +5673,16 @@ a.org-file-link {
   cursor: pointer;
 }
 .confirm-btn-cancel:hover { background: var(--focused-bg); }
+.confirm-btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.confirm-btn-primary:hover { opacity: 0.85; }
 
 /* Brief success notice below the tag list */
 .tag-rename-result {
@@ -6311,28 +6357,213 @@ a.org-file-link {
   color: var(--text-dim);
 }
 
-.journal-node-menu-btn {
+.journal-node-mark-cb {
   margin-left: auto;
   flex-shrink: 0;
-  font-family: inherit;
-  font-size: 14px;
-  line-height: 1;
-  padding: 1px 6px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background: none;
-  color: var(--text-dim);
+  width: 14px;
+  height: 14px;
   cursor: pointer;
-  opacity: 0;
+  accent-color: var(--accent);
 }
-.journal-node-preview:hover .journal-node-menu-btn,
-.journal-node-menu-btn.active {
-  opacity: 1;
+
+/* "Marked For Action" — floating button + its bulk-action popup (see
+   MarkedActionMenu), used by both the Journal view and the outline's own
+   multi-select. Fixed to the viewport, not whatever's scrolling
+   underneath, so it stays put regardless of scroll position. */
+.marked-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 24px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
 }
-.journal-node-menu-btn:hover {
-  background: var(--bg);
+.marked-fab:hover { opacity: 0.92; }
+
+.marked-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: rgba(255,255,255,0.25);
+  font-size: 12px;
+}
+
+/* The large "Marked For Action" review modal (see MarkedItemsPanel) —
+   header + scrollable checklist of the marked items' own text + the
+   action buttons, in a centered dialog rather than a small anchored
+   popup, since it needs real room for a list that can run long. */
+.marked-items-panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  width: 480px;
+  max-width: 92vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.marked-items-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.marked-items-title {
+  font-size: 14px;
+  font-weight: 600;
   color: var(--text);
-  border-color: var(--border);
+}
+
+.marked-items-list {
+  flex: 1;
+  min-height: 80px;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+
+.marked-items-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.4;
+}
+.marked-items-row:hover { background: var(--focused-bg); }
+.marked-items-row input[type="checkbox"] {
+  margin-top: 2px;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.marked-items-actions {
+  border-top: 1px solid var(--border);
+  padding: 6px 0;
+  flex-shrink: 0;
+  max-height: 42vh;
+  overflow-y: auto;
+}
+
+/* Change History panel — same modal shell as .marked-items-panel (shares
+   its header classes), scrollable list of {label, time, Restore} rows. */
+.history-panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  width: 480px;
+  max-width: 92vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.history-list {
+  flex: 1;
+  min-height: 80px;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.history-empty {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 16px;
+  font-size: 13px;
+  color: var(--text);
+}
+.history-row:hover { background: var(--focused-bg); }
+.history-row-current { background: var(--focused-bg); }
+.history-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+}
+.history-row-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.history-row-time {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.history-row-current-tag {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.history-row-restore {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 3px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.history-row-restore:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.bulk-name-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 16px;
+}
+.bulk-name-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+.bulk-name-input {
+  background: var(--input-bg, var(--focused-bg));
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 6px 8px;
+  outline: none;
+}
+.bulk-name-input:focus { border-color: var(--accent); }
+.bulk-name-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .journal-more {

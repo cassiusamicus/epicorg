@@ -1481,7 +1481,7 @@ const TRANSCLUSION_BADGE_TITLES = {
   chained: "Source is itself a transclusion — chained transclusion isn't supported",
 };
 
-function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, outlineFormat, levelFormats, siblingIndex, verticalLines, showTagChips, tagsOnRight, onSearchTag, bodyEditingId, bodyPreviewId, bodyRefs, onNodeHandleMouseDown, onNodeHandleMenu, nodeMenuOpenId, globalFont, levelFonts, globalColor, levelColors, linkifySelectionFromClipboard, writeToClipboard, showToast }) {
+function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatMode, notesVisible, outlineFormat, levelFormats, siblingIndex, verticalLines, showTagChips, tagsOnRight, onSearchTag, bodyEditingId, bodyPreviewId, bodyRefs, onNodeHandleMouseDown, onNodeHandleMenu, nodeMenuOpenId, globalFont, levelFonts, globalColor, levelColors, linkifySelectionFromClipboard, writeToClipboard, showToast, markedNodeIds, onToggleMark }) {
   const isFocused = focusedId === node.id;
   const hasChildren = node.children?.length > 0;
   // Transclusion display state — see tree.applyTransclusions. `transclusion`
@@ -1787,6 +1787,13 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
               onClick=${(e) => { e.stopPropagation(); onSearchTag?.(t); }}>${t}</span>`)}
           </span>
         `}
+        ${onToggleMark && html`
+          <input type="checkbox" className="node-mark-cb"
+                 title="Mark for action"
+                 checked=${markedNodeIds?.has(node.id)}
+                 onClick=${(e) => e.stopPropagation()}
+                 onChange=${() => onToggleMark(node.id)} />
+        `}
       </div>
       <${NodeBody}
         node=${node}
@@ -1832,6 +1839,8 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
             linkifySelectionFromClipboard=${linkifySelectionFromClipboard}
             writeToClipboard=${writeToClipboard}
             showToast=${showToast}
+            markedNodeIds=${markedNodeIds}
+            onToggleMark=${onToggleMark}
           />
         `
       )}
@@ -3518,13 +3527,52 @@ function AgendaView({ nodes, currentFile, onSelect, onEditNode, searchQuery, sel
   `;
 }
 
-// Deep-clones a journal node for "Copy"/"Move to Today" — fresh ids
-// throughout (so the duplicate never collides with the original) and
+// Filters a marked-id set down to only the "outermost" marked nodes — if
+// both a node and one of its own descendants are marked, only the
+// ancestor's id survives, since a bulk action on it already carries the
+// whole marked subtree along (mirrors how a single node's own Delete/Copy
+// already includes its children). Used by the outline's own "Marked For
+// Action" (see App's markedNodeIds) — the journal has no nesting to prune,
+// so it doesn't need this.
+function pruneMarkedDescendants(nodesList, markedIds) {
+  const result = [];
+  function walk(list, ancestorMarked) {
+    for (const n of list) {
+      const isMarked = markedIds.has(n.id);
+      if (isMarked && !ancestorMarked) result.push(n.id);
+      if (n.children?.length > 0) walk(n.children, ancestorMarked || isMarked);
+    }
+  }
+  walk(nodesList, false);
+  return result;
+}
+
+// Splits nodesList into { remaining, removed } based on items ([{title}]),
+// matching the first N occurrences of each title where N is how many times
+// that title appears in items — so two different marked items that happen
+// to share a title each still remove one occurrence, not zero or both.
+// Shared by every bulk journal action that needs to pull matched nodes out
+// of a file (delete, move, move/copy to a new outline).
+function removeMatchedByTitle(nodesList, items) {
+  const counts = new Map();
+  for (const it of items) counts.set(it.title, (counts.get(it.title) || 0) + 1);
+  const remaining = [];
+  const removed = [];
+  for (const n of nodesList) {
+    const c = counts.get(n.title) || 0;
+    if (c > 0) { counts.set(n.title, c - 1); removed.push(n); }
+    else remaining.push(n);
+  }
+  return { remaining, removed };
+}
+
+// Deep-clones a node for any "Copy"-flavored bulk/journal action — fresh
+// ids throughout (so the duplicate never collides with the original) and
 // TRANSCLUDE_ID stripped (a duplicate must not claim to be the same
 // transclusion source as the node it was copied from; TRANSCLUDE itself,
 // a pointer *to* another source, is left as-is — copying the pointer is
 // exactly what "copy" should do for a transcluding node).
-function cloneJournalNodeForCopy(node) {
+function cloneNodeForCopy(node) {
   const properties = { ...(node.properties || {}) };
   delete properties.TRANSCLUDE_ID;
   return {
@@ -3535,7 +3583,7 @@ function cloneJournalNodeForCopy(node) {
     priority: node.priority || "",
     tags: [...(node.tags || [])],
     properties,
-    children: (node.children || []).map(cloneJournalNodeForCopy),
+    children: (node.children || []).map(cloneNodeForCopy),
     collapsed: false,
   };
 }
@@ -3547,40 +3595,173 @@ function cloneJournalNodeForCopy(node) {
 // goes through the live dispatch/history stack — see NodeActionMenu), so
 // it gets an inline "Delete this entry? Yes/No" confirm step first,
 // mirroring FilePicker's own per-row delete confirmation.
-function JournalNodeMenu({ x, y, busy, onCopy, onMove, onLink, onDelete, onClose }) {
-  const menuRef = useRef(null);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-
+// Bulk-action popup for the Journal view's "Marked For Action" button (see
+// JournalView) — replaces the old per-item "⋯" popup entirely; the same
+// six actions now apply to however many items are checked, one at a time
+// or many. Copy/Move To New Outline need a filename first, so those two
+// route through an inline naming step instead of running immediately.
+// The "Marked For Action" panel (see JournalView and the outline's own
+// marked-nodes state in App) — a floating button shows once anything is
+// checked, and this is what it opens: a large modal listing every marked
+// item's own text, each with its own checkbox (unchecking one here removes
+// it from the collection immediately, the same as unchecking it back out
+// on the item itself — items is always the live marked set, so the row
+// just disappears), plus the actions to apply to whatever's left. Every
+// action applies everywhere this is used — including Copy/Move/Link To
+// Today, since today's journal is just as valid a destination for outline
+// nodes as it is for other journal entries. Copy/Move To New Outline need
+// a filename first, so those two route through an inline naming step
+// instead of running immediately.
+// The current file's change history — see historyEntries/jumpToHistory in
+// App. Restoring an entry jumps the whole document back to how it looked
+// right before that change (like Dropbox/Nextcloud version history), not a
+// surgical single-change revert — everything after it is still reachable
+// again via Redo afterward, since it's one linear undo/redo timeline.
+function HistoryPanel({ entries, onJump, onClose }) {
   useEffect(() => {
-    const down = (e) => { if (!menuRef.current?.contains(e.target)) onClose(); };
     const key = (e) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("mousedown", down);
     document.addEventListener("keydown", key, true);
-    return () => { document.removeEventListener("mousedown", down); document.removeEventListener("keydown", key, true); };
+    return () => document.removeEventListener("keydown", key, true);
   }, [onClose]);
 
-  const pos = useFixedMenuPosition(menuRef, x, y);
-  const style = { position: "fixed", left: pos.left, top: pos.top, zIndex: 9999 };
   return html`
-    <div ref=${menuRef} className="note-ctx-menu" style=${style}>
-      ${confirmingDelete ? html`
-        <div className="file-delete-confirm journal-menu-delete-confirm">
-          <span>Delete this entry?</span>
-          <button className="file-delete-confirm-btn" disabled=${busy} onClick=${onDelete}>Yes</button>
-          <button className="file-delete-cancel-btn" disabled=${busy} onClick=${() => setConfirmingDelete(false)}>No</button>
+    <div className="folder-picker-overlay" onMouseDown=${(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="history-panel">
+        <div className="marked-items-header">
+          <span className="marked-items-title">Change History</span>
+          <button className="folder-picker-close" onClick=${onClose}>×</button>
         </div>
-      ` : html`
-        <button className="note-ctx-item" disabled=${busy} onClick=${onCopy}>Copy To Today</button>
-        <button className="note-ctx-item" disabled=${busy} onClick=${onMove}>Move To Today</button>
-        <button className="note-ctx-item" disabled=${busy} onClick=${onLink}>Link To Today</button>
-        <div className="note-ctx-sep" />
-        <button className="note-ctx-item journal-menu-item-danger" disabled=${busy} onClick=${() => setConfirmingDelete(true)}>Delete</button>
-      `}
+        <div className="history-list">
+          ${entries.length === 0
+            ? html`<div className="history-empty">No changes yet this session</div>`
+            : entries.map((e) => html`
+                <div key=${e.index} className=${"history-row" + (e.kind === "current" ? " history-row-current" : "")}>
+                  <div className="history-row-main">
+                    <span className="history-row-label">${e.label}</span>
+                    <span className="history-row-time">${e.kind === "current" ? "Now" : formatRelativeTime(e.ts)}</span>
+                  </div>
+                  ${e.kind === "current"
+                    ? html`<span className="history-row-current-tag">Current</span>`
+                    : html`<button className="history-row-restore" onClick=${() => onJump(e.index)}>Restore</button>`}
+                </div>
+              `)}
+        </div>
+      </div>
     </div>
   `;
 }
 
-function JournalDayCard({ filename, onOpen, onOpenDetail, onOpenAt, onJournalAction, searchQuery }) {
+// Shown when checking a mark checkbox for the first time in
+// MARK_COLLISION_IDLE_MS (see toggleMark/toggleNodeMark in App and
+// JournalView) — guards against silently folding a new selection into a
+// collection the user marked a while ago and may have forgotten about.
+function MarkCollisionDialog({ existingCount, ageLabel, itemTitle, onAddExisting, onStartNew, onCancel }) {
+  useEffect(() => {
+    const key = (e) => { if (e.key === "Escape") onCancel(); };
+    document.addEventListener("keydown", key, true);
+    return () => document.removeEventListener("keydown", key, true);
+  }, [onCancel]);
+  const truncated = (itemTitle || "").length > 44 ? itemTitle.slice(0, 44) + "…" : (itemTitle || "(untitled)");
+  return html`
+    <div className="confirm-overlay" onMouseDown=${(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="confirm-dialog">
+        <div className="confirm-title">Add to existing collection?</div>
+        <div className="confirm-msg">
+          You already have <strong>${existingCount}</strong> ${existingCount === 1 ? "item" : "items"} marked from ${ageLabel}.
+          Add "${truncated}" to that collection, or start a new one with just this item?
+        </div>
+        <div className="confirm-actions">
+          <button className="confirm-btn-cancel" onClick=${onCancel}>Cancel</button>
+          <button className="confirm-btn-cancel" onClick=${onStartNew}>Start New Collection</button>
+          <button className="confirm-btn-primary" onClick=${onAddExisting}>Add to Existing</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function MarkedItemsPanel({ items, busy, onToggleItem, onAction, onClear, onClose }) {
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [namingMode, setNamingMode] = useState(null); // "copyNew" | "moveNew" | null
+  const [fileName, setFileName] = useState("");
+  const nameInputRef = useRef(null);
+  const count = items.length;
+
+  useEffect(() => {
+    const key = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", key, true);
+    return () => document.removeEventListener("keydown", key, true);
+  }, [onClose]);
+
+  useEffect(() => { if (namingMode) requestAnimationFrame(() => nameInputRef.current?.focus()); }, [namingMode]);
+
+  // Unchecking every row one at a time leaves nothing to act on — close
+  // rather than sit open on an empty list.
+  useEffect(() => { if (count === 0) onClose(); }, [count, onClose]);
+
+  const submitNewOutline = () => {
+    const trimmed = fileName.trim();
+    if (!trimmed) return;
+    const finalName = trimmed.replace(/[/\\]/g, "-").replace(/\.org$/i, "") + ".org";
+    onAction(namingMode, { newFileName: finalName });
+  };
+
+  return html`
+    <div className="folder-picker-overlay" onMouseDown=${(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="marked-items-panel">
+        <div className="marked-items-header">
+          <span className="marked-items-title">Marked For Action (${count})</span>
+          <button className="folder-picker-close" onClick=${onClose}>×</button>
+        </div>
+        <div className="marked-items-list">
+          ${items.map((it) => html`
+            <label key=${it.key} className="marked-items-row">
+              <input type="checkbox" checked=${true} onChange=${() => onToggleItem(it.key)} />
+              <span dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(it.title || "(untitled)") }} />
+            </label>
+          `)}
+        </div>
+        <div className="marked-items-actions">
+          ${namingMode ? html`
+            <div className="bulk-name-form">
+              <span className="bulk-name-label">${namingMode === "moveNew" ? "Move" : "Copy"} ${count} ${count === 1 ? "item" : "items"} to a new outline:</span>
+              <input ref=${nameInputRef} type="text" className="bulk-name-input"
+                     placeholder="new-outline.org" value=${fileName}
+                     onInput=${(e) => setFileName(e.target.value)}
+                     onKeyDown=${(e) => {
+                       if (e.key === "Enter") { e.preventDefault(); submitNewOutline(); }
+                       if (e.key === "Escape") { e.preventDefault(); setNamingMode(null); }
+                     }} />
+              <div className="bulk-name-actions">
+                <button className="file-delete-cancel-btn" disabled=${busy} onClick=${() => setNamingMode(null)}>Cancel</button>
+                <button className="file-delete-confirm-btn" disabled=${busy || !fileName.trim()} onClick=${submitNewOutline}>Create</button>
+              </div>
+            </div>
+          ` : confirmingDelete ? html`
+            <div className="file-delete-confirm journal-menu-delete-confirm">
+              <span>Delete ${count} ${count === 1 ? "item" : "items"}?</span>
+              <button className="file-delete-confirm-btn" disabled=${busy} onClick=${() => onAction("delete")}>Yes</button>
+              <button className="file-delete-cancel-btn" disabled=${busy} onClick=${() => setConfirmingDelete(false)}>No</button>
+            </div>
+          ` : html`
+            <button className="note-ctx-item" disabled=${busy} onClick=${() => onAction("copy")}>Copy To Today</button>
+            <button className="note-ctx-item" disabled=${busy} onClick=${() => onAction("move")}>Move To Today</button>
+            <button className="note-ctx-item" disabled=${busy} onClick=${() => onAction("link")}>Link To Today</button>
+            <div className="note-ctx-sep" />
+            <button className="note-ctx-item" disabled=${busy} onClick=${() => setNamingMode("copyNew")}>Copy To New Outline…</button>
+            <button className="note-ctx-item" disabled=${busy} onClick=${() => setNamingMode("moveNew")}>Move To New Outline…</button>
+            <div className="note-ctx-sep" />
+            <button className="note-ctx-item journal-menu-item-danger" disabled=${busy} onClick=${() => setConfirmingDelete(true)}>Delete</button>
+            <div className="note-ctx-sep" />
+            <button className="note-ctx-item" disabled=${busy} onClick=${onClear}>Clear Marked Items</button>
+          `}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function JournalDayCard({ filename, onOpen, onOpenDetail, onOpenAt, markedKeys, onToggleMark, searchQuery }) {
   const [content, setContent] = useState(null); // null=not loaded, false=error, {nodes,preamble}=ok
   const hasStarted = useRef(false);
   const cardRef = useRef(null);
@@ -3605,7 +3786,7 @@ function JournalDayCard({ filename, onOpen, onOpenDetail, onOpenAt, onJournalAct
     return () => io.disconnect();
   }, [doLoad]);
 
-  // A top-level node created via "Link To Today" (see JournalNodeMenu)
+  // A top-level node created via "Link To Today" (see MarkedActionMenu)
   // stores an empty title — its real title only exists at the transclusion
   // source (see tree.js's Transclusion section) and is normally resolved
   // by applyTransclusions when the file is opened in the live outline. This
@@ -3642,20 +3823,6 @@ function JournalDayCard({ filename, onOpen, onOpenDetail, onOpenAt, onJournalAct
     })();
     return () => { cancelled = true; };
   }, [content]);
-
-  const [nodeMenu, setNodeMenu] = useState(null); // { x, y, node }
-  const [actionBusy, setActionBusy] = useState(false);
-
-  // No local state cleanup needed after the action resolves — the parent
-  // (JournalView) remounts every visible card afterward (see its
-  // refreshNonce), which naturally resets nodeMenu/actionBusy on this card
-  // and re-fetches fresh content, whether it was this card, "today"'s
-  // card, or both that changed.
-  const runJournalAction = useCallback(async (mode) => {
-    if (!nodeMenu || !onJournalAction) return;
-    setActionBusy(true);
-    await onJournalAction(filename, nodeMenu.node, mode);
-  }, [nodeMenu, onJournalAction, filename]);
 
   const dateStr = filename.replace("journal/", "").replace(".org", "");
   const dateDisplay = formatJournalDate(dateStr);
@@ -3700,14 +3867,12 @@ function JournalDayCard({ filename, onOpen, onOpenDetail, onOpenAt, onJournalAct
               ${node.children && node.children.length > 0 && html`
                 <span className="journal-node-child-count"> +${node.children.length}</span>
               `}
-              ${!today && onJournalAction && html`
-                <button className=${"journal-node-menu-btn" + (nodeMenu?.node === node ? " active" : "")}
-                        title="Copy, move, or link to today"
-                        onClick=${(e) => {
-                          e.stopPropagation();
-                          const r = e.currentTarget.getBoundingClientRect();
-                          setNodeMenu({ x: r.right, y: r.bottom, node });
-                        }}>⋯</button>
+              ${onToggleMark && html`
+                <input type="checkbox" className="journal-node-mark-cb"
+                       title="Mark for action"
+                       checked=${markedKeys?.has(filename + "::" + node.id)}
+                       onClick=${(e) => e.stopPropagation()}
+                       onChange=${() => onToggleMark(filename, node)} />
               `}
             </div>
           `;
@@ -3717,13 +3882,6 @@ function JournalDayCard({ filename, onOpen, onOpenDetail, onOpenAt, onJournalAct
           `}
         `}
       </div>
-      ${nodeMenu && html`<${JournalNodeMenu}
-        x=${nodeMenu.x} y=${nodeMenu.y} busy=${actionBusy}
-        onCopy=${() => runJournalAction("copy")}
-        onMove=${() => runJournalAction("move")}
-        onLink=${() => runJournalAction("link")}
-        onDelete=${() => runJournalAction("delete")}
-        onClose=${() => setNodeMenu(null)} />`}
     </div>
   `;
 }
@@ -3832,19 +3990,70 @@ function ReminderPopup({ reminder, queueLength, onOpen, onDismiss }) {
   `;
 }
 
-function JournalView({ onOpenFile, onOpenFileWithDetail, onOpenFileAt, onGoToDate, onNewAppointment, onJournalAction, searchQuery }) {
+function JournalView({ onOpenFile, onOpenFileWithDetail, onOpenFileAt, onGoToDate, onNewAppointment, onJournalBulkAction, searchQuery }) {
   const [journalFiles, setJournalFiles] = useState(null); // null=loading, []+ =loaded
   const [sortDesc, setSortDesc] = useState(true); // true = newest first
   const [dateFilter, setDateFilter] = useState("all"); // "all" | "future" | "past"
   const datePickerRef = useRef(null);
-  // Bumped after every Copy/Move/Link/Delete action and folded into each
-  // card's key below, forcing every visible JournalDayCard to remount and
-  // re-fetch from disk — not just the one the action ran on. A card caches
-  // its own content after its first load (see doLoad's hasStarted guard),
-  // so without this, an action that touches an *already-loaded* card (most
+  // Bumped after every bulk action and folded into each card's key below,
+  // forcing every visible JournalDayCard to remount and re-fetch from disk
+  // — not just the cards the action actually touched. A card caches its
+  // own content after its first load (see doLoad's hasStarted guard), so
+  // without this, an action that touches an *already-loaded* card (most
   // commonly "today", once it's been scrolled past once) would leave that
   // card showing stale content until the next full reload.
   const [refreshNonce, setRefreshNonce] = useState(0);
+
+  // "Marked For Action" — items checked across any number of visible day
+  // cards (a Map so lookups/toggles are O(1) and cross-card selection just
+  // works without each card needing to know about any other). Keyed by
+  // "file::nodeId"; nodeId is only used for this in-session checkbox
+  // identity, never sent to the backend (see journalBulkAction's own
+  // comment for why titles are what actually get matched there).
+  const [markedItems, setMarkedItems] = useState(() => new Map());
+  // Tracks when the marked collection was last touched — see
+  // MARK_COLLISION_IDLE_MS.
+  const lastMarkActivityRef = useRef(0);
+  const [markCollision, setMarkCollision] = useState(null); // null | { file, node }
+  const toggleMark = useCallback((file, node) => {
+    const key = file + "::" + node.id;
+    if (markedItems.has(key)) {
+      const next = new Map(markedItems);
+      next.delete(key);
+      setMarkedItems(next);
+      lastMarkActivityRef.current = Date.now();
+      return;
+    }
+    if (markedItems.size > 0 && Date.now() - lastMarkActivityRef.current > MARK_COLLISION_IDLE_MS) {
+      setMarkCollision({ file, node });
+      return;
+    }
+    const next = new Map(markedItems);
+    next.set(key, { file, nodeId: node.id, title: node.title || "" });
+    setMarkedItems(next);
+    lastMarkActivityRef.current = Date.now();
+  }, [markedItems]);
+  const resolveMarkCollision = useCallback((startNew) => {
+    if (!markCollision) return;
+    const { file, node } = markCollision;
+    const key = file + "::" + node.id;
+    const base = startNew ? new Map() : markedItems;
+    const next = new Map(base);
+    next.set(key, { file, nodeId: node.id, title: node.title || "" });
+    setMarkedItems(next);
+    lastMarkActivityRef.current = Date.now();
+    setMarkCollision(null);
+  }, [markCollision, markedItems]);
+  // Unmarking a single row from inside the panel itself (see
+  // MarkedItemsPanel) — same effect as unchecking it back out on the item,
+  // just addressed by its already-known key instead of file+node.
+  const unmarkByKey = useCallback((key) => {
+    setMarkedItems((prev) => { const next = new Map(prev); next.delete(key); return next; });
+    lastMarkActivityRef.current = Date.now();
+  }, []);
+
+  const [bulkPanelOpen, setBulkPanelOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const refreshJournalFiles = useCallback(() => {
     return api.get("/api/journal")
@@ -3858,18 +4067,21 @@ function JournalView({ onOpenFile, onOpenFileWithDetail, onOpenFileAt, onGoToDat
     setDateFilter((f) => DATE_FILTERS[(DATE_FILTERS.indexOf(f) + 1) % DATE_FILTERS.length]);
   }, []);
 
-  // Copy/Move/Link/Delete To Today (see JournalNodeMenu) can create today's
-  // journal file on demand — refresh the file list (so a "today" card
-  // appears at all) and force every card to remount (so any card whose
-  // content actually changed reflects it), all without requiring the user
-  // to leave the view.
-  const handleJournalAction = useCallback(async (sourceFile, node, mode) => {
-    if (!onJournalAction) return false;
-    const result = await onJournalAction(sourceFile, node, mode);
-    await refreshJournalFiles();
-    setRefreshNonce((n) => n + 1);
-    return result;
-  }, [onJournalAction, refreshJournalFiles]);
+  // Runs one of the bulk actions (see MarkedItemsPanel) against every
+  // currently marked item, then — on success — clears the selection and
+  // refreshes exactly like a single Copy/Move/Link/Delete used to.
+  const runBulkAction = useCallback(async (mode, opts) => {
+    if (!onJournalBulkAction || markedItems.size === 0) return;
+    setBulkBusy(true);
+    const result = await onJournalBulkAction([...markedItems.values()], mode, opts);
+    setBulkBusy(false);
+    setBulkPanelOpen(false);
+    if (result?.ok) {
+      setMarkedItems(new Map());
+      await refreshJournalFiles();
+      setRefreshNonce((n) => n + 1);
+    }
+  }, [markedItems, onJournalBulkAction, refreshJournalFiles]);
 
   const openToday = useCallback(async () => {
     try {
@@ -3933,10 +4145,30 @@ function JournalView({ onOpenFile, onOpenFileWithDetail, onOpenFileAt, onGoToDat
           onOpen=${() => onOpenFile(f.name)}
           onOpenDetail=${() => onOpenFileWithDetail(f.name)}
           onOpenAt=${(nodeId) => onOpenFileAt(f.name, nodeId)}
-          onJournalAction=${handleJournalAction}
+          markedKeys=${markedItems}
+          onToggleMark=${onJournalBulkAction ? toggleMark : null}
           searchQuery=${searchQuery}
         />
       `)}
+      ${markedItems.size > 0 && html`
+        <button className="marked-fab" onClick=${() => setBulkPanelOpen((v) => !v)}>
+          Marked For Action <span className="marked-count">${markedItems.size}</span>
+        </button>
+      `}
+      ${bulkPanelOpen && html`<${MarkedItemsPanel}
+        items=${[...markedItems.entries()].map(([key, v]) => ({ key, title: v.title }))}
+        busy=${bulkBusy}
+        onToggleItem=${unmarkByKey}
+        onAction=${runBulkAction}
+        onClear=${() => { setMarkedItems(new Map()); setBulkPanelOpen(false); }}
+        onClose=${() => setBulkPanelOpen(false)} />`}
+      ${markCollision && html`<${MarkCollisionDialog}
+        existingCount=${markedItems.size}
+        ageLabel=${formatRelativeTime(lastMarkActivityRef.current)}
+        itemTitle=${markCollision.node.title}
+        onAddExisting=${() => resolveMarkCollision(false)}
+        onStartNew=${() => resolveMarkCollision(true)}
+        onCancel=${() => setMarkCollision(null)} />`}
     </div>
   `;
 }
@@ -3997,10 +4229,11 @@ const TOOLBAR_ITEMS = [
   { id: "foldLevels",    label: "Fold level buttons",   desc: "Collapse outline to heading levels 1–4, expand all, and filter headings (outline only)" },
   { id: "moveGroup",     label: "Move / Notes / Hoist", desc: "Outline movement panel, inline notes, hoist (outline only)" },
   { id: "undoRedo",      label: "Undo / Redo",          desc: "Undo and redo editing actions" },
+  { id: "history",       label: "Change history button", desc: "Toolbar button that opens the change-history panel (also in the command palette, Ctrl+H)" },
   { id: "viewTabs",      label: "View switcher",        desc: "Switch between Outline, Agenda, TODO, Journal" },
   { id: "modeToggle",    label: "Mode toggle",          desc: "Plain, formatted titles, and reveal codes (outline only)" },
 ];
-const TOOLBAR_DEFAULTS = { home: true, quickSwitcher: true, navArrows: true, foldLevels: true, moveGroup: true, undoRedo: true, viewTabs: true, modeToggle: true };
+const TOOLBAR_DEFAULTS = { home: true, quickSwitcher: true, navArrows: true, foldLevels: true, moveGroup: true, undoRedo: true, history: true, viewTabs: true, modeToggle: true };
 const TOOLBAR_CONFIG_KEY = "epicorg.toolbarConfig";
 
 // Order the auto width-collapse (see the Header component) hides toolbar
@@ -4011,8 +4244,12 @@ const TOOLBAR_CONFIG_KEY = "epicorg.toolbarConfig";
 // they're the two one-click "get me somewhere" affordances, and Quick
 // Switcher in particular was added to this toolbar specifically because it
 // was easy to forget existed, so hiding it early would recreate that problem.
+// "history" goes first of all — it's the newest addition, always still
+// reachable via the command palette (Ctrl+H) when dropped, and kept as its
+// own separately-droppable unit rather than bundled into "undoRedo" so a
+// tight window sheds it alone instead of taking Undo/Redo down with it.
 const TOOLBAR_DROP_ORDER = [
-  "modeToggle", "foldLevels", "moveGroup", "undoRedo", "viewTabs", "navArrows", "quickSwitcher", "home",
+  "history", "modeToggle", "foldLevels", "moveGroup", "undoRedo", "viewTabs", "navArrows", "quickSwitcher", "home",
 ];
 
 // Module-level shortcut overrides — mutated directly so key handlers
@@ -4953,11 +5190,87 @@ const UNDOABLE_ACTIONS = new Set([
   "set-status", "set-priority", "cycle-status", "new-sibling", "new-sibling-before", "delete", "duplicate", "paste-node", "indent", "outdent", "move-up", "move-down",
   "indent-only", "outdent-only", "move-up-only", "move-down-only",
   "split-at-cursor", "split-body-at-cursor", "join-with-next", "join-with-previous", "convert-note-to-node", "convert-node-to-note",
+  "bulk-delete", "bulk-move-new", "bulk-move-today", "bulk-link-today",
 ]);
 // Of those, typing actions get debounced into one undo step per "burst"
 // rather than one per keystroke.
 const COALESCE_UNDO_ACTIONS = new Set(["change", "change-body", "change-preamble"]);
 const UNDO_COALESCE_MS = 800;
+
+// Human-readable descriptions for the History panel — keyed by the same
+// action names as UNDOABLE_ACTIONS, plus "text-mode-edit" for the one
+// direct-push site in exitTextMode.
+const ACTION_LABELS = {
+  "change-preamble": "Edited preamble",
+  "change": "Edited",
+  "change-body": "Edited body of",
+  "update-properties": "Updated properties of",
+  "update-tags": "Updated tags of",
+  "update-bookmarks": "Updated bookmark of",
+  "set-status": "Changed status of",
+  "set-priority": "Changed priority of",
+  "cycle-status": "Cycled status of",
+  "new-sibling": "Added item after",
+  "new-sibling-before": "Added item before",
+  "delete": "Deleted",
+  "duplicate": "Duplicated",
+  "paste-node": "Pasted into",
+  "indent": "Indented",
+  "outdent": "Outdented",
+  "move-up": "Moved up",
+  "move-down": "Moved down",
+  "indent-only": "Indented",
+  "outdent-only": "Outdented",
+  "move-up-only": "Moved up",
+  "move-down-only": "Moved down",
+  "split-at-cursor": "Split",
+  "split-body-at-cursor": "Split body of",
+  "join-with-next": "Joined with next after",
+  "join-with-previous": "Joined with previous into",
+  "convert-note-to-node": "Converted note to item",
+  "convert-node-to-note": "Converted item to note",
+  "bulk-delete": "Bulk deleted",
+  "bulk-move-new": "Bulk moved to new outline",
+  "bulk-move-today": "Bulk moved to today's journal",
+  "bulk-link-today": "Bulk linked into today's journal",
+  "text-mode-edit": "Edited in text mode",
+};
+
+// Builds the label shown for one History panel entry. `detail`, when given,
+// overrides the node-title lookup (used by bulk actions, where there's no
+// single nodeId but a ready-made "N items" description instead).
+function describeUndoEntry(action, nodeId, nodesBefore, detail) {
+  const base = ACTION_LABELS[action] || action;
+  if (detail) return `${base} ${detail}`;
+  if (!nodeId) return base;
+  const node = tree.findNode(nodesBefore || [], nodeId);
+  const title = (node?.title || "").trim();
+  if (!title) return base;
+  const truncated = title.length > 44 ? title.slice(0, 44) + "…" : title;
+  return `${base} "${truncated}"`;
+}
+
+// Coarse relative-time label ("3m ago", "2h ago", ...) used by both the
+// History panel and the mark-collision dialog. Computed once at render
+// time — not a ticking clock, which is fine given how briefly these stay open.
+function formatRelativeTime(ts) {
+  const sec = Math.floor((Date.now() - ts) / 1000);
+  if (sec < 5) return "just now";
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day}d ago`;
+  return new Date(ts).toLocaleDateString();
+}
+
+// Marking a checkbox for the first time in this many ms since the marked
+// collection was last touched triggers the "add to existing / start new"
+// prompt (see MarkCollisionDialog) — guards against silently mixing a
+// long-forgotten selection into a new one.
+const MARK_COLLISION_IDLE_MS = 10 * 60 * 1000;
 
 // A single heading row in the Navigation panel — title only, no body text.
 // Expand/collapse here is local UI state, independent of the document's own
@@ -6702,6 +7015,53 @@ function App() {
   // The per-node action menu opened from the hover handle (or right-clicking
   // the bullet/handle) — { nodeId, x, y } or null.
   const [nodeMenu, setNodeMenu] = useState(null);
+  // Outline multi-select — "Marked For Action" (see JournalView for the
+  // same pattern applied to journal entries). A Set of node ids is enough
+  // here (unlike the journal's Map of {file, nodeId, title}): everything
+  // lives in the one live `nodes` tree already, so there's no cross-file
+  // grouping or title-based re-matching to do — ids stay valid the whole
+  // time since nothing gets reparsed mid-session.
+  const [markedNodeIds, setMarkedNodeIds] = useState(() => new Set());
+  // Tracks when the marked collection was last touched (mark, unmark, or a
+  // collision-dialog resolution) — see MARK_COLLISION_IDLE_MS.
+  const lastOutlineMarkActivityRef = useRef(0);
+  const [outlineMarkCollision, setOutlineMarkCollision] = useState(null); // null | { nodeId, title }
+  const toggleNodeMark = useCallback((nodeId) => {
+    if (markedNodeIds.has(nodeId)) {
+      const next = new Set(markedNodeIds);
+      next.delete(nodeId);
+      setMarkedNodeIds(next);
+      lastOutlineMarkActivityRef.current = Date.now();
+      return;
+    }
+    if (markedNodeIds.size > 0 && Date.now() - lastOutlineMarkActivityRef.current > MARK_COLLISION_IDLE_MS) {
+      const title = tree.findNode(nodesRef.current || [], nodeId)?.title || "";
+      setOutlineMarkCollision({ nodeId, title });
+      return;
+    }
+    const next = new Set(markedNodeIds);
+    next.add(nodeId);
+    setMarkedNodeIds(next);
+    lastOutlineMarkActivityRef.current = Date.now();
+  }, [markedNodeIds]);
+  const resolveOutlineMarkCollision = useCallback((startNew) => {
+    if (!outlineMarkCollision) return;
+    const base = startNew ? new Set() : markedNodeIds;
+    const next = new Set(base);
+    next.add(outlineMarkCollision.nodeId);
+    setMarkedNodeIds(next);
+    lastOutlineMarkActivityRef.current = Date.now();
+    setOutlineMarkCollision(null);
+  }, [outlineMarkCollision, markedNodeIds]);
+  // Unmarking a single row from inside the panel itself (see
+  // MarkedItemsPanel) — always a plain removal, since the panel only ever
+  // shows ids that are already marked.
+  const unmarkNode = useCallback((nodeId) => {
+    setMarkedNodeIds((prev) => { const next = new Set(prev); next.delete(nodeId); return next; });
+    lastOutlineMarkActivityRef.current = Date.now();
+  }, []);
+  const [outlineBulkPanelOpen, setOutlineBulkPanelOpen] = useState(false);
+  const [outlineBulkBusy, setOutlineBulkBusy] = useState(false);
   // Node-level clipboard for the menu's Cut/Copy/Paste — a single node (with
   // its subtree), or null. Cut/Copy both just store here; Paste clones it
   // with fresh ids each time (see tree.pasteNodeAfter) so pasting the same
@@ -6763,6 +7123,11 @@ function App() {
   const undoCoalesceTimerRef = useRef(null);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  // Bumped on every undoStackRef/redoStackRef mutation so the History panel
+  // (which reads those refs directly, not via React state) knows to
+  // recompute its display list. See historyEntries below.
+  const [historyVersion, setHistoryVersion] = useState(0);
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
 
   const isFiltering = !!searchQuery || selectedTags.length > 0;
   // Hoisting swaps in just the focused node (as the lone "root") before any
@@ -6898,12 +7263,16 @@ function App() {
     clearTimeout(undoCoalesceTimerRef.current);
     setCanUndo(false);
     setCanRedo(false);
+    setHistoryVersion((v) => v + 1);
   }, []);
 
   // Snapshots the pre-mutation state for undo, before dispatch applies an
   // undoable action. A burst of typing into the same field coalesces into
-  // a single snapshot rather than one per keystroke.
-  const maybeSnapshotForUndo = useCallback((action, nodeId) => {
+  // a single snapshot rather than one per keystroke. `detail` optionally
+  // overrides the node-title-based label (see describeUndoEntry) — bulk
+  // actions pass a ready-made "N items" description here since they have
+  // no single nodeId to look a title up from.
+  const maybeSnapshotForUndo = useCallback((action, nodeId, detail) => {
     if (!UNDOABLE_ACTIONS.has(action)) return;
     const coalesces = COALESCE_UNDO_ACTIONS.has(action);
     const key = nodeId + ":" + action;
@@ -6912,11 +7281,13 @@ function App() {
       undoCoalesceTimerRef.current = setTimeout(() => { undoCoalesceKeyRef.current = null; }, UNDO_COALESCE_MS);
       return;
     }
-    undoStackRef.current.push({ nodes: nodesRef.current, preamble: preambleRef.current });
+    const label = describeUndoEntry(action, nodeId, nodesRef.current, detail);
+    undoStackRef.current.push({ nodes: nodesRef.current, preamble: preambleRef.current, ts: Date.now(), label });
     if (undoStackRef.current.length > UNDO_LIMIT) undoStackRef.current.shift();
     redoStackRef.current = [];
     setCanUndo(true);
     setCanRedo(false);
+    setHistoryVersion((v) => v + 1);
     if (coalesces) {
       undoCoalesceKeyRef.current = key;
       clearTimeout(undoCoalesceTimerRef.current);
@@ -6929,25 +7300,82 @@ function App() {
   const undo = useCallback(() => {
     if (undoStackRef.current.length === 0) return;
     const prev = undoStackRef.current.pop();
-    redoStackRef.current.push({ nodes: nodesRef.current, preamble: preambleRef.current });
+    redoStackRef.current.push({ nodes: nodesRef.current, preamble: preambleRef.current, ts: prev.ts, label: prev.label });
     undoCoalesceKeyRef.current = null;
     setNodes(prev.nodes);
     setPreamble(prev.preamble);
     markDirty();
     setCanUndo(undoStackRef.current.length > 0);
     setCanRedo(true);
+    setHistoryVersion((v) => v + 1);
   }, [markDirty]);
 
   const redo = useCallback(() => {
     if (redoStackRef.current.length === 0) return;
     const next = redoStackRef.current.pop();
-    undoStackRef.current.push({ nodes: nodesRef.current, preamble: preambleRef.current });
+    undoStackRef.current.push({ nodes: nodesRef.current, preamble: preambleRef.current, ts: next.ts, label: next.label });
     undoCoalesceKeyRef.current = null;
     setNodes(next.nodes);
     setPreamble(next.preamble);
     markDirty();
     setCanRedo(redoStackRef.current.length > 0);
     setCanUndo(true);
+    setHistoryVersion((v) => v + 1);
+  }, [markDirty]);
+
+  // Full chronological reconstruction of this file's undo/redo timeline —
+  // oldest first, with a "current" marker where the live state sits:
+  // [...undoStack (oldest→newest past), CURRENT, ...redoStack reversed
+  // (nearest→farthest future)]. See undoStackRef's own comment for why
+  // storing by reference (rather than deep-cloning) is safe here.
+  const historyEntries = useMemo(() => {
+    const un = undoStackRef.current;
+    const re = redoStackRef.current;
+    const past = un.map((e, i) => ({ kind: "past", index: i, ts: e.ts, label: e.label }));
+    const current = { kind: "current", index: un.length, ts: Date.now(), label: "Current state" };
+    const future = re.slice().reverse().map((e, i) => ({ kind: "future", index: un.length + 1 + i, ts: e.ts, label: e.label }));
+    return [...past, current, ...future].reverse(); // newest first for display
+  }, [historyVersion]);
+
+  // Jumps directly to an arbitrary point on that timeline — equivalent to
+  // calling undo()/redo() repeatedly, just without the intermediate
+  // renders. Moving into the past carries each entry's own ts/label onto
+  // the opposite stack exactly like undo()/redo() do one step at a time,
+  // so the timeline stays reversible either direction afterward.
+  const jumpToHistory = useCallback((targetIndex) => {
+    const un = undoStackRef.current;
+    const re = redoStackRef.current;
+    const curIndex = un.length;
+    if (targetIndex === curIndex) return;
+    let curNodes = nodesRef.current;
+    let curPreamble = preambleRef.current;
+    if (targetIndex < curIndex) {
+      let steps = curIndex - targetIndex;
+      while (steps > 0) {
+        const prev = un.pop();
+        re.push({ nodes: curNodes, preamble: curPreamble, ts: prev.ts, label: prev.label });
+        curNodes = prev.nodes;
+        curPreamble = prev.preamble;
+        steps--;
+      }
+    } else {
+      let steps = targetIndex - curIndex;
+      while (steps > 0) {
+        const next = re.pop();
+        un.push({ nodes: curNodes, preamble: curPreamble, ts: next.ts, label: next.label });
+        curNodes = next.nodes;
+        curPreamble = next.preamble;
+        steps--;
+      }
+    }
+    undoCoalesceKeyRef.current = null;
+    setNodes(curNodes);
+    setPreamble(curPreamble);
+    markDirty();
+    setCanUndo(un.length > 0);
+    setCanRedo(re.length > 0);
+    setHistoryVersion((v) => v + 1);
+    setShowHistoryPanel(false);
   }, [markDirty]);
 
   const foldToLevel = useCallback((level) => {
@@ -8291,11 +8719,12 @@ function App() {
       // returning to the outline reverts the entire raw-text edit at once.
       // (Edits within the session itself rely on the textarea's own native
       // undo, same as any plain text field.)
-      undoStackRef.current.push({ nodes: nodesRef.current, preamble: preambleRef.current });
+      undoStackRef.current.push({ nodes: nodesRef.current, preamble: preambleRef.current, ts: Date.now(), label: ACTION_LABELS["text-mode-edit"] });
       if (undoStackRef.current.length > UNDO_LIMIT) undoStackRef.current.shift();
       redoStackRef.current = [];
       setCanUndo(true);
       setCanRedo(false);
+      setHistoryVersion((v) => v + 1);
       setNodes(result.nodes || []);
       setPreamble(result.preamble || "");
       nodesRef.current = result.nodes || [];
@@ -9026,76 +9455,244 @@ function App() {
   // id, since ids are reassigned fresh on every GET rather than persisted.
   // Returns true if the source file's top-level node list changed (move or
   // delete), so the Journal view knows a refresh is actually needed.
-  const journalNodeAction = useCallback(async (sourceFile, node, mode) => {
-    if (mode === "delete") {
-      try {
-        const sourceDoc = await api.get(docUrl(sourceFile));
-        let removed = false;
-        const remaining = (sourceDoc.nodes || []).filter((n) => {
-          if (!removed && n.title === node.title) { removed = true; return false; }
-          return true;
-        });
-        await api.put(docUrl(sourceFile), { hash: sourceDoc.hash, preamble: sourceDoc.preamble || "", nodes: remaining });
-        showToast(`Deleted "${node.title || "(untitled)"}"`);
-        return true;
-      } catch {
-        showToast("Something went wrong — try again");
-        return false;
-      }
+  // Bulk journal actions — the "Marked For Action" flow (see JournalView).
+  // markedList: [{ file, nodeId, title }], captured when items were
+  // checked. Matching against each file's current content is always by
+  // title (see removeMatchedByTitle), never nodeId — ids are reassigned on
+  // every parse, so this handler's own fresh fetch of a file never has the
+  // same ids the checkboxes were marked with; title is the only thing
+  // still valid by the time this runs. mode is one of "copy"/"move"/"link"
+  // (to today), "delete", or "copyNew"/"moveNew" (to a new file, named via
+  // opts.newFileName).
+  const journalBulkAction = useCallback(async (markedList, mode, opts) => {
+    if (!markedList || markedList.length === 0) return { ok: false };
+    const byFile = new Map();
+    for (const item of markedList) {
+      if (!byFile.has(item.file)) byFile.set(item.file, []);
+      byFile.get(item.file).push(item);
     }
-    if (mode === "link" && node.properties?.TRANSCLUDE) {
-      showToast("Can't link a transclusion — link the original note instead");
-      return false;
-    }
+
     try {
+      if (mode === "delete") {
+        let count = 0;
+        for (const [file, items] of byFile) {
+          const doc = await api.get(docUrl(file));
+          const { remaining, removed } = removeMatchedByTitle(doc.nodes || [], items);
+          if (removed.length === 0) continue;
+          await api.put(docUrl(file), { hash: doc.hash, preamble: doc.preamble || "", nodes: remaining });
+          count += removed.length;
+        }
+        showToast(count > 0 ? `Deleted ${count} ${count === 1 ? "item" : "items"}` : "Nothing to delete");
+        return { ok: count > 0 };
+      }
+
+      if (mode === "copyNew" || mode === "moveNew") {
+        const fileName = opts?.newFileName;
+        if (!fileName) return { ok: false };
+        const clonesByKey = new Map(); // "file::title" -> cloned node
+        let extractedCount = 0;
+        for (const [file, items] of byFile) {
+          const doc = await api.get(docUrl(file));
+          const { remaining, removed } = removeMatchedByTitle(doc.nodes || [], items);
+          if (removed.length === 0) continue;
+          for (const n of removed) clonesByKey.set(file + "::" + n.title, cloneNodeForCopy(n));
+          extractedCount += removed.length;
+          if (mode === "moveNew") {
+            await api.put(docUrl(file), { hash: doc.hash, preamble: doc.preamble || "", nodes: remaining });
+          }
+        }
+        if (extractedCount === 0) { showToast("Nothing to " + (mode === "moveNew" ? "move" : "copy")); return { ok: false }; }
+        // Preserve the order items were marked in, not the per-file grouping order.
+        const newNodes = markedList
+          .map((it) => clonesByKey.get(it.file + "::" + it.title))
+          .filter(Boolean);
+        await api.post("/api/files", { filename: fileName });
+        await api.put(docUrl(fileName), { preamble: "", nodes: newNodes });
+        const verb = mode === "moveNew" ? "Moved" : "Copied";
+        showToast(`${verb} ${extractedCount} ${extractedCount === 1 ? "item" : "items"} to "${fileName}"`);
+        return { ok: true, newFile: fileName };
+      }
+
+      // copy / move / link to today
       const todayInfo = await api.post("/api/journal", {});
       const todayFile = todayInfo.filename;
-      if (todayFile === sourceFile) {
-        showToast("Already in today's journal");
-        return false;
-      }
+      const newTodayNodes = [];
+      let applied = 0, skippedToday = 0, skippedTransclusion = 0;
 
-      let sourceDoc = null;
-      let transcludeRef = null;
-      if (mode === "link") {
-        sourceDoc = await api.get(docUrl(sourceFile));
-        const srcNode = (sourceDoc.nodes || []).find((n) => n.title === node.title);
-        if (!srcNode) { showToast("Couldn't find that entry — it may have changed"); return false; }
-        let transcludeId = srcNode.properties?.TRANSCLUDE_ID;
-        if (!transcludeId) {
-          const result = tree.ensureTranscludeId(sourceDoc.nodes, srcNode.id);
-          const putResult = await api.put(docUrl(sourceFile), { hash: sourceDoc.hash, preamble: sourceDoc.preamble || "", nodes: result.nodes });
-          transcludeId = result.id;
-          sourceDoc = { ...sourceDoc, nodes: result.nodes, hash: putResult.hash };
+      for (const [file, items] of byFile) {
+        if (file === todayFile) { skippedToday += items.length; continue; }
+        const doc = await api.get(docUrl(file));
+        const curNodes = doc.nodes || [];
+        const { remaining, removed } = removeMatchedByTitle(curNodes, items);
+        if (removed.length === 0) continue;
+
+        if (mode === "link") {
+          let workingNodes = curNodes;
+          for (const srcNode of removed) {
+            if (srcNode.properties?.TRANSCLUDE) { skippedTransclusion++; continue; }
+            let transcludeId = srcNode.properties?.TRANSCLUDE_ID;
+            if (!transcludeId) {
+              const r = tree.ensureTranscludeId(workingNodes, srcNode.id);
+              workingNodes = r.nodes;
+              transcludeId = r.id;
+            }
+            newTodayNodes.push({ id: tree.newId(), title: "", body: "", status: "", tags: [], properties: { TRANSCLUDE: tree.formatTranscludeRef(file, transcludeId) }, children: [], collapsed: false });
+            applied++;
+          }
+          if (workingNodes !== curNodes) {
+            await api.put(docUrl(file), { hash: doc.hash, preamble: doc.preamble || "", nodes: workingNodes });
+          }
+        } else {
+          for (const srcNode of removed) { newTodayNodes.push(cloneNodeForCopy(srcNode)); applied++; }
+          if (mode === "move") {
+            await api.put(docUrl(file), { hash: doc.hash, preamble: doc.preamble || "", nodes: remaining });
+          }
         }
-        transcludeRef = tree.formatTranscludeRef(sourceFile, transcludeId);
       }
 
-      const todayDoc = await api.get(docUrl(todayFile));
-      const newTodayNode = mode === "link"
-        ? { id: tree.newId(), title: "", body: "", status: "", tags: [], properties: { TRANSCLUDE: transcludeRef }, children: [], collapsed: false }
-        : cloneJournalNodeForCopy(node);
-      await api.put(docUrl(todayFile), { hash: todayDoc.hash, preamble: todayDoc.preamble || "", nodes: [...(todayDoc.nodes || []), newTodayNode] });
-
-      if (mode === "move") {
-        if (!sourceDoc) sourceDoc = await api.get(docUrl(sourceFile));
-        let removed = false;
-        const remaining = (sourceDoc.nodes || []).filter((n) => {
-          if (!removed && n.title === node.title) { removed = true; return false; }
-          return true;
-        });
-        await api.put(docUrl(sourceFile), { hash: sourceDoc.hash, preamble: sourceDoc.preamble || "", nodes: remaining });
+      if (newTodayNodes.length > 0) {
+        const todayDoc = await api.get(docUrl(todayFile));
+        await api.put(docUrl(todayFile), { hash: todayDoc.hash, preamble: todayDoc.preamble || "", nodes: [...(todayDoc.nodes || []), ...newTodayNodes] });
       }
 
       const verb = mode === "copy" ? "Copied" : mode === "move" ? "Moved" : "Linked";
       const prep = mode === "link" ? "into" : "to";
-      showToast(`${verb} "${node.title || "(untitled)"}" ${prep} today's journal`);
-      return mode === "move";
+      const bits = [];
+      if (applied > 0) bits.push(`${verb} ${applied} ${applied === 1 ? "item" : "items"} ${prep} today's journal`);
+      if (skippedToday > 0) bits.push(`${skippedToday} already in today's journal`);
+      if (skippedTransclusion > 0) bits.push(`${skippedTransclusion} transclusion${skippedTransclusion === 1 ? "" : "s"} skipped`);
+      showToast(bits.length > 0 ? bits.join(" — ") : "Nothing to do");
+      return { ok: applied > 0 };
     } catch {
       showToast("Something went wrong — try again");
-      return false;
+      return { ok: false };
     }
   }, [showToast]);
+
+  // Bulk actions for the outline's own "Marked For Action" (see
+  // markedNodeIds above and MarkedActionMenu). Unlike journalBulkAction,
+  // this works directly against the live nodes tree already in memory —
+  // no re-fetching or title-matching needed, since every marked id is
+  // already valid in nodesRef.current. Delete and Move To New Outline both
+  // mutate that tree, so both go through maybeSnapshotForUndo first,
+  // exactly like any other structural outline edit.
+  const outlineBulkAction = useCallback(async (mode, opts) => {
+    const prunedIds = pruneMarkedDescendants(nodesRef.current || [], markedNodeIds);
+    if (prunedIds.length === 0) return;
+    const prunedNodes = prunedIds.map((id) => tree.findNode(nodesRef.current || [], id)).filter(Boolean);
+    const count = prunedNodes.length;
+    const noun = count === 1 ? "item" : "items";
+
+    if (mode === "delete") {
+      maybeSnapshotForUndo("bulk-delete", null, `${count} ${noun}`);
+      setNodes((p) => {
+        let result = p;
+        for (const id of prunedIds) result = tree.removeNode(result, id);
+        return result;
+      });
+      markDirty();
+      showToast(`Deleted ${count} ${noun}`);
+      setMarkedNodeIds(new Set());
+      setOutlineBulkPanelOpen(false);
+      return;
+    }
+
+    if (mode === "copyNew" || mode === "moveNew") {
+      const fileName = opts?.newFileName;
+      if (!fileName) return;
+      setOutlineBulkBusy(true);
+      try {
+        const cloned = prunedNodes.map(cloneNodeForCopy);
+        await api.post("/api/files", { filename: fileName });
+        await api.put(docUrl(fileName), { preamble: "", nodes: cloned });
+        if (mode === "moveNew") {
+          maybeSnapshotForUndo("bulk-move-new", null, `${count} ${noun}`);
+          setNodes((p) => {
+            let result = p;
+            for (const id of prunedIds) result = tree.removeNode(result, id);
+            return result;
+          });
+          markDirty();
+        }
+        const verb = mode === "moveNew" ? "Moved" : "Copied";
+        showToast(`${verb} ${count} ${noun} to "${fileName}"`);
+        setMarkedNodeIds(new Set());
+      } catch {
+        showToast("Something went wrong — try again");
+      } finally {
+        setOutlineBulkBusy(false);
+        setOutlineBulkPanelOpen(false);
+      }
+      return;
+    }
+
+    if (mode === "copy" || mode === "move" || mode === "link") {
+      setOutlineBulkBusy(true);
+      try {
+        const todayInfo = await api.post("/api/journal", {});
+        const todayFile = todayInfo.filename;
+        if (todayFile === currentFileRef.current) {
+          showToast("Already in today's journal");
+          return;
+        }
+
+        const newTodayNodes = [];
+        let workingNodes = nodesRef.current || [];
+        let liveChanged = false;
+        let skippedTransclusion = 0;
+
+        if (mode === "link") {
+          for (const srcNode of prunedNodes) {
+            if (srcNode.properties?.TRANSCLUDE) { skippedTransclusion++; continue; }
+            let transcludeId = srcNode.properties?.TRANSCLUDE_ID;
+            if (!transcludeId) {
+              const r = tree.ensureTranscludeId(workingNodes, srcNode.id);
+              workingNodes = r.nodes;
+              transcludeId = r.id;
+              liveChanged = true;
+            }
+            newTodayNodes.push({ id: tree.newId(), title: "", body: "", status: "", tags: [], properties: { TRANSCLUDE: tree.formatTranscludeRef(currentFileRef.current, transcludeId) }, children: [], collapsed: false });
+          }
+        } else {
+          for (const srcNode of prunedNodes) newTodayNodes.push(cloneNodeForCopy(srcNode));
+        }
+
+        if (newTodayNodes.length > 0) {
+          const todayDoc = await api.get(docUrl(todayFile));
+          await api.put(docUrl(todayFile), { hash: todayDoc.hash, preamble: todayDoc.preamble || "", nodes: [...(todayDoc.nodes || []), ...newTodayNodes] });
+        }
+
+        if (mode === "move") {
+          maybeSnapshotForUndo("bulk-move-today", null, `${count} ${noun}`);
+          setNodes((p) => {
+            let result = p;
+            for (const id of prunedIds) result = tree.removeNode(result, id);
+            return result;
+          });
+          markDirty();
+        } else if (liveChanged) {
+          // link assigned fresh TRANSCLUDE_IDs to some source nodes — persist that.
+          maybeSnapshotForUndo("bulk-link-today", null, `${count} ${noun}`);
+          setNodes(workingNodes);
+          markDirty();
+        }
+
+        const verb = mode === "copy" ? "Copied" : mode === "move" ? "Moved" : "Linked";
+        const prep = mode === "link" ? "into" : "to";
+        const applied = newTodayNodes.length;
+        const bits = [];
+        if (applied > 0) bits.push(`${verb} ${applied} ${applied === 1 ? "item" : "items"} ${prep} today's journal`);
+        if (skippedTransclusion > 0) bits.push(`${skippedTransclusion} transclusion${skippedTransclusion === 1 ? "" : "s"} skipped`);
+        showToast(bits.length > 0 ? bits.join(" — ") : "Nothing to do");
+        if (applied > 0) setMarkedNodeIds(new Set());
+      } catch {
+        showToast("Something went wrong — try again");
+      } finally {
+        setOutlineBulkBusy(false);
+        setOutlineBulkPanelOpen(false);
+      }
+    }
+  }, [markedNodeIds, maybeSnapshotForUndo, markDirty, showToast]);
 
   // Transclusion — see tree.js's "Transclusion" section for the property
   // scheme. "Copy Reference" assigns the node a permanent TRANSCLUDE_ID
@@ -9874,6 +10471,7 @@ function App() {
                   dateStampFmt=${dateStampFmt} onSetDateStampFmt=${setDateStampFmt}
                   onShowShortcutEditor=${() => setShowShortcutEditor(true)}
                   onShowOutlineActions=${() => setShowOutlineActions(true)}
+                  onShowHistory=${() => setShowHistoryPanel(true)}
                   onShowToolbarCustomizer=${() => setShowToolbarCustomizer(true)}
                   onOpenSettings=${(sec) => { setShowSettings(true); if (sec) setSettingsSection(sec); }}
                   onExportToOrg=${exportToOrg}
@@ -9885,6 +10483,11 @@ function App() {
           focusedId=${focusedId}
           onAction=${outlineAction}
           onClose=${() => setShowOutlineActions(false)} />`}
+      ${showHistoryPanel && html`
+        <${HistoryPanel}
+          entries=${historyEntries}
+          onJump=${jumpToHistory}
+          onClose=${() => setShowHistoryPanel(false)} />`}
       ${nodeMenu && html`
         <${NodeActionMenu}
           x=${nodeMenu.x} y=${nodeMenu.y} nodeId=${nodeMenu.nodeId}
@@ -9899,7 +10502,7 @@ function App() {
           onGoToSource=${goToTranscludeSource} onDetachTransclusion=${detachTranscludeNode}
           onClose=${() => setNodeMenu(null)} />`}
       ${showHelp && html`<${CommandPalette} commands=${buildCommands({
-          undo, redo, canUndo, canRedo,
+          undo, redo, canUndo, canRedo, onShowHistory: () => setShowHistoryPanel(true),
           goBack, goForward, canGoBack, canGoForward,
           toggleTheme, toggleTitleFormatMode, toggleTextMode, cycleViewMode,
           titleFormatMode, textMode,
@@ -10183,7 +10786,9 @@ function App() {
                   globalColor=${globalColor} levelColors=${levelColors}
                   linkifySelectionFromClipboard=${linkifySelectionFromClipboard}
                   writeToClipboard=${writeToClipboard}
-                  showToast=${showToast} />
+                  showToast=${showToast}
+                  markedNodeIds=${markedNodeIds}
+                  onToggleMark=${toggleNodeMark} />
               `)}
               ${!isFiltering && currentFile && html`
                 <${BacklinksSection}
@@ -10192,6 +10797,25 @@ function App() {
                   onNavigate=${loadFile} />
               `}
             </div>
+            ${markedNodeIds.size > 0 && html`
+              <button className="marked-fab" onClick=${() => setOutlineBulkPanelOpen((v) => !v)}>
+                Marked For Action <span className="marked-count">${markedNodeIds.size}</span>
+              </button>
+            `}
+            ${outlineBulkPanelOpen && html`<${MarkedItemsPanel}
+              items=${pruneMarkedDescendants(nodes || [], markedNodeIds).map((id) => ({ key: id, title: tree.findNode(nodes || [], id)?.title || "" }))}
+              busy=${outlineBulkBusy}
+              onToggleItem=${unmarkNode}
+              onAction=${outlineBulkAction}
+              onClear=${() => { setMarkedNodeIds(new Set()); setOutlineBulkPanelOpen(false); }}
+              onClose=${() => setOutlineBulkPanelOpen(false)} />`}
+            ${outlineMarkCollision && html`<${MarkCollisionDialog}
+              existingCount=${markedNodeIds.size}
+              ageLabel=${formatRelativeTime(lastOutlineMarkActivityRef.current)}
+              itemTitle=${outlineMarkCollision.title}
+              onAddExisting=${() => resolveOutlineMarkCollision(false)}
+              onStartNew=${() => resolveOutlineMarkCollision(true)}
+              onCancel=${() => setOutlineMarkCollision(null)} />`}
           </div>
         `}
         ${view === "agenda" && html`
@@ -10229,7 +10853,7 @@ function App() {
                 }}
                 onGoToDate=${goToJournalDate}
                 onNewAppointment=${openApptDialog}
-                onJournalAction=${journalNodeAction}
+                onJournalBulkAction=${journalBulkAction}
                 searchQuery=${searchQuery}
               />
             </div>
@@ -10531,6 +11155,26 @@ function IconRedo() {
     <svg ...${ICON_PROPS} strokeWidth="2.5">
       <path d="M15 14l5-5-5-5" />
       <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+    </svg>
+  `;
+}
+
+function IconHistory() {
+  return html`
+    <svg ...${ICON_PROPS}>
+      <path d="M3 12a9 9 0 1 0 3-6.7" />
+      <path d="M3 4v5h5" />
+      <path d="M12 7v5l4 2" />
+    </svg>
+  `;
+}
+
+function IconMore() {
+  return html`
+    <svg ...${ICON_PROPS} fill="currentColor" stroke="none">
+      <circle cx="5" cy="12" r="1.6" />
+      <circle cx="12" cy="12" r="1.6" />
+      <circle cx="19" cy="12" r="1.6" />
     </svg>
   `;
 }
@@ -13101,7 +13745,7 @@ function OutlineActionsPanel({ onAction, focusedId, onClose }) {
   `;
 }
 
-function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, filterExpanded, setFilterExpanded, rawFindMatches, rawFindIdx, onRawFindNavigate, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat, globalFont, onSetGlobalFont, levelFonts, onSetLevelFont, globalColor, onSetGlobalColor, levelColors, onSetLevelColor, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, onOpenSearchPanel, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer, onExportToOrg, onExportToHtml, onOpenSettings, onOpenQuickSwitcher }) {
+function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, filterExpanded, setFilterExpanded, rawFindMatches, rawFindIdx, onRawFindNavigate, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat, globalFont, onSetGlobalFont, levelFonts, onSetLevelFont, globalColor, onSetGlobalColor, levelColors, onSetLevelColor, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, onOpenSearchPanel, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer, onShowHistory, onExportToOrg, onExportToHtml, onOpenSettings, onOpenQuickSwitcher }) {
   // Whether the toolbar/search/etc. actually fit is measured, not guessed
   // from viewport width — a long filename or a pile of tags eats into the
   // same space a phone-width media query would assume is free. Rather than
@@ -13116,6 +13760,12 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
   // dropped entirely, falling back to just a back-navigation arrow — the
   // floor this was never meant to go below.
   const [stage, setStage] = useState(0);
+  // Whether the second-row overflow strip (see the overflow button near
+  // header-right) is expanded — holds whichever groups `stage` dropped from
+  // the main row. Auto-closes once nothing's dropped anymore (window widened
+  // back out), rather than sitting open and empty.
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  useEffect(() => { if (stage === 0) setOverflowOpen(false); }, [stage]);
   const [openHamburgerSection, setOpenHamburgerSection] = useState(null);
   const headerRef = useRef(null);
   const stageProbeRefs = useRef([]);
@@ -13151,35 +13801,15 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
     return () => ro.disconnect();
   }, []);
 
-  function renderInner(hiddenIds, isProbe) {
+  // The toolbar's own button groups, factored out of renderInner so the
+  // exact same markup can be reused for the overflow row below — called
+  // once with hiddenIds = "everything the width-probe dropped" (the normal
+  // toolbar), and again with hiddenIds inverted (only what got dropped) for
+  // the overflow row, so a given group id is only ever rendered by one of
+  // the two at a time.
+  function renderToolbarGroups(hiddenIds, isProbe) {
     const hide = (id) => hiddenIds.has(id);
-    const showToolbarAndSearch = isProbe || stage <= TOOLBAR_DROP_ORDER.length;
     return html`
-      ${currentFile && html`
-        <div className="header-left-icons">
-          <button className=${"panel-toggle-btn" + (sidebarVisible ? " active" : "")}
-                  onClick=${onToggleSidebar}
-                  title="Toggle sidebar"><${IconSidebar} /></button>
-        </div>
-      `}
-      <div className="header-left">
-        <h1>Epicorg</h1>
-        ${currentFile && html`
-          <button className="file-back-btn" onClick=${onBack} title=${currentFile}>
-            ${pathBasename(currentFile)}
-          </button>
-        `}
-      </div>
-      ${currentFile && !showToolbarAndSearch && html`
-        <div className="header-collapsed-nav">
-          ${canGoBack && html`
-            <button className="view-tab" onClick=${onGoBack} title="Go back (Alt+←)"><${IconNavBack} /></button>
-          `}
-        </div>
-      `}
-      ${currentFile && showToolbarAndSearch && html`
-        <div className="toolbar-and-search">
-        <div className="toolbar">
           ${toolbarConfig.home && !hide("home") && html`
             <div className="view-toggle">
               <button className=${"view-tab" + (homeFile && currentFile === homeFile ? " active" : "") + (!homeFile ? " toolbar-home-unset" : "")}
@@ -13291,6 +13921,10 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
             <div className="view-toggle">
               <button className="view-tab" onClick=${onUndo} disabled=${!canUndo || textMode}
                       title=${textMode ? "Not available in text mode" : "Undo (Ctrl+Z)"}><${IconUndo} /></button>
+              ${toolbarConfig.history && !hide("history") && html`
+                <button className="view-tab" onClick=${onShowHistory} disabled=${textMode}
+                        title=${textMode ? "Not available in text mode" : "Change history — jump to any earlier point"}><${IconHistory} /></button>
+              `}
               <button className="view-tab" onClick=${onRedo} disabled=${!canRedo || textMode}
                       title=${textMode ? "Not available in text mode" : "Redo (Ctrl+Shift+Z)"}><${IconRedo} /></button>
             </div>
@@ -13321,10 +13955,50 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
             </div>
             ${textModeError && html`<span className="text-mode-error" title="Couldn't switch modes — see console">Error</span>`}
           `}
+    `;
+  }
+
+  function renderInner(hiddenIds, isProbe, overflow) {
+    const hide = (id) => hiddenIds.has(id);
+    const showToolbarAndSearch = isProbe || stage <= TOOLBAR_DROP_ORDER.length;
+    return html`
+      ${currentFile && html`
+        <div className="header-left-icons">
+          <button className=${"panel-toggle-btn" + (sidebarVisible ? " active" : "")}
+                  onClick=${onToggleSidebar}
+                  title="Toggle sidebar"><${IconSidebar} /></button>
+        </div>
+      `}
+      <div className="header-left">
+        <h1>Epicorg</h1>
+        ${currentFile && html`
+          <button className="file-back-btn" onClick=${onBack} title=${currentFile}>
+            ${pathBasename(currentFile)}
+          </button>
+        `}
+      </div>
+      ${currentFile && !showToolbarAndSearch && html`
+        <div className="header-collapsed-nav">
+          ${canGoBack && html`
+            <button className="view-tab" onClick=${onGoBack} title="Go back (Alt+←)"><${IconNavBack} /></button>
+          `}
+        </div>
+      `}
+      ${currentFile && showToolbarAndSearch && html`
+        <div className="toolbar-and-search">
+        <div className="toolbar">
+          ${renderToolbarGroups(hiddenIds, isProbe)}
         </div>
         </div>
       `}
       <div className="header-right" ref=${headerRightRef}>
+        ${overflow?.has && html`
+          <button className=${"panel-toggle-btn" + (overflow.open ? " active" : "")}
+                  onClick=${overflow.onToggle}
+                  title=${overflow.open ? "Hide overflow toolbar buttons" : "Show overflow toolbar buttons — some don't fit at this window width"}>
+            <${IconMore} />
+          </button>
+        `}
         ${currentFile && html`
           <div className="header-sync-status">
             <${SyncIndicator} status=${syncStatus}
@@ -13350,12 +14024,27 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
 
   const headerBg = resolveTopBarColor(topBarColor);
   const realHiddenIds = new Set(TOOLBAR_DROP_ORDER.slice(0, Math.min(stage, TOOLBAR_DROP_ORDER.length)));
+  // On screens too narrow to fit every toolbar group, rather than the
+  // dropped ones just vanishing with no way back short of widening the
+  // window, a second row below the header — toggled by the overflow button
+  // in header-right — surfaces exactly the ones `stage` dropped, rendered
+  // via the same renderToolbarGroups used for the main row (inverted
+  // hiddenIds: hide everything that's NOT dropped, so only the dropped
+  // groups show here).
+  const hasOverflow = realHiddenIds.size > 0 && stage <= TOOLBAR_DROP_ORDER.length;
+  const overflowShowIds = new Set(TOOLBAR_DROP_ORDER.filter((id) => !realHiddenIds.has(id)));
   return html`
     <header ref=${headerRef}
             className=${topBarColor ? "header-tinted" : ""}
             style=${headerBg ? { background: headerBg } : {}}>
-      ${renderInner(realHiddenIds, false)}
+      ${renderInner(realHiddenIds, false, { has: hasOverflow, open: overflowOpen, onToggle: () => setOverflowOpen((v) => !v) })}
     </header>
+    ${hasOverflow && overflowOpen && html`
+      <div className=${"toolbar-overflow-row" + (topBarColor ? " tinted" : "")}
+           style=${headerBg ? { background: headerBg } : {}}>
+        ${renderToolbarGroups(overflowShowIds, false)}
+      </div>
+    `}
     ${TOOLBAR_DROP_ORDER.map((_, i) => html`
       <div className="header-probe" key=${i}
            ref=${(el) => { stageProbeRefs.current[i] = el; }} aria-hidden="true">
@@ -13371,7 +14060,7 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
 
 function buildCommands(ctx) {
   const {
-    undo, redo, canUndo, canRedo,
+    undo, redo, canUndo, canRedo, onShowHistory,
     goBack, goForward, canGoBack, canGoForward,
     toggleTheme, toggleTitleFormatMode, toggleTextMode, cycleViewMode,
     titleFormatMode, textMode,
@@ -13441,6 +14130,7 @@ function buildCommands(ctx) {
     // Edit
     { category: "Edit", label: "Undo",                    desc: "Undo last change",               keys: displayCombo(getShortcutCombo("undo")),            action: undo,      disabled: !canUndo },
     { category: "Edit", label: "Redo",                    desc: "Redo last undone change",        keys: displayCombo(getShortcutCombo("redo")),            action: redo,      disabled: !canRedo },
+    { category: "Edit", label: "Change History",          desc: "Browse and restore earlier points in this file's history", keys: "", action: onShowHistory },
     { category: "Edit", label: "Bold selection",          desc: "Wrap selection in *bold*",       keys: displayCombo(getShortcutCombo("bold")),            action: () => applyMarkerToFocused("*") },
     { category: "Edit", label: "Italic selection",        desc: "Wrap selection in /italic/",     keys: displayCombo(getShortcutCombo("italic")),          action: () => applyMarkerToFocused("/") },
     { category: "Edit", label: "Underline selection",     desc: "Wrap selection in _underline_",  keys: displayCombo(getShortcutCombo("underline")),       action: () => applyMarkerToFocused("_") },
