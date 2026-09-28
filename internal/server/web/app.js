@@ -6584,6 +6584,20 @@ function App() {
       return next;
     });
   }, []);
+  // Purely a display toggle (CSS class on .app-shell, see hide-mark-checkboxes
+  // in style.css) — the marked-for-action checkboxes on outline/journal rows
+  // just stop rendering visually; the underlying marked selection is
+  // untouched. For decluttering the outline before presenting/sharing it.
+  const [checkboxesVisible, setCheckboxesVisible] = useState(() => {
+    try { const v = localStorage.getItem("epicorg.checkboxesVisible"); return v === null ? true : v === "1"; } catch { return true; }
+  });
+  const toggleCheckboxesVisible = useCallback(() => {
+    setCheckboxesVisible((p) => {
+      const next = !p;
+      try { localStorage.setItem("epicorg.checkboxesVisible", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  }, []);
   const [toolbarConfig, setToolbarConfig] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(TOOLBAR_CONFIG_KEY) || "{}");
@@ -10416,7 +10430,7 @@ function App() {
   const isBookmarkGlobal = !!focusedBookmarkName && globalNamesForFile.has(focusedBookmarkName);
 
   return html`
-    <div className="app-shell">
+    <div className=${"app-shell" + (!checkboxesVisible ? " hide-mark-checkboxes" : "")}>
       ${headerCollapsed && html`
         <button className="header-collapsed-tab" onClick=${toggleHeaderCollapsed}
                 style=${{ background: resolveTopBarColor(topBarColor) || "var(--panel-bg)", color: resolveTopBarColor(topBarColor) ? "#fff" : "var(--text)" }}
@@ -10438,6 +10452,7 @@ function App() {
                   onCycleViewMode=${cycleViewMode} onSetViewMode=${setViewMode}
                   canUndo=${canUndo} canRedo=${canRedo} onUndo=${undo} onRedo=${redo}
                   notesVisible=${notesVisible} onToggleNotesVisible=${toggleNotesVisible}
+                  checkboxesVisible=${checkboxesVisible} onToggleCheckboxesVisible=${toggleCheckboxesVisible}
                   outlineFormat=${outlineFormat} onSetOutlineFormat=${setOutlineFormat} levelFormats=${levelFormats} onSetLevelFormat=${setLevelFormat}
                   globalFont=${globalFont} onSetGlobalFont=${setGlobalFont} levelFonts=${levelFonts} onSetLevelFont=${setLevelFont}
                   globalColor=${globalColor} onSetGlobalColor=${setGlobalColor} levelColors=${levelColors} onSetLevelColor=${setLevelColor}
@@ -10507,6 +10522,7 @@ function App() {
           toggleTheme, toggleTitleFormatMode, toggleTextMode, cycleViewMode,
           titleFormatMode, textMode,
           toggleNotesVisible, notesVisible,
+          toggleCheckboxesVisible, checkboxesVisible,
           outlineFormat, setOutlineFormat, levelFormats, setLevelFormat, focusedDepth,
           toggleVerticalLines, verticalLines,
           toggleReadingWidth, readingWidth,
@@ -11165,6 +11181,14 @@ function IconHistory() {
       <path d="M3 12a9 9 0 1 0 3-6.7" />
       <path d="M3 4v5h5" />
       <path d="M12 7v5l4 2" />
+    </svg>
+  `;
+}
+
+function IconCheckboxToggle() {
+  return html`
+    <svg ...${ICON_PROPS}>
+      <rect x="4" y="4" width="16" height="16" rx="3" />
     </svg>
   `;
 }
@@ -13745,7 +13769,7 @@ function OutlineActionsPanel({ onAction, focusedId, onClose }) {
   `;
 }
 
-function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, filterExpanded, setFilterExpanded, rawFindMatches, rawFindIdx, onRawFindNavigate, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat, globalFont, onSetGlobalFont, levelFonts, onSetLevelFont, globalColor, onSetGlobalColor, levelColors, onSetLevelColor, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, onOpenSearchPanel, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer, onShowHistory, onExportToOrg, onExportToHtml, onOpenSettings, onOpenQuickSwitcher }) {
+function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, filterExpanded, setFilterExpanded, rawFindMatches, rawFindIdx, onRawFindNavigate, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, checkboxesVisible, onToggleCheckboxesVisible, outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat, globalFont, onSetGlobalFont, levelFonts, onSetLevelFont, globalColor, onSetGlobalColor, levelColors, onSetLevelColor, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, onOpenSearchPanel, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer, onShowHistory, onExportToOrg, onExportToHtml, onOpenSettings, onOpenQuickSwitcher }) {
   // Whether the toolbar/search/etc. actually fit is measured, not guessed
   // from viewport width — a long filename or a pile of tags eats into the
   // same space a phone-width media query would assume is free. Rather than
@@ -13798,7 +13822,14 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
     // Also watch header-right: its button count changes when a file is opened,
     // altering available space without a probe width change.
     if (headerRightRef.current) ro.observe(headerRightRef.current);
-    return () => ro.disconnect();
+    // Belt-and-suspenders: a plain window resize listener alongside the
+    // ResizeObserver. Chromium fires the observer reliably on its own, but
+    // this has been reported missing the collapse (and the overflow button
+    // meant to compensate for it) on at least one other engine — cheap
+    // insurance against whatever's different there, not a fix for a known
+    // cause.
+    window.addEventListener("resize", check);
+    return () => { ro.disconnect(); window.removeEventListener("resize", check); };
   }, []);
 
   // The toolbar's own button groups, factored out of renderInner so the
@@ -13952,6 +13983,11 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
                           : "Plain mode — click for formatted titles"}>
                 <${IconModeReveal} />
               </button>
+              <button className=${"view-tab" + (!checkboxesVisible ? " active" : "")}
+                      onClick=${onToggleCheckboxesVisible}
+                      title=${checkboxesVisible ? "Hide mark checkboxes — declutter for presenting" : "Show mark checkboxes"}>
+                <${IconCheckboxToggle} />
+              </button>
             </div>
             ${textModeError && html`<span className="text-mode-error" title="Couldn't switch modes — see console">Error</span>`}
           `}
@@ -14065,6 +14101,7 @@ function buildCommands(ctx) {
     toggleTheme, toggleTitleFormatMode, toggleTextMode, cycleViewMode,
     titleFormatMode, textMode,
     toggleNotesVisible, notesVisible,
+    toggleCheckboxesVisible, checkboxesVisible,
     outlineFormat, setOutlineFormat, levelFormats, setLevelFormat, focusedDepth,
     toggleVerticalLines, verticalLines,
     toggleReadingWidth, readingWidth,
@@ -14105,6 +14142,7 @@ function buildCommands(ctx) {
     { category: "View", label: "Toggle Level Selection Panel", desc: levelPanelVisible ? "Hide the floating fold-level bar" : "Show the floating fold-level bar", keys: "", action: toggleLevelPanel },
     { category: "View", label: "Toggle Detail Panel",      desc: "Show/hide the detail pane",      keys: "",              action: () => {} }, // wired below
     { category: "View", label: "Toggle Notes",             desc: notesVisible ? "Hide inline notes" : "Show inline notes", keys: "", action: toggleNotesVisible },
+    { category: "View", label: "Toggle Mark Checkboxes",  desc: checkboxesVisible ? "Hide mark checkboxes (declutter for presenting)" : "Show mark checkboxes", keys: "", action: toggleCheckboxesVisible },
     { category: "View", label: "Toggle Reading Width",     desc: readingWidth ? "Full width" : "Comfortable reading width", keys: "", action: toggleReadingWidth },
     { category: "View", label: "Toggle Vertical Lines",    desc: verticalLines ? "Hide indent guides" : "Show indent guides", keys: "", action: toggleVerticalLines },
     { category: "View", label: "Global: Bullets",           desc: "Set all outline levels to bullet style (globally)",          keys: "", action: () => setOutlineFormat("bullets") },

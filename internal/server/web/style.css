@@ -1323,6 +1323,7 @@ header h1 {
 .toolbar-overflow-row {
   display: flex;
   align-items: center;
+  justify-content: center;
   flex-wrap: wrap;
   gap: 8px;
   padding: 6px 0 12px;
@@ -3913,6 +3914,14 @@ body.dnd-dragging, body.dnd-dragging * { cursor: move !important; user-select: n
   height: 14px;
   cursor: pointer;
   accent-color: var(--accent);
+}
+
+/* Declutter toggle (see the checkboxesVisible button next to the mode
+   toggle) — purely visual: the underlying marked selection is untouched,
+   these just stop rendering while presenting/sharing the outline. */
+.hide-mark-checkboxes .node-mark-cb,
+.hide-mark-checkboxes .journal-node-mark-cb {
+  display: none;
 }
 
 .node-tag-chip {
