@@ -4018,7 +4018,12 @@ body.dnd-dragging, body.dnd-dragging * { cursor: move !important; user-select: n
 .node-mark-cb {
   flex-shrink: 0;
   margin-right: 8px;
-  align-self: center;
+  /* Row-start aligned (the .node-row default), not centered — a centered
+     checkbox drifts into the middle of a multi-line wrapped title instead
+     of staying pinned next to the bullet on the first line. margin-top
+     centers it within that first line's own height (28px, matching
+     .node-handle/.bullet's own box), same as a single-line row. */
+  margin-top: 7px;
   width: 14px;
   height: 14px;
   cursor: pointer;
@@ -6551,11 +6556,26 @@ a.org-file-link {
   color: var(--text);
 }
 
+/* Actions-then-list, in that DOM order, with no layout-specific markup of
+   its own — .marked-items-body just switches flex-direction so the SAME
+   order reads as "actions on top, list below" (narrow — see the comment on
+   .marked-items-panel's width) or "actions on the left, list on the right"
+   (wide, via the min-width media query below). Actions go first so they're
+   never pushed below the fold by a long checklist. */
+.marked-items-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .marked-items-list {
   flex: 1;
   min-height: 80px;
   overflow-y: auto;
   padding: 6px 0;
+  border-top: 1px solid var(--border);
 }
 
 .marked-items-row {
@@ -6579,11 +6599,32 @@ a.org-file-link {
 }
 
 .marked-items-actions {
-  border-top: 1px solid var(--border);
   padding: 6px 0;
   flex-shrink: 0;
   max-height: 42vh;
   overflow-y: auto;
+}
+
+/* Wide viewport — enough room for a real two-column layout instead of a
+   tall single column, so the panel widens and .marked-items-body becomes a
+   row: actions in a fixed-width left column, the checklist filling the
+   rest on the right. Both keep their own independent scrollbar. */
+@media (min-width: 760px) {
+  .marked-items-panel {
+    width: 720px;
+  }
+  .marked-items-body {
+    flex-direction: row;
+  }
+  .marked-items-actions {
+    flex: 0 0 220px;
+    max-height: none;
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+  }
+  .marked-items-list {
+    border-top: none;
+  }
 }
 
 /* Change History panel — same modal shell as .marked-items-panel (shares

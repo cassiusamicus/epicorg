@@ -3840,14 +3840,7 @@ function MarkedItemsPanel({ items, busy, onToggleItem, onAction, onClear, onClos
           <span className="marked-items-title">Marked For Action (${count})</span>
           <button className="folder-picker-close" onClick=${onClose}>×</button>
         </div>
-        <div className="marked-items-list">
-          ${items.map((it) => html`
-            <label key=${it.key} className="marked-items-row">
-              <input type="checkbox" checked=${true} onChange=${() => onToggleItem(it.key)} />
-              <span dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(it.title || "(untitled)") }} />
-            </label>
-          `)}
-        </div>
+        <div className="marked-items-body">
         <div className="marked-items-actions">
           ${namingMode ? html`
             <div className="bulk-name-form">
@@ -3887,6 +3880,15 @@ function MarkedItemsPanel({ items, busy, onToggleItem, onAction, onClear, onClos
             <div className="note-ctx-sep" />
             <button className="note-ctx-item" disabled=${busy} onClick=${onClear}>Clear Marked Items</button>
           `}
+        </div>
+        <div className="marked-items-list">
+          ${items.map((it) => html`
+            <label key=${it.key} className="marked-items-row">
+              <input type="checkbox" checked=${true} onChange=${() => onToggleItem(it.key)} />
+              <span dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(it.title || "(untitled)") }} />
+            </label>
+          `)}
+        </div>
         </div>
       </div>
     </div>
@@ -8703,9 +8705,13 @@ function App() {
       const data = await api.get("/api/files");
       setFiles(data.files || []);
       setShowQuickSwitcher(false);
-      loadFileRef.current?.(filename);
+      if (activePane === "second" && secondPaneRef.current) {
+        secondPaneRef.current.loadFile(filename);
+      } else {
+        loadFileRef.current?.(filename);
+      }
     } catch {}
-  }, []);
+  }, [activePane]);
 
   // Navigate to a note when a wiki-link is clicked in any body preview.
   // Uses the existing loadFileRef (declared later, kept in sync there) — the closure
@@ -11241,11 +11247,16 @@ function App() {
         setNodes((prev) => tree.uncollapseToNode(prev, node.id));
         focusNode(node.id);
       }
+    } else if (activePane === "second" && secondPaneRef.current) {
+      // The second pane has no equivalent of pendingGlobalBookmarkRef's
+      // jump-after-load — it opens the right file, just not yet scrolled
+      // to the bookmarked node within it.
+      secondPaneRef.current.loadFile(bm.file);
     } else {
       pendingGlobalBookmarkRef.current = bm.name;
       loadFile(bm.file);
     }
-  }, [focusNode, loadFile]);
+  }, [focusNode, loadFile, activePane]);
 
   const deleteGlobalBookmark = useCallback((name) => {
     saveGlobalBookmarks(globalBookmarksRef.current.filter((b) => b.name !== name));
@@ -11804,7 +11815,7 @@ function App() {
         <${QuickSwitcher}
           entries=${wikiEntries}
           currentFile=${currentFile}
-          onSelect=${(file) => { setShowQuickSwitcher(false); loadFile(file); }}
+          onSelect=${(file) => { setShowQuickSwitcher(false); openFileIntoActivePane(file); }}
           onCreate=${createAndLoadNote}
           onCancel=${() => setShowQuickSwitcher(false)} />
       `}
@@ -11825,7 +11836,15 @@ function App() {
             bookmarkPanelVisible=${bookmarkPanelVisible} onToggleBookmarkPanel=${toggleBookmarkPanel}
             textMode=${textMode} onToggleSidebar=${toggleSidebar}
             onOpenTodayJournal=${async () => {
-              try { const d = await api.post("/api/journal", {}); loadFile(d.filename); setView("outline"); } catch {}
+              try {
+                const d = await api.post("/api/journal", {});
+                if (activePane === "second" && secondPaneRef.current) {
+                  secondPaneRef.current.loadFile(d.filename);
+                } else {
+                  loadFile(d.filename);
+                  setView("outline");
+                }
+              } catch {}
             }}
             onOpenJournalList=${() => setView("journal")}
             onRenameFile=${handleRenameFile}
