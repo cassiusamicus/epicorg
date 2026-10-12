@@ -3,6 +3,7 @@ import { createRoot } from "https://esm.sh/react-dom@18/client";
 import htm from "https://esm.sh/htm@3";
 import * as tree from "./tree.js";
 import { generateExportHtml, generateMarkdown, parseMdToNodes, generateRevealHtml, REVEAL_THEMES, REVEAL_THEME_INFO, REVEAL_TRANSITIONS, REVEAL_SETTINGS_DEFAULTS } from "./export.js";
+import { pruneMarkedDescendants, removeMatchedByTitle, cloneNodeForCopy } from "./bulk.js";
 
 const html = htm.bind(React.createElement);
 
@@ -3713,66 +3714,6 @@ function AgendaView({ nodes, currentFile, onSelect, onEditNode, searchQuery, sel
   `;
 }
 
-// Filters a marked-id set down to only the "outermost" marked nodes — if
-// both a node and one of its own descendants are marked, only the
-// ancestor's id survives, since a bulk action on it already carries the
-// whole marked subtree along (mirrors how a single node's own Delete/Copy
-// already includes its children). Used by the outline's own "Marked For
-// Action" (see App's markedNodeIds) — the journal has no nesting to prune,
-// so it doesn't need this.
-function pruneMarkedDescendants(nodesList, markedIds) {
-  const result = [];
-  function walk(list, ancestorMarked) {
-    for (const n of list) {
-      const isMarked = markedIds.has(n.id);
-      if (isMarked && !ancestorMarked) result.push(n.id);
-      if (n.children?.length > 0) walk(n.children, ancestorMarked || isMarked);
-    }
-  }
-  walk(nodesList, false);
-  return result;
-}
-
-// Splits nodesList into { remaining, removed } based on items ([{title}]),
-// matching the first N occurrences of each title where N is how many times
-// that title appears in items — so two different marked items that happen
-// to share a title each still remove one occurrence, not zero or both.
-// Shared by every bulk journal action that needs to pull matched nodes out
-// of a file (delete, move, move/copy to a new outline).
-function removeMatchedByTitle(nodesList, items) {
-  const counts = new Map();
-  for (const it of items) counts.set(it.title, (counts.get(it.title) || 0) + 1);
-  const remaining = [];
-  const removed = [];
-  for (const n of nodesList) {
-    const c = counts.get(n.title) || 0;
-    if (c > 0) { counts.set(n.title, c - 1); removed.push(n); }
-    else remaining.push(n);
-  }
-  return { remaining, removed };
-}
-
-// Deep-clones a node for any "Copy"-flavored bulk/journal action — fresh
-// ids throughout (so the duplicate never collides with the original) and
-// TRANSCLUDE_ID stripped (a duplicate must not claim to be the same
-// transclusion source as the node it was copied from; TRANSCLUDE itself,
-// a pointer *to* another source, is left as-is — copying the pointer is
-// exactly what "copy" should do for a transcluding node).
-function cloneNodeForCopy(node) {
-  const properties = { ...(node.properties || {}) };
-  delete properties.TRANSCLUDE_ID;
-  return {
-    id: tree.newId(),
-    title: node.title || "",
-    body: node.body || "",
-    status: node.status || "",
-    priority: node.priority || "",
-    tags: [...(node.tags || [])],
-    properties,
-    children: (node.children || []).map(cloneNodeForCopy),
-    collapsed: false,
-  };
-}
 
 // Small popup for a single journal entry's "⋯" button — lets a past or
 // future entry be pulled into today's journal without leaving the Journal
