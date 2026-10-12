@@ -1564,6 +1564,13 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
         ${verticalLines
           ? Array.from({ length: depth }, (_, i) => html`<span key=${i} className="indent-guide" />`)
           : html`<span style=${{ width: depth * 24, flexShrink: 0 }} />`}
+        ${onToggleMark && html`
+          <input type="checkbox" className="node-mark-cb"
+                 title="Mark for action"
+                 checked=${markedNodeIds?.has(node.id)}
+                 onClick=${(e) => e.stopPropagation()}
+                 onChange=${() => onToggleMark(node.id)} />
+        `}
         ${transclusion && html`
           <span className=${"transclusion-badge" + (transclusion.status !== "resolved" ? " transclusion-badge-warn" : "")}
                 title=${TRANSCLUSION_BADGE_TITLES[transclusion.status] || ""}
@@ -1786,13 +1793,6 @@ function OutlineNode({ node, focusedId, dispatch, inputRefs, depth, titleFormatM
             ${node.tags.map((t) => html`<span key=${t} className="node-tag-chip"
               onClick=${(e) => { e.stopPropagation(); onSearchTag?.(t); }}>${t}</span>`)}
           </span>
-        `}
-        ${onToggleMark && html`
-          <input type="checkbox" className="node-mark-cb"
-                 title="Mark for action"
-                 checked=${markedNodeIds?.has(node.id)}
-                 onClick=${(e) => e.stopPropagation()}
-                 onChange=${() => onToggleMark(node.id)} />
         `}
       </div>
       <${NodeBody}
@@ -2947,13 +2947,74 @@ const TODO_SORT_OPTIONS = [
 
 const TODO_STATUS_FILTERS = ["TODO", "NEXT", "URGENT", "WAITING"];
 
-function TodoView({ nodes, currentFile, onSelect, searchQuery, selectedTags }) {
+function TodoView({ nodes, currentFile, onSelect, searchQuery, selectedTags, onBulkAction, showOtherPaneActions }) {
   const [sortBy, setSortBy] = useState("priority");
   const [statusFilter, setStatusFilter] = useState(new Set());
   const [priorityFilter, setPriorityFilter] = useState(new Set());
   const [allFiles, setAllFiles] = useState(false);
   const [allFileItems, setAllFileItems] = useState(null); // null=not fetched, []+=fetched
   const [allFilesLoading, setAllFilesLoading] = useState(false);
+
+  // "Marked For Action" — same pattern as JournalView/crossFileBulkAction:
+  // items here can come from a different file than currentFile (external
+  // items fetched via /api/todos), so marking keys and bulk-action matching
+  // are both by "file::title", never by id (null for external items, and
+  // ephemeral even for local ones across refetches).
+  const [markedItems, setMarkedItems] = useState(() => new Map());
+  const lastMarkActivityRef = useRef(0);
+  const [markCollision, setMarkCollision] = useState(null); // null | { file, title }
+  const [bulkPanelOpen, setBulkPanelOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  const toggleMark = useCallback((file, title) => {
+    const key = file + "::" + title;
+    if (markedItems.has(key)) {
+      const next = new Map(markedItems);
+      next.delete(key);
+      setMarkedItems(next);
+      lastMarkActivityRef.current = Date.now();
+      return;
+    }
+    if (markedItems.size > 0 && Date.now() - lastMarkActivityRef.current > MARK_COLLISION_IDLE_MS) {
+      setMarkCollision({ file, title });
+      return;
+    }
+    const next = new Map(markedItems);
+    next.set(key, { file, title });
+    setMarkedItems(next);
+    lastMarkActivityRef.current = Date.now();
+  }, [markedItems]);
+  const resolveMarkCollision = useCallback((startNew) => {
+    if (!markCollision) return;
+    const { file, title } = markCollision;
+    const key = file + "::" + title;
+    const base = startNew ? new Map() : markedItems;
+    const next = new Map(base);
+    next.set(key, { file, title });
+    setMarkedItems(next);
+    lastMarkActivityRef.current = Date.now();
+    setMarkCollision(null);
+  }, [markCollision, markedItems]);
+  const unmarkByKey = useCallback((key) => {
+    setMarkedItems((prev) => { const next = new Map(prev); next.delete(key); return next; });
+    lastMarkActivityRef.current = Date.now();
+  }, []);
+
+  const runBulkAction = useCallback(async (mode, opts) => {
+    if (!onBulkAction || markedItems.size === 0) return;
+    setBulkBusy(true);
+    const result = await onBulkAction([...markedItems.values()], mode, opts);
+    setBulkBusy(false);
+    setBulkPanelOpen(false);
+    if (result?.ok) {
+      setMarkedItems(new Map());
+      if (allFiles) {
+        setAllFilesLoading(true);
+        try { setAllFileItems((await api.get("/api/todos")).items || []); } catch { setAllFileItems([]); }
+        setAllFilesLoading(false);
+      }
+    }
+  }, [markedItems, onBulkAction, allFiles]);
 
   const toggleStatus = (s) => setStatusFilter((prev) => {
     const next = new Set(prev); next.has(s) ? next.delete(s) : next.add(s); return next;
@@ -3069,6 +3130,12 @@ function TodoView({ nodes, currentFile, onSelect, searchQuery, selectedTags }) {
       ` : items.map((item, i) => html`
         <div className="todo-item" key=${item.id || ("ext-" + i)}
              onClick=${() => item.id ? onSelect(item.id) : onSelect({ file: item.file, title: item.title, id: null })}>
+          ${onBulkAction && html`
+            <input type="checkbox" className="node-mark-cb" title="Mark for action"
+                   checked=${markedItems.has((item.file || currentFile) + "::" + item.title)}
+                   onClick=${(e) => e.stopPropagation()}
+                   onChange=${() => toggleMark(item.file || currentFile, item.title)} />
+          `}
           <span className=${"todo-item-priority" + (item.priority ? " priority-badge priority-" + item.priority : " priority-badge priority-none")}>
             ${item.priority || ""}
           </span>
@@ -3091,6 +3158,26 @@ function TodoView({ nodes, currentFile, onSelect, searchQuery, selectedTags }) {
           `}
         </div>
       `)}
+      ${markedItems.size > 0 && html`
+        <button className="marked-fab" onClick=${() => setBulkPanelOpen((v) => !v)}>
+          Marked For Action <span className="marked-count">${markedItems.size}</span>
+        </button>
+      `}
+      ${bulkPanelOpen && html`<${MarkedItemsPanel}
+        items=${[...markedItems.entries()].map(([key, v]) => ({ key, title: v.title }))}
+        busy=${bulkBusy}
+        onToggleItem=${unmarkByKey}
+        onAction=${runBulkAction}
+        showOtherPaneActions=${showOtherPaneActions}
+        onClear=${() => { setMarkedItems(new Map()); setBulkPanelOpen(false); }}
+        onClose=${() => setBulkPanelOpen(false)} />`}
+      ${markCollision && html`<${MarkCollisionDialog}
+        existingCount=${markedItems.size}
+        ageLabel=${formatRelativeTime(lastMarkActivityRef.current)}
+        itemTitle=${markCollision.title}
+        onAddExisting=${() => resolveMarkCollision(false)}
+        onStartNew=${() => resolveMarkCollision(true)}
+        onCancel=${() => setMarkCollision(null)} />`}
     </div>
   `;
 }
@@ -3354,18 +3441,76 @@ function AgendaScheduleEditor({ item, currentNode, onUpdateCurrent, onClose, onI
   `;
 }
 
-function AgendaView({ nodes, currentFile, onSelect, onEditNode, searchQuery, selectedTags, onGoToDate, onNewAppointment }) {
+function AgendaView({ nodes, currentFile, onSelect, onEditNode, searchQuery, selectedTags, onGoToDate, onNewAppointment, onBulkAction, showOtherPaneActions }) {
   const [apiItems, setApiItems] = useState(null); // null=loading
   const [sortDesc, setSortDesc] = useState(true); // true = newest/future first
   const [dateFilter, setDateFilter] = useState("all"); // "all" | "future" | "past"
   const [openEditKey, setOpenEditKey] = useState(null); // key of item whose editor is open
   const [hiddenExternalKeys, setHiddenExternalKeys] = useState(() => new Set());
 
-  useEffect(() => {
-    api.get("/api/agenda")
+  const refreshAgendaItems = useCallback(() => {
+    return api.get("/api/agenda")
       .then((data) => setApiItems(data.items || []))
       .catch(() => setApiItems([]));
   }, []);
+
+  useEffect(() => { refreshAgendaItems(); }, [refreshAgendaItems]);
+
+  // "Marked For Action" — same pattern as TodoView/crossFileBulkAction:
+  // items can come from a different file than currentFile, so marking
+  // keys and bulk-action matching are both by "file::title", never by id
+  // (null for external items).
+  const [markedItems, setMarkedItems] = useState(() => new Map());
+  const lastMarkActivityRef = useRef(0);
+  const [markCollision, setMarkCollision] = useState(null); // null | { file, title }
+  const [bulkPanelOpen, setBulkPanelOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  const toggleMark = useCallback((file, title) => {
+    const key = file + "::" + title;
+    if (markedItems.has(key)) {
+      const next = new Map(markedItems);
+      next.delete(key);
+      setMarkedItems(next);
+      lastMarkActivityRef.current = Date.now();
+      return;
+    }
+    if (markedItems.size > 0 && Date.now() - lastMarkActivityRef.current > MARK_COLLISION_IDLE_MS) {
+      setMarkCollision({ file, title });
+      return;
+    }
+    const next = new Map(markedItems);
+    next.set(key, { file, title });
+    setMarkedItems(next);
+    lastMarkActivityRef.current = Date.now();
+  }, [markedItems]);
+  const resolveMarkCollision = useCallback((startNew) => {
+    if (!markCollision) return;
+    const { file, title } = markCollision;
+    const key = file + "::" + title;
+    const base = startNew ? new Map() : markedItems;
+    const next = new Map(base);
+    next.set(key, { file, title });
+    setMarkedItems(next);
+    lastMarkActivityRef.current = Date.now();
+    setMarkCollision(null);
+  }, [markCollision, markedItems]);
+  const unmarkByKey = useCallback((key) => {
+    setMarkedItems((prev) => { const next = new Map(prev); next.delete(key); return next; });
+    lastMarkActivityRef.current = Date.now();
+  }, []);
+
+  const runBulkAction = useCallback(async (mode, opts) => {
+    if (!onBulkAction || markedItems.size === 0) return;
+    setBulkBusy(true);
+    const result = await onBulkAction([...markedItems.values()], mode, opts);
+    setBulkBusy(false);
+    setBulkPanelOpen(false);
+    if (result?.ok) {
+      setMarkedItems(new Map());
+      await refreshAgendaItems();
+    }
+  }, [markedItems, onBulkAction, refreshAgendaItems]);
 
   const cycleFilter = useCallback(() => {
     setDateFilter((f) => DATE_FILTERS[(DATE_FILTERS.indexOf(f) + 1) % DATE_FILTERS.length]);
@@ -3428,7 +3573,22 @@ function AgendaView({ nodes, currentFile, onSelect, onEditNode, searchQuery, sel
   });
 
   if (items.length === 0 && apiItems !== null) {
-    return html`<div className="agenda-empty">${isFiltering || dateFilter !== "all" ? "No matches" : "No items scheduled or with deadlines"}</div>`;
+    return html`
+      <div className="agenda-view">
+        <div className="agenda-empty">${isFiltering || dateFilter !== "all" ? "No matches" : "No items scheduled or with deadlines"}</div>
+        ${markedItems.size > 0 && html`
+          <button className="marked-fab" onClick=${() => setBulkPanelOpen((v) => !v)}>
+            Marked For Action <span className="marked-count">${markedItems.size}</span>
+          </button>
+        `}
+        ${bulkPanelOpen && html`<${MarkedItemsPanel}
+          items=${[...markedItems.entries()].map(([key, v]) => ({ key, title: v.title }))}
+          busy=${bulkBusy} onToggleItem=${unmarkByKey} onAction=${runBulkAction}
+          showOtherPaneActions=${showOtherPaneActions}
+          onClear=${() => { setMarkedItems(new Map()); setBulkPanelOpen(false); }}
+          onClose=${() => setBulkPanelOpen(false)} />`}
+      </div>
+    `;
   }
 
   const groups = [];
@@ -3488,6 +3648,12 @@ function AgendaView({ nodes, currentFile, onSelect, onEditNode, searchQuery, sel
               <div className=${"agenda-item-wrapper" + (isEditing ? " editing" : "")} key=${editKey}>
                 <div className="agenda-item" onClick=${() => !isEditing && onSelect(item)}>
                   <div className="agenda-item-top">
+                    ${onBulkAction && html`
+                      <input type="checkbox" className="node-mark-cb" title="Mark for action"
+                             checked=${markedItems.has((item.file || currentFile) + "::" + item.title)}
+                             onClick=${(e) => e.stopPropagation()}
+                             onChange=${() => toggleMark(item.file || currentFile, item.title)} />
+                    `}
                     ${item.time && html`<span className="agenda-item-time">${item.time}</span>`}
                     <span className="agenda-item-title"
                           dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(item.title || "Untitled") }} />
@@ -3523,6 +3689,26 @@ function AgendaView({ nodes, currentFile, onSelect, onEditNode, searchQuery, sel
           })}
         </div>
       `)}
+      ${markedItems.size > 0 && html`
+        <button className="marked-fab" onClick=${() => setBulkPanelOpen((v) => !v)}>
+          Marked For Action <span className="marked-count">${markedItems.size}</span>
+        </button>
+      `}
+      ${bulkPanelOpen && html`<${MarkedItemsPanel}
+        items=${[...markedItems.entries()].map(([key, v]) => ({ key, title: v.title }))}
+        busy=${bulkBusy}
+        onToggleItem=${unmarkByKey}
+        onAction=${runBulkAction}
+        showOtherPaneActions=${showOtherPaneActions}
+        onClear=${() => { setMarkedItems(new Map()); setBulkPanelOpen(false); }}
+        onClose=${() => setBulkPanelOpen(false)} />`}
+      ${markCollision && html`<${MarkCollisionDialog}
+        existingCount=${markedItems.size}
+        ageLabel=${formatRelativeTime(lastMarkActivityRef.current)}
+        itemTitle=${markCollision.title}
+        onAddExisting=${() => resolveMarkCollision(false)}
+        onStartNew=${() => resolveMarkCollision(true)}
+        onCancel=${() => setMarkCollision(null)} />`}
     </div>
   `;
 }
@@ -3680,7 +3866,7 @@ function MarkCollisionDialog({ existingCount, ageLabel, itemTitle, onAddExisting
   `;
 }
 
-function MarkedItemsPanel({ items, busy, onToggleItem, onAction, onClear, onClose }) {
+function MarkedItemsPanel({ items, busy, onToggleItem, onAction, onClear, onClose, showOtherPaneActions }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [namingMode, setNamingMode] = useState(null); // "copyNew" | "moveNew" | null
   const [fileName, setFileName] = useState("");
@@ -3747,6 +3933,11 @@ function MarkedItemsPanel({ items, busy, onToggleItem, onAction, onClear, onClos
             <button className="note-ctx-item" disabled=${busy} onClick=${() => onAction("copy")}>Copy To Today</button>
             <button className="note-ctx-item" disabled=${busy} onClick=${() => onAction("move")}>Move To Today</button>
             <button className="note-ctx-item" disabled=${busy} onClick=${() => onAction("link")}>Link To Today</button>
+            ${showOtherPaneActions && html`
+              <div className="note-ctx-sep" />
+              <button className="note-ctx-item" disabled=${busy} onClick=${() => onAction("copyOtherPane")}>Copy To Other Pane</button>
+              <button className="note-ctx-item" disabled=${busy} onClick=${() => onAction("moveOtherPane")}>Move To Other Pane</button>
+            `}
             <div className="note-ctx-sep" />
             <button className="note-ctx-item" disabled=${busy} onClick=${() => setNamingMode("copyNew")}>Copy To New Outline…</button>
             <button className="note-ctx-item" disabled=${busy} onClick=${() => setNamingMode("moveNew")}>Move To New Outline…</button>
@@ -3760,6 +3951,812 @@ function MarkedItemsPanel({ items, busy, onToggleItem, onAction, onClear, onClos
     </div>
   `;
 }
+
+// A second, independent outline pane alongside the primary one — see App's
+// secondPaneOpen/activePane/secondPaneRef. Deliberately a reduced feature
+// set relative to the primary pane for this first version: no hoist, no
+// tag/bookmarks panel, no text mode, no transclusion authoring, no detail
+// pane. What IS here: core tree editing (type, new sibling, delete,
+// duplicate, paste, indent/outdent, move up/down, split/join, convert
+// note↔node, status/priority cycle, collapse/expand), undo/redo + History,
+// autosave with the same conflict-merge safety net as the primary,
+// word-filtering, fold-to-level, and mark-for-action bulk actions
+// including Copy/Move To Other Pane.
+const SecondOutlinePane = forwardRef(function SecondOutlinePane({
+  isActive, onActivate, onClose, showToast, onTransferToPrimary,
+  files, onCreateFile, onRenameFile, onDeleteFile, onChangeHomeFolder,
+  titleFormatMode, outlineFormat, levelFormats, globalFont, levelFonts, globalColor, levelColors,
+  verticalLines, showTagChips, tagsOnRight, checkboxesVisible,
+}, ref) {
+  const [currentFile, setCurrentFile] = useState(null);
+  const [nodes, setNodes] = useState(null);
+  const [preamble, setPreamble] = useState("");
+  const [hash, setHash] = useState("");
+  const [syncStatus, setSyncStatus] = useState(SYNC_SAVED);
+  const [showFilePicker, setShowFilePicker] = useState(false);
+
+  const nodesRef = useRef(null);
+  const preambleRef = useRef("");
+  const hashRef = useRef("");
+  const currentFileRef = useRef(null);
+  const dirtyRef = useRef(false);
+  useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+  useEffect(() => { preambleRef.current = preamble; }, [preamble]);
+  useEffect(() => { hashRef.current = hash; }, [hash]);
+  useEffect(() => { currentFileRef.current = currentFile; }, [currentFile]);
+
+  const markDirty = useCallback(() => { dirtyRef.current = true; setSyncStatus(SYNC_DIRTY); }, []);
+
+  const paneRootRef = useRef(null);
+
+  // --- focus ---
+  const [focusedId, setFocusedId] = useState(null);
+  const [bodyEditingId, setBodyEditingId] = useState(null);
+  const [bodyPreviewId, setBodyPreviewId] = useState(null);
+  const inputRefs = useRef({});
+  const bodyRefs = useRef({});
+  const pendingFocusRef = useRef(null);
+  const pendingCursorPosRef = useRef(null);
+
+  const focusNode = useCallback((id) => { setFocusedId(id); pendingFocusRef.current = id; }, []);
+
+  // Focus effect — scoped to this pane's own root (not `document` globally)
+  // since node ids are only unique WITHIN one file's parse; a different
+  // file open in the other pane can easily reuse the same id strings.
+  useEffect(() => {
+    const id = pendingFocusRef.current;
+    if (id !== null) {
+      pendingFocusRef.current = null;
+      requestAnimationFrame(() => {
+        const el = inputRefs.current[id];
+        if (el) {
+          el.focus();
+          if (el.setSelectionRange) {
+            const pos = pendingCursorPosRef.current !== null ? pendingCursorPosRef.current : (el.value?.length || 0);
+            pendingCursorPosRef.current = null;
+            el.selectionStart = el.selectionEnd = pos;
+          }
+          const row = paneRootRef.current?.querySelector(`.node-row[data-node-id="${id}"]`);
+          (row || el).scrollIntoView({ block: "nearest" });
+        }
+      });
+    }
+  });
+
+  // --- undo/redo + history (same design as the primary pane's — see its
+  // own comments on historyEntries/jumpToHistory for the full rationale) ---
+  const undoStackRef = useRef([]);
+  const redoStackRef = useRef([]);
+  const undoCoalesceKeyRef = useRef(null);
+  const undoCoalesceTimerRef = useRef(null);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  const [historyVersion, setHistoryVersion] = useState(0);
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+
+  const clearUndoHistory = useCallback(() => {
+    undoStackRef.current = [];
+    redoStackRef.current = [];
+    undoCoalesceKeyRef.current = null;
+    clearTimeout(undoCoalesceTimerRef.current);
+    setCanUndo(false);
+    setCanRedo(false);
+    setHistoryVersion((v) => v + 1);
+  }, []);
+
+  const maybeSnapshotForUndo = useCallback((action, nodeId, detail) => {
+    if (!UNDOABLE_ACTIONS.has(action)) return;
+    const coalesces = COALESCE_UNDO_ACTIONS.has(action);
+    const key = nodeId + ":" + action;
+    if (coalesces && undoCoalesceKeyRef.current === key) {
+      clearTimeout(undoCoalesceTimerRef.current);
+      undoCoalesceTimerRef.current = setTimeout(() => { undoCoalesceKeyRef.current = null; }, UNDO_COALESCE_MS);
+      return;
+    }
+    const label = describeUndoEntry(action, nodeId, nodesRef.current, detail);
+    undoStackRef.current.push({ nodes: nodesRef.current, preamble: preambleRef.current, ts: Date.now(), label });
+    if (undoStackRef.current.length > UNDO_LIMIT) undoStackRef.current.shift();
+    redoStackRef.current = [];
+    setCanUndo(true);
+    setCanRedo(false);
+    setHistoryVersion((v) => v + 1);
+    if (coalesces) {
+      undoCoalesceKeyRef.current = key;
+      clearTimeout(undoCoalesceTimerRef.current);
+      undoCoalesceTimerRef.current = setTimeout(() => { undoCoalesceKeyRef.current = null; }, UNDO_COALESCE_MS);
+    } else {
+      undoCoalesceKeyRef.current = null;
+    }
+  }, []);
+
+  const undo = useCallback(() => {
+    if (undoStackRef.current.length === 0) return;
+    const prev = undoStackRef.current.pop();
+    redoStackRef.current.push({ nodes: nodesRef.current, preamble: preambleRef.current, ts: prev.ts, label: prev.label });
+    undoCoalesceKeyRef.current = null;
+    setNodes(prev.nodes);
+    setPreamble(prev.preamble);
+    markDirty();
+    setCanUndo(undoStackRef.current.length > 0);
+    setCanRedo(true);
+    setHistoryVersion((v) => v + 1);
+  }, [markDirty]);
+
+  const redo = useCallback(() => {
+    if (redoStackRef.current.length === 0) return;
+    const next = redoStackRef.current.pop();
+    undoStackRef.current.push({ nodes: nodesRef.current, preamble: preambleRef.current, ts: next.ts, label: next.label });
+    undoCoalesceKeyRef.current = null;
+    setNodes(next.nodes);
+    setPreamble(next.preamble);
+    markDirty();
+    setCanRedo(redoStackRef.current.length > 0);
+    setCanUndo(true);
+    setHistoryVersion((v) => v + 1);
+  }, [markDirty]);
+
+  const historyEntries = useMemo(() => {
+    const un = undoStackRef.current;
+    const re = redoStackRef.current;
+    const past = un.map((e, i) => ({ kind: "past", index: i, ts: e.ts, label: e.label }));
+    const current = { kind: "current", index: un.length, ts: Date.now(), label: "Current state" };
+    const future = re.slice().reverse().map((e, i) => ({ kind: "future", index: un.length + 1 + i, ts: e.ts, label: e.label }));
+    return [...past, current, ...future].reverse();
+  }, [historyVersion]);
+
+  const jumpToHistory = useCallback((targetIndex) => {
+    const un = undoStackRef.current;
+    const re = redoStackRef.current;
+    const curIndex = un.length;
+    if (targetIndex === curIndex) return;
+    let curNodes = nodesRef.current;
+    let curPreamble = preambleRef.current;
+    if (targetIndex < curIndex) {
+      let steps = curIndex - targetIndex;
+      while (steps > 0) {
+        const prev = un.pop();
+        re.push({ nodes: curNodes, preamble: curPreamble, ts: prev.ts, label: prev.label });
+        curNodes = prev.nodes;
+        curPreamble = prev.preamble;
+        steps--;
+      }
+    } else {
+      let steps = targetIndex - curIndex;
+      while (steps > 0) {
+        const next = re.pop();
+        un.push({ nodes: curNodes, preamble: curPreamble, ts: next.ts, label: next.label });
+        curNodes = next.nodes;
+        curPreamble = next.preamble;
+        steps--;
+      }
+    }
+    setNodes(curNodes);
+    setPreamble(curPreamble);
+    markDirty();
+    setCanUndo(un.length > 0);
+    setCanRedo(re.length > 0);
+    setHistoryVersion((v) => v + 1);
+    setShowHistoryPanel(false);
+  }, [markDirty]);
+
+  // --- load file ---
+  const loadFileLocal = useCallback(async (name) => {
+    const data = await api.get(docUrl(name));
+    setCurrentFile(name);
+    setNodes(data.nodes || []);
+    setPreamble(data.preamble || "");
+    setHash(data.hash || "");
+    dirtyRef.current = false;
+    clearUndoHistory();
+    setSyncStatus(SYNC_SAVED);
+    setMarkedNodeIds(new Set());
+    setSearchQuery("");
+    const flat = tree.flattenVisible(data.nodes || []);
+    if (flat.length > 0) focusNode(flat[0].id); else setFocusedId(null);
+  }, [focusNode, clearUndoHistory]);
+
+  // --- autosave + external-change probe (same conflict-merge safety net
+  // as the primary pane's) ---
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const file = currentFileRef.current;
+      if (!file || !nodesRef.current) return;
+      if (!dirtyRef.current) {
+        try {
+          const probe = await api.get(hashUrl(file));
+          if (probe.hash && probe.hash !== hashRef.current) {
+            const data = await api.get(docUrl(file));
+            setNodes(data.nodes || []);
+            setPreamble(data.preamble || "");
+            setHash(data.hash || "");
+            hashRef.current = data.hash || "";
+            clearUndoHistory();
+            setSyncStatus(SYNC_RELOADED);
+          }
+        } catch {}
+        return;
+      }
+      dirtyRef.current = false;
+      setSyncStatus(SYNC_SAVING);
+      try {
+        const result = await api.put(docUrl(file), { hash: hashRef.current, preamble: preambleRef.current, nodes: nodesRef.current });
+        setHash(result.hash);
+        hashRef.current = result.hash;
+        if (result.externalChange) {
+          setNodes(result.nodes || []);
+          setPreamble(result.preamble || "");
+          clearUndoHistory();
+          setSyncStatus(result.conflict ? SYNC_CONFLICT : SYNC_MERGED);
+        } else {
+          setSyncStatus(SYNC_SAVED);
+        }
+      } catch {
+        dirtyRef.current = true;
+        setSyncStatus(SYNC_ERROR);
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [clearUndoHistory]);
+
+  // --- word filter (no tag filtering in this pane yet) ---
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterExpanded, setFilterExpanded] = useState(false);
+
+  // --- node clipboard (independent from the primary pane's) ---
+  const [nodeClipboard, setNodeClipboard] = useState(null);
+  const [pendingJoinConfirm, setPendingJoinConfirm] = useState(null);
+
+  // --- dispatch (reduced action set — see this component's own header
+  // comment for exactly what's included vs. deferred) ---
+  const dispatch = useCallback((nodeId, action, value) => {
+    maybeSnapshotForUndo(action, nodeId);
+
+    const flat = tree.flattenVisible(nodesRef.current || []);
+    const idx = flat.findIndex((n) => n.id === nodeId);
+
+    if (action === "focus") { setFocusedId(nodeId); return; }
+    if (action === "release-focus") { setFocusedId(null); return; }
+    if (action === "edit-title") {
+      if (typeof value === "number") pendingCursorPosRef.current = value;
+      focusNode(nodeId);
+      return;
+    }
+    if (action === "preview-body") { setBodyPreviewId(nodeId); return; }
+    if (action === "edit-body") {
+      setBodyPreviewId(null);
+      setBodyEditingId(nodeId);
+      pendingFocusRef.current = null;
+      const pos = typeof value === "number" ? value : null;
+      requestAnimationFrame(() => {
+        const el = bodyRefs.current[nodeId];
+        if (!el) return;
+        el.focus();
+        if (pos !== null) el.selectionStart = el.selectionEnd = pos;
+      });
+      return;
+    }
+    if (action === "stop-edit-body") { setBodyEditingId((prev) => (prev === nodeId ? null : prev)); return; }
+    if (action === "focus-outline") {
+      setBodyEditingId((prev) => (prev === nodeId ? null : prev));
+      setFocusedId(nodeId);
+      requestAnimationFrame(() => {
+        const el = inputRefs.current[nodeId];
+        if (el) { el.focus(); if (el.setSelectionRange) el.selectionStart = el.selectionEnd = el.value?.length || 0; }
+      });
+      return;
+    }
+    if (action === "focus-body") {
+      pendingFocusRef.current = null;
+      setBodyEditingId(nodeId);
+      requestAnimationFrame(() => { bodyRefs.current[nodeId]?.focus(); });
+      return;
+    }
+    if (action === "nav-up" && idx > 0) { focusNode(flat[idx - 1].id); return; }
+    if (action === "nav-down" && idx < flat.length - 1) { focusNode(flat[idx + 1].id); return; }
+    if (action === "nav-left" && idx > 0) {
+      pendingCursorPosRef.current = (flat[idx - 1].title || "").length;
+      focusNode(flat[idx - 1].id);
+      return;
+    }
+    if (action === "nav-right" && idx < flat.length - 1) {
+      pendingCursorPosRef.current = 0;
+      focusNode(flat[idx + 1].id);
+      return;
+    }
+
+    if (nodeId === "preamble") return; // No detail pane in this pane yet.
+
+    if (action === "change") { setNodes((p) => tree.updateNodeField(p, nodeId, "title", value)); markDirty(); return; }
+    if (action === "change-body") { setNodes((p) => tree.updateNodeField(p, nodeId, "body", value)); markDirty(); return; }
+    if (action === "set-status") { setNodes((p) => tree.updateNodeField(p, nodeId, "status", value)); markDirty(); return; }
+    if (action === "set-priority") { setNodes((p) => tree.updateNodeField(p, nodeId, "priority", value)); markDirty(); return; }
+    if (action === "cycle-status") {
+      setNodes((p) => {
+        const node = tree.findNode(p, nodeId);
+        return node ? tree.updateNodeField(p, nodeId, "status", tree.nextStatus(node.status)) : p;
+      });
+      markDirty(); return;
+    }
+    if (action === "toggle") {
+      setNodes((p) => {
+        const node = tree.findNode(p, nodeId);
+        return node ? tree.updateNodeField(p, nodeId, "collapsed", !node.collapsed) : p;
+      });
+      markDirty(); return;
+    }
+    if (action === "new-sibling") {
+      setSearchQuery("");
+      setNodes((p) => {
+        const { nodes: updated, newId } = tree.insertSiblingAfter(p, nodeId);
+        requestAnimationFrame(() => focusNode(newId));
+        return updated;
+      });
+      markDirty(); return;
+    }
+    if (action === "new-sibling-before") {
+      setSearchQuery("");
+      setNodes((p) => tree.insertSiblingBefore(p, nodeId).nodes);
+      markDirty(); return;
+    }
+    if (action === "delete") {
+      const prevId = idx > 0 ? flat[idx - 1]?.id : null;
+      setNodes((p) => tree.removeNode(p, nodeId));
+      if (prevId) focusNode(prevId);
+      markDirty(); return;
+    }
+    if (action === "duplicate") {
+      setNodes((p) => {
+        const { nodes: updated, newId } = tree.duplicateNode(p, nodeId);
+        requestAnimationFrame(() => focusNode(newId));
+        return updated;
+      });
+      markDirty(); return;
+    }
+    if (action === "paste-node") {
+      const clip = value;
+      if (!clip) return;
+      setNodes((p) => {
+        const { nodes: updated, newId } = tree.pasteNodeAfter(p, nodeId, clip);
+        requestAnimationFrame(() => focusNode(newId));
+        return updated;
+      });
+      markDirty(); return;
+    }
+    if (action === "indent") { setNodes((p) => tree.indentNode(p, nodeId)); focusNode(nodeId); markDirty(); return; }
+    if (action === "outdent") { setNodes((p) => tree.outdentNode(p, nodeId)); focusNode(nodeId); markDirty(); return; }
+    if (action === "move-up") { setNodes((p) => tree.moveNodeUp(p, nodeId)); focusNode(nodeId); markDirty(); return; }
+    if (action === "move-down") { setNodes((p) => tree.moveNodeDown(p, nodeId)); focusNode(nodeId); markDirty(); return; }
+    if (action === "indent-only") { setNodes((p) => tree.indentNodeOnly(p, nodeId)); focusNode(nodeId); markDirty(); return; }
+    if (action === "outdent-only") { setNodes((p) => tree.outdentNodeOnly(p, nodeId)); focusNode(nodeId); markDirty(); return; }
+    if (action === "move-up-only") { setNodes((p) => tree.moveNodeUpOnly(p, nodeId)); focusNode(nodeId); markDirty(); return; }
+    if (action === "move-down-only") { setNodes((p) => tree.moveNodeDownOnly(p, nodeId)); focusNode(nodeId); markDirty(); return; }
+    if (action === "split-at-cursor") {
+      const pos = typeof value === "number" ? value : 0;
+      setNodes((p) => {
+        const { nodes: updated, newId } = tree.splitNode(p, nodeId, pos);
+        requestAnimationFrame(() => focusNode(newId));
+        return updated;
+      });
+      markDirty(); return;
+    }
+    if (action === "join-with-next") {
+      const curNode = flat[idx];
+      pendingCursorPosRef.current = curNode ? (curNode.title || "").length : 0;
+      setNodes((p) => tree.joinNodes(p, nodeId).nodes);
+      focusNode(nodeId);
+      markDirty(); return;
+    }
+    if (action === "join-with-previous") {
+      const force = value === true;
+      setNodes((p) => {
+        const result = tree.joinWithPrevious(p, nodeId, force);
+        if (!result.ok) { showToast("No prior node to join into"); return p; }
+        if (result.needsConfirm) { setPendingJoinConfirm({ nodeId, ...result }); return p; }
+        pendingCursorPosRef.current = result.cursorPos;
+        focusNode(result.prevId);
+        markDirty();
+        return result.nodes;
+      });
+      return;
+    }
+    if (action === "split-body-at-cursor") {
+      const pos = typeof value === "number" ? value : 0;
+      setNodes((p) => {
+        const { nodes: updated, newId } = tree.splitBodyAtCursor(p, nodeId, pos);
+        setBodyPreviewId(null);
+        setBodyEditingId(newId);
+        setFocusedId(newId);
+        requestAnimationFrame(() => {
+          const el = bodyRefs.current[newId];
+          if (el) { el.focus(); el.selectionStart = el.selectionEnd = 0; }
+        });
+        return updated;
+      });
+      markDirty(); return;
+    }
+    if (action === "convert-note-to-node") {
+      setNodes((p) => {
+        const { nodes: updated, newId } = tree.convertNoteToNode(p, nodeId);
+        if (newId) {
+          setBodyEditingId((prev) => (prev === nodeId ? null : prev));
+          setBodyPreviewId(null);
+          focusNode(newId);
+        }
+        return updated;
+      });
+      markDirty(); return;
+    }
+    if (action === "convert-node-to-note") {
+      let succeeded = false;
+      setNodes((p) => {
+        const result = tree.convertNodeToNote(p, nodeId);
+        if (!result.ok) {
+          showToast(result.reason === "has-children" ? "Can't convert — this node has children" : "No prior node to convert into");
+          return p;
+        }
+        succeeded = true;
+        focusNode(result.priorId);
+        return result.nodes;
+      });
+      if (succeeded) markDirty();
+      return;
+    }
+  }, [maybeSnapshotForUndo, markDirty, focusNode, showToast]);
+
+  const confirmJoinWithPrevious = useCallback(() => {
+    if (!pendingJoinConfirm) return;
+    const { nodeId } = pendingJoinConfirm;
+    setPendingJoinConfirm(null);
+    dispatch(nodeId, "join-with-previous", true);
+  }, [pendingJoinConfirm, dispatch]);
+
+  // --- mark-for-action (same design as the primary pane's) ---
+  const [markedNodeIds, setMarkedNodeIds] = useState(() => new Set());
+  const lastMarkActivityRef = useRef(0);
+  const [markCollision, setMarkCollision] = useState(null);
+  const [outlineBulkPanelOpen, setOutlineBulkPanelOpen] = useState(false);
+  const [outlineBulkBusy, setOutlineBulkBusy] = useState(false);
+
+  const toggleNodeMark = useCallback((nodeId) => {
+    if (markedNodeIds.has(nodeId)) {
+      const next = new Set(markedNodeIds);
+      next.delete(nodeId);
+      setMarkedNodeIds(next);
+      lastMarkActivityRef.current = Date.now();
+      return;
+    }
+    if (markedNodeIds.size > 0 && Date.now() - lastMarkActivityRef.current > MARK_COLLISION_IDLE_MS) {
+      const title = tree.findNode(nodesRef.current || [], nodeId)?.title || "";
+      setMarkCollision({ nodeId, title });
+      return;
+    }
+    const next = new Set(markedNodeIds);
+    next.add(nodeId);
+    setMarkedNodeIds(next);
+    lastMarkActivityRef.current = Date.now();
+  }, [markedNodeIds]);
+
+  const resolveMarkCollision = useCallback((startNew) => {
+    if (!markCollision) return;
+    const base = startNew ? new Set() : markedNodeIds;
+    const next = new Set(base);
+    next.add(markCollision.nodeId);
+    setMarkedNodeIds(next);
+    lastMarkActivityRef.current = Date.now();
+    setMarkCollision(null);
+  }, [markCollision, markedNodeIds]);
+
+  const unmarkNode = useCallback((nodeId) => {
+    setMarkedNodeIds((prev) => { const next = new Set(prev); next.delete(nodeId); return next; });
+    lastMarkActivityRef.current = Date.now();
+  }, []);
+
+  const outlineBulkAction = useCallback(async (mode, opts) => {
+    const prunedIds = pruneMarkedDescendants(nodesRef.current || [], markedNodeIds);
+    if (prunedIds.length === 0) return;
+    const prunedNodes = prunedIds.map((id) => tree.findNode(nodesRef.current || [], id)).filter(Boolean);
+    const count = prunedNodes.length;
+    const noun = count === 1 ? "item" : "items";
+
+    if (mode === "delete") {
+      maybeSnapshotForUndo("bulk-delete", null, `${count} ${noun}`);
+      setNodes((p) => { let result = p; for (const id of prunedIds) result = tree.removeNode(result, id); return result; });
+      markDirty();
+      showToast(`Deleted ${count} ${noun}`);
+      setMarkedNodeIds(new Set());
+      setOutlineBulkPanelOpen(false);
+      return;
+    }
+
+    if (mode === "copyOtherPane" || mode === "moveOtherPane") {
+      const cloned = prunedNodes.map(cloneNodeForCopy);
+      const applied = onTransferToPrimary ? onTransferToPrimary(cloned) : 0;
+      if (applied > 0 && mode === "moveOtherPane") {
+        maybeSnapshotForUndo("bulk-move-pane", null, `${count} ${noun}`);
+        setNodes((p) => { let result = p; for (const id of prunedIds) result = tree.removeNode(result, id); return result; });
+        markDirty();
+      }
+      const verb = mode === "moveOtherPane" ? "Moved" : "Copied";
+      showToast(`${verb} ${applied} ${applied === 1 ? "item" : "items"} to the other pane`);
+      if (applied > 0) setMarkedNodeIds(new Set());
+      setOutlineBulkPanelOpen(false);
+      return;
+    }
+
+    if (mode === "copyNew" || mode === "moveNew") {
+      const fileName = opts?.newFileName;
+      if (!fileName) return;
+      setOutlineBulkBusy(true);
+      try {
+        const cloned = prunedNodes.map(cloneNodeForCopy);
+        await api.post("/api/files", { filename: fileName });
+        await api.put(docUrl(fileName), { preamble: "", nodes: cloned });
+        if (mode === "moveNew") {
+          maybeSnapshotForUndo("bulk-move-new", null, `${count} ${noun}`);
+          setNodes((p) => { let result = p; for (const id of prunedIds) result = tree.removeNode(result, id); return result; });
+          markDirty();
+        }
+        const verb = mode === "moveNew" ? "Moved" : "Copied";
+        showToast(`${verb} ${count} ${noun} to "${fileName}"`);
+        setMarkedNodeIds(new Set());
+      } catch {
+        showToast("Something went wrong — try again");
+      } finally {
+        setOutlineBulkBusy(false);
+        setOutlineBulkPanelOpen(false);
+      }
+      return;
+    }
+
+    if (mode === "copy" || mode === "move" || mode === "link") {
+      setOutlineBulkBusy(true);
+      try {
+        const todayInfo = await api.post("/api/journal", {});
+        const todayFile = todayInfo.filename;
+        if (todayFile === currentFileRef.current) { showToast("Already in today's journal"); setOutlineBulkBusy(false); setOutlineBulkPanelOpen(false); return; }
+
+        const newTodayNodes = [];
+        let workingNodes = nodesRef.current || [];
+        let liveChanged = false;
+        let skippedTransclusion = 0;
+
+        if (mode === "link") {
+          for (const srcNode of prunedNodes) {
+            if (srcNode.properties?.TRANSCLUDE) { skippedTransclusion++; continue; }
+            let transcludeId = srcNode.properties?.TRANSCLUDE_ID;
+            if (!transcludeId) {
+              const r = tree.ensureTranscludeId(workingNodes, srcNode.id);
+              workingNodes = r.nodes;
+              transcludeId = r.id;
+              liveChanged = true;
+            }
+            newTodayNodes.push({ id: tree.newId(), title: "", body: "", status: "", tags: [], properties: { TRANSCLUDE: tree.formatTranscludeRef(currentFileRef.current, transcludeId) }, children: [], collapsed: false });
+          }
+        } else {
+          for (const srcNode of prunedNodes) newTodayNodes.push(cloneNodeForCopy(srcNode));
+        }
+
+        if (newTodayNodes.length > 0) {
+          const todayDoc = await api.get(docUrl(todayFile));
+          await api.put(docUrl(todayFile), { hash: todayDoc.hash, preamble: todayDoc.preamble || "", nodes: [...(todayDoc.nodes || []), ...newTodayNodes] });
+        }
+
+        if (mode === "move") {
+          maybeSnapshotForUndo("bulk-move-today", null, `${count} ${noun}`);
+          setNodes((p) => { let result = p; for (const id of prunedIds) result = tree.removeNode(result, id); return result; });
+          markDirty();
+        } else if (liveChanged) {
+          maybeSnapshotForUndo("bulk-link-today", null, `${count} ${noun}`);
+          setNodes(workingNodes);
+          markDirty();
+        }
+
+        const verb = mode === "copy" ? "Copied" : mode === "move" ? "Moved" : "Linked";
+        const prep = mode === "link" ? "into" : "to";
+        const applied = newTodayNodes.length;
+        const bits = [];
+        if (applied > 0) bits.push(`${verb} ${applied} ${applied === 1 ? "item" : "items"} ${prep} today's journal`);
+        if (skippedTransclusion > 0) bits.push(`${skippedTransclusion} transclusion${skippedTransclusion === 1 ? "" : "s"} skipped`);
+        showToast(bits.length > 0 ? bits.join(" — ") : "Nothing to do");
+        if (applied > 0) setMarkedNodeIds(new Set());
+      } catch {
+        showToast("Something went wrong — try again");
+      } finally {
+        setOutlineBulkBusy(false);
+        setOutlineBulkPanelOpen(false);
+      }
+    }
+  }, [markedNodeIds, maybeSnapshotForUndo, markDirty, showToast, onTransferToPrimary]);
+
+  // --- imperative handle: how the PRIMARY pane sends a Copy/Move To Other
+  // Pane transfer INTO this one (the reverse direction, this pane sending
+  // to the primary, goes through the onTransferToPrimary prop instead,
+  // since the primary's nodes/dispatch live directly in App, not behind a
+  // ref) ---
+  useImperativeHandle(ref, () => ({
+    receiveTransfer(clonedNodes) {
+      if (!clonedNodes || clonedNodes.length === 0 || !currentFileRef.current) return 0;
+      const count = clonedNodes.length;
+      const insertAfterId = focusedId && focusedId !== "preamble" ? focusedId : null;
+      maybeSnapshotForUndo("bulk-receive-pane", null, `${count} ${count === 1 ? "item" : "items"}`);
+      setNodes((p) => tree.insertNodesAfter(p, insertAfterId, clonedNodes));
+      markDirty();
+      showToast(`Received ${count} ${count === 1 ? "item" : "items"} from the other pane`);
+      return count;
+    },
+    // Lets App route the sidebar's recent/favorite file list to whichever
+    // pane is currently active, instead of always the primary.
+    loadFile(name) {
+      loadFileLocal(name);
+    },
+  }), [focusedId, maybeSnapshotForUndo, markDirty, showToast, loadFileLocal]);
+
+  // --- node clipboard + per-node menu actions ---
+  const cutNode = useCallback(async (nodeId) => {
+    const node = tree.findNode(nodesRef.current || [], nodeId);
+    if (!node) return;
+    setNodeClipboard(node);
+    const ok = await writeToClipboard(null, tree.treeToPlainText([node]));
+    if (ok) showToast("Cut to clipboard");
+    dispatch(nodeId, "delete");
+  }, [dispatch, showToast]);
+
+  const copyNode = useCallback(async (nodeId) => {
+    const node = tree.findNode(nodesRef.current || [], nodeId);
+    if (!node) return;
+    setNodeClipboard(node);
+    const ok = await writeToClipboard(null, tree.treeToPlainText([node]));
+    if (ok) showToast("Copied to clipboard");
+  }, [showToast]);
+
+  const pasteNode = useCallback((nodeId) => {
+    if (!nodeClipboard) return;
+    dispatch(nodeId, "paste-node", nodeClipboard);
+  }, [dispatch, nodeClipboard]);
+
+  const cleanNodeText = useCallback((nodeId) => {
+    const node = tree.findNode(nodesRef.current || [], nodeId);
+    if (!node) return;
+    dispatch(nodeId, "change", cleanUpText(node.title || ""));
+    if (node.body) dispatch(nodeId, "change-body", cleanUpText(node.body));
+  }, [dispatch]);
+
+  const copyNodeAsFormatted = useCallback(async (nodeId) => {
+    const node = tree.findNode(nodesRef.current || [], nodeId);
+    if (!node) return;
+    const htmlFull = `<!DOCTYPE html><html><body>${tree.treeToHtml([node])}</body></html>`;
+    const ok = await writeToClipboard(htmlFull, tree.treeToPlainText([node]));
+    if (ok) showToast("Copied as formatted text");
+  }, [showToast]);
+
+  const [nodeMenu, setNodeMenu] = useState(null); // { nodeId, x, y }
+
+  const foldToLevel = useCallback((level) => {
+    setNodes((prev) => prev ? tree.foldToLevel(prev, level) : prev);
+    markDirty();
+  }, [markDirty]);
+
+  const isFiltering = !!searchQuery;
+  const displayNodes = useMemo(
+    () => isFiltering && nodes ? tree.filterTree(nodes, searchQuery, [], true) : nodes,
+    [nodes, searchQuery, isFiltering]
+  );
+
+  if (!currentFile) {
+    return html`
+      <div ref=${paneRootRef} className=${"outline-pane second-pane second-pane-empty" + (isActive ? " pane-active" : "")}
+           onMouseDown=${onActivate}>
+        <div className="second-pane-header">
+          <span className="second-pane-filename">No file open</span>
+          <button className="second-pane-close" onClick=${onClose} title="Close this pane">×</button>
+        </div>
+        <div className="second-pane-placeholder">
+          <button className="file-delete-confirm-btn" onClick=${() => setShowFilePicker(true)}>Open File…</button>
+        </div>
+        ${showFilePicker && html`<${FilePicker} files=${files}
+          onSelect=${(name) => { setShowFilePicker(false); loadFileLocal(name); }}
+          onCreate=${onCreateFile} onRename=${onRenameFile} onDelete=${onDeleteFile}
+          onClose=${() => setShowFilePicker(false)} onChangeHomeFolder=${onChangeHomeFolder} />`}
+      </div>
+    `;
+  }
+
+  return html`
+    <div ref=${paneRootRef} className=${"outline-pane second-pane" + (isActive ? " pane-active" : "")}
+         onMouseDown=${onActivate}>
+      <div className="second-pane-header">
+        <span className="second-pane-filename" title=${currentFile}>${pathBasename(currentFile)}</span>
+        <button className="second-pane-header-btn" onClick=${() => setShowFilePicker(true)} title="Open a different file in this pane">Open…</button>
+        <button className="second-pane-close" onClick=${onClose} title="Close this pane">×</button>
+      </div>
+      <div className="second-pane-toolbar">
+        <div className="view-toggle">
+          ${FOLD_LEVELS.map((lvl) => html`
+            <button key=${lvl} className="view-tab" onClick=${() => foldToLevel(lvl)} title=${"Fold or expand to show level " + lvl}>${lvl}</button>
+          `)}
+          <button className="view-tab" onClick=${() => foldToLevel(9)} title="Expand all levels">∞</button>
+        </div>
+        <div className=${"search-box" + ((filterExpanded || searchQuery) ? " search-box-expanded" : "")}>
+          ${(filterExpanded || searchQuery) ? html`
+            <input type="text" className="search-input" placeholder="Filter headings…" autoFocus=${true}
+                   value=${searchQuery} onChange=${(e) => setSearchQuery(e.target.value)}
+                   onBlur=${() => { if (!searchQuery) setFilterExpanded(false); }}
+                   onKeyDown=${(e) => { if (e.key === "Escape") { e.preventDefault(); setSearchQuery(""); setFilterExpanded(false); e.target.blur(); } }} />
+            ${searchQuery && html`<button className="search-clear" onClick=${() => { setSearchQuery(""); setFilterExpanded(false); }} title="Clear (Esc)">×</button>`}
+          ` : html`
+            <div className="view-toggle">
+              <button className="view-tab" title="Filter headings" onClick=${() => setFilterExpanded(true)}><${IconFilter} /></button>
+            </div>
+          `}
+        </div>
+        <div className="view-toggle">
+          <button className="view-tab" onClick=${undo} disabled=${!canUndo} title="Undo"><${IconUndo} /></button>
+          <button className="view-tab" onClick=${() => setShowHistoryPanel(true)} title="Change history"><${IconHistory} /></button>
+          <button className="view-tab" onClick=${redo} disabled=${!canRedo} title="Redo"><${IconRedo} /></button>
+        </div>
+      </div>
+      <div className="second-pane-content outline-content">
+        ${(displayNodes || []).map((node, i) => html`
+          <${OutlineNode} key=${node.id} node=${node} depth=${0} siblingIndex=${i}
+            focusedId=${focusedId} dispatch=${dispatch} inputRefs=${inputRefs}
+            titleFormatMode=${titleFormatMode} notesVisible=${true}
+            outlineFormat=${outlineFormat} levelFormats=${levelFormats}
+            verticalLines=${verticalLines} showTagChips=${showTagChips} tagsOnRight=${tagsOnRight}
+            onSearchTag=${null}
+            bodyEditingId=${bodyEditingId} bodyPreviewId=${bodyPreviewId} bodyRefs=${bodyRefs}
+            onNodeHandleMouseDown=${(id, e) => setNodeMenu({ nodeId: id, x: e.clientX, y: e.clientY })}
+            onNodeHandleMenu=${(id, x, y) => setNodeMenu({ nodeId: id, x, y })}
+            nodeMenuOpenId=${nodeMenu?.nodeId}
+            globalFont=${globalFont} levelFonts=${levelFonts} globalColor=${globalColor} levelColors=${levelColors}
+            linkifySelectionFromClipboard=${null} writeToClipboard=${writeToClipboard} showToast=${showToast}
+            markedNodeIds=${checkboxesVisible ? markedNodeIds : null} onToggleMark=${checkboxesVisible ? toggleNodeMark : null} />
+        `)}
+      </div>
+      ${markedNodeIds.size > 0 && html`
+        <button className="marked-fab" onClick=${() => setOutlineBulkPanelOpen((v) => !v)}>
+          Marked For Action <span className="marked-count">${markedNodeIds.size}</span>
+        </button>
+      `}
+      ${outlineBulkPanelOpen && html`<${MarkedItemsPanel}
+        items=${pruneMarkedDescendants(nodes || [], markedNodeIds).map((id) => ({ key: id, title: tree.findNode(nodes || [], id)?.title || "" }))}
+        busy=${outlineBulkBusy} onToggleItem=${unmarkNode} onAction=${outlineBulkAction}
+        showOtherPaneActions=${true}
+        onClear=${() => { setMarkedNodeIds(new Set()); setOutlineBulkPanelOpen(false); }}
+        onClose=${() => setOutlineBulkPanelOpen(false)} />`}
+      ${markCollision && html`<${MarkCollisionDialog}
+        existingCount=${markedNodeIds.size} ageLabel=${formatRelativeTime(lastMarkActivityRef.current)}
+        itemTitle=${markCollision.title}
+        onAddExisting=${() => resolveMarkCollision(false)} onStartNew=${() => resolveMarkCollision(true)}
+        onCancel=${() => setMarkCollision(null)} />`}
+      ${showHistoryPanel && html`<${HistoryPanel} entries=${historyEntries} onJump=${jumpToHistory} onClose=${() => setShowHistoryPanel(false)} />`}
+      ${nodeMenu && html`<${NodeActionMenu}
+        x=${nodeMenu.x} y=${nodeMenu.y} nodeId=${nodeMenu.nodeId}
+        isHoisted=${false} dispatch=${dispatch}
+        onToggleHoistNode=${() => showToast("Hoist isn't available in this pane yet")}
+        onCopyFormatted=${copyNodeAsFormatted} onCut=${cutNode} onCopyNode=${copyNode} onPasteNode=${pasteNode}
+        hasClipboard=${!!nodeClipboard} onCleanText=${cleanNodeText}
+        isTransclusion=${!!tree.findNode(nodesRef.current || [], nodeMenu.nodeId)?.properties?.TRANSCLUDE}
+        onCopyReference=${() => showToast("Transclusion isn't available in this pane yet")}
+        onPasteAsTransclusion=${() => showToast("Transclusion isn't available in this pane yet")}
+        hasReferenceClipboard=${false}
+        onGoToSource=${() => showToast("Not available in this pane yet")}
+        onDetachTransclusion=${() => showToast("Not available in this pane yet")}
+        onClose=${() => setNodeMenu(null)} />`}
+      ${showFilePicker && html`<${FilePicker} files=${files}
+        onSelect=${(name) => { setShowFilePicker(false); loadFileLocal(name); }}
+        onCreate=${onCreateFile} onRename=${onRenameFile} onDelete=${onDeleteFile}
+        onClose=${() => setShowFilePicker(false)} onChangeHomeFolder=${onChangeHomeFolder} />`}
+      ${pendingJoinConfirm && html`<${ConfirmDialog}
+        title="Join With Previous Line?"
+        message=${pendingJoinConfirm.reason === "parent"
+          ? html`The line above is this item's parent heading — <strong>${pendingJoinConfirm.prevTitle}</strong>. Joining will merge <strong>${pendingJoinConfirm.curTitle}</strong> into it as one line. Continue?`
+          : html`The line above — <strong>${pendingJoinConfirm.prevTitle}</strong> — isn't a sibling of this item; it's only adjacent because an earlier section is collapsed. Joining will merge <strong>${pendingJoinConfirm.curTitle}</strong> into it. Continue?`}
+        confirmLabel="Join"
+        onConfirm=${confirmJoinWithPrevious}
+        onCancel=${() => setPendingJoinConfirm(null)} />`}
+    </div>
+  `;
+});
 
 function JournalDayCard({ filename, onOpen, onOpenDetail, onOpenAt, markedKeys, onToggleMark, searchQuery }) {
   const [content, setContent] = useState(null); // null=not loaded, false=error, {nodes,preamble}=ok
@@ -3862,17 +4859,17 @@ function JournalDayCard({ filename, onOpen, onOpenDetail, onOpenAt, markedKeys, 
             return html`
             <div key=${i} className="journal-node-preview"
                  onClick=${(e) => { e.stopPropagation(); onOpenAt(node.id); }}>
-              <span className="journal-node-bullet">${transcludeRef ? "↦" : "•"}</span>
-              <span dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(displayTitle) }} />
-              ${node.children && node.children.length > 0 && html`
-                <span className="journal-node-child-count"> +${node.children.length}</span>
-              `}
               ${onToggleMark && html`
                 <input type="checkbox" className="journal-node-mark-cb"
                        title="Mark for action"
                        checked=${markedKeys?.has(filename + "::" + node.id)}
                        onClick=${(e) => e.stopPropagation()}
                        onChange=${() => onToggleMark(filename, node)} />
+              `}
+              <span className="journal-node-bullet">${transcludeRef ? "↦" : "•"}</span>
+              <span dangerouslySetInnerHTML=${{ __html: tree.renderOrgInline(displayTitle) }} />
+              ${node.children && node.children.length > 0 && html`
+                <span className="journal-node-child-count"> +${node.children.length}</span>
               `}
             </div>
           `;
@@ -3990,7 +4987,7 @@ function ReminderPopup({ reminder, queueLength, onOpen, onDismiss }) {
   `;
 }
 
-function JournalView({ onOpenFile, onOpenFileWithDetail, onOpenFileAt, onGoToDate, onNewAppointment, onJournalBulkAction, searchQuery }) {
+function JournalView({ onOpenFile, onOpenFileWithDetail, onOpenFileAt, onGoToDate, onNewAppointment, onJournalBulkAction, showOtherPaneActions, searchQuery }) {
   const [journalFiles, setJournalFiles] = useState(null); // null=loading, []+ =loaded
   const [sortDesc, setSortDesc] = useState(true); // true = newest first
   const [dateFilter, setDateFilter] = useState("all"); // "all" | "future" | "past"
@@ -4008,7 +5005,7 @@ function JournalView({ onOpenFile, onOpenFileWithDetail, onOpenFileAt, onGoToDat
   // cards (a Map so lookups/toggles are O(1) and cross-card selection just
   // works without each card needing to know about any other). Keyed by
   // "file::nodeId"; nodeId is only used for this in-session checkbox
-  // identity, never sent to the backend (see journalBulkAction's own
+  // identity, never sent to the backend (see crossFileBulkAction's own
   // comment for why titles are what actually get matched there).
   const [markedItems, setMarkedItems] = useState(() => new Map());
   // Tracks when the marked collection was last touched — see
@@ -4160,6 +5157,7 @@ function JournalView({ onOpenFile, onOpenFileWithDetail, onOpenFileAt, onGoToDat
         busy=${bulkBusy}
         onToggleItem=${unmarkByKey}
         onAction=${runBulkAction}
+        showOtherPaneActions=${showOtherPaneActions}
         onClear=${() => { setMarkedItems(new Map()); setBulkPanelOpen(false); }}
         onClose=${() => setBulkPanelOpen(false)} />`}
       ${markCollision && html`<${MarkCollisionDialog}
@@ -5190,7 +6188,7 @@ const UNDOABLE_ACTIONS = new Set([
   "set-status", "set-priority", "cycle-status", "new-sibling", "new-sibling-before", "delete", "duplicate", "paste-node", "indent", "outdent", "move-up", "move-down",
   "indent-only", "outdent-only", "move-up-only", "move-down-only",
   "split-at-cursor", "split-body-at-cursor", "join-with-next", "join-with-previous", "convert-note-to-node", "convert-node-to-note",
-  "bulk-delete", "bulk-move-new", "bulk-move-today", "bulk-link-today",
+  "bulk-delete", "bulk-move-new", "bulk-move-today", "bulk-link-today", "bulk-move-pane", "bulk-receive-pane",
 ]);
 // Of those, typing actions get debounced into one undo step per "burst"
 // rather than one per keystroke.
@@ -5233,6 +6231,8 @@ const ACTION_LABELS = {
   "bulk-move-new": "Bulk moved to new outline",
   "bulk-move-today": "Bulk moved to today's journal",
   "bulk-link-today": "Bulk linked into today's journal",
+  "bulk-move-pane": "Bulk moved to other pane",
+  "bulk-receive-pane": "Received from other pane",
   "text-mode-edit": "Edited in text mode",
 };
 
@@ -6188,6 +7188,45 @@ function epicorgThemeColors(currentTheme) {
   };
 }
 
+// Write text to clipboard with multiple fallbacks so it works across browsers
+// and privacy-hardened Chromium builds (Thorium, Brave, etc.). Module-level
+// (no App-state dependency) so both App's own document session and
+// SecondOutlinePane can share one implementation.
+async function writeToClipboard(htmlStr, plainStr) {
+  // 1. Modern async Clipboard API with both types
+  if (htmlStr && navigator.clipboard && window.ClipboardItem) {
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/html": new Blob([htmlStr], { type: "text/html" }),
+          "text/plain": new Blob([plainStr], { type: "text/plain" }),
+        }),
+      ]);
+      return true;
+    } catch {}
+  }
+  // 2. Plain text via async API
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(plainStr);
+      return true;
+    } catch {}
+  }
+  // 3. Legacy execCommand fallback (works even without clipboard permission)
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = plainStr;
+    ta.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch {}
+  return false;
+}
+
 function App() {
   const [files, setFiles] = useState(null);
   const [favorites, setFavorites] = useState([]);
@@ -7029,6 +8068,44 @@ function App() {
   // The per-node action menu opened from the hover handle (or right-clicking
   // the bullet/handle) — { nodeId, x, y } or null.
   const [nodeMenu, setNodeMenu] = useState(null);
+  // Split view — a second, independent outline pane alongside the primary
+  // one (see SecondOutlinePane). secondPaneRef exposes that pane's
+  // imperative receiveTransfer(nodes) to the primary's own bulk actions
+  // (see outlineBulkAction's "copyOtherPane"/"moveOtherPane" modes); the
+  // reverse direction (second pane → primary) goes through
+  // transferIntoPrimaryPane below, passed to SecondOutlinePane as a prop,
+  // since the primary's nodes/dispatch already live directly in this
+  // component rather than behind a ref.
+  const [secondPaneOpen, setSecondPaneOpen] = useState(false);
+  const [activePane, setActivePane] = useState("primary"); // "primary" | "second"
+  const secondPaneRef = useRef(null);
+  const [splitRatio, setSplitRatio] = useState(() => {
+    try { const v = parseFloat(localStorage.getItem("epicorg.splitRatio")); return Number.isFinite(v) && v > 0.15 && v < 0.85 ? v : 0.5; } catch { return 0.5; }
+  });
+  const setSplitRatioPersisted = useCallback((v) => {
+    setSplitRatio(v);
+    try { localStorage.setItem("epicorg.splitRatio", String(v)); } catch {}
+  }, []);
+
+  const splitContainerRef = useRef(null);
+  const startSplitterDrag = useCallback((e) => {
+    e.preventDefault();
+    const container = splitContainerRef.current;
+    if (!container) return;
+    const onMove = (ev) => {
+      const rect = container.getBoundingClientRect();
+      const ratio = (ev.clientX - rect.left) / rect.width;
+      setSplitRatio(Math.max(0.15, Math.min(0.85, ratio)));
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      setSplitRatio((r) => { try { localStorage.setItem("epicorg.splitRatio", String(r)); } catch {} return r; });
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, []);
+
   // Outline multi-select — "Marked For Action" (see JournalView for the
   // same pattern applied to journal entries). A Set of node ids is enough
   // here (unlike the journal's Map of {file, nodeId, title}): everything
@@ -8077,6 +9154,17 @@ function App() {
     if (!histNavRef.current) navDispatch({ type: "push", entry: { file: name, title: null } });
   }, [focusNode, clearUndoHistory, navDispatch]);
 
+  // Routes "open this file" clicks from the sidebar's recent/favorite file
+  // list to whichever pane is currently active, so split view behaves like
+  // a real second workspace rather than always targeting the primary one.
+  const openFileIntoActivePane = useCallback((name) => {
+    if (activePane === "second" && secondPaneRef.current) {
+      secondPaneRef.current.loadFile(name);
+      return;
+    }
+    loadFile(name);
+  }, [activePane, loadFile]);
+
   // Saved workspace profiles: named presets bundling home dir, tag list,
   // bookmark list, journal dir, and home file, so switching between e.g. the
   // GitHub examples folder and a personal notes vault is a single click
@@ -8544,43 +9632,6 @@ function App() {
       URL.revokeObjectURL(url);
     } catch {}
   }, [currentFile]);
-
-  // Write text to clipboard with multiple fallbacks so it works across browsers
-  // and privacy-hardened Chromium builds (Thorium, Brave, etc.).
-  const writeToClipboard = useCallback(async (htmlStr, plainStr) => {
-    // 1. Modern async Clipboard API with both types
-    if (htmlStr && navigator.clipboard && window.ClipboardItem) {
-      try {
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            "text/html": new Blob([htmlStr], { type: "text/html" }),
-            "text/plain": new Blob([plainStr], { type: "text/plain" }),
-          }),
-        ]);
-        return true;
-      } catch {}
-    }
-    // 2. Plain text via async API
-    if (navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(plainStr);
-        return true;
-      } catch {}
-    }
-    // 3. Legacy execCommand fallback (works even without clipboard permission)
-    try {
-      const ta = document.createElement("textarea");
-      ta.value = plainStr;
-      ta.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0";
-      document.body.appendChild(ta);
-      ta.focus();
-      ta.select();
-      const ok = document.execCommand("copy");
-      document.body.removeChild(ta);
-      return ok;
-    } catch {}
-    return false;
-  }, []);
 
   // Returns {type:"selection", items:[{node,depth}]} when the user has drag-selected
   // rows in the outline, otherwise {type:"subtree", nodes:[...]} for focused node / whole tree.
@@ -9478,7 +10529,16 @@ function App() {
   // still valid by the time this runs. mode is one of "copy"/"move"/"link"
   // (to today), "delete", or "copyNew"/"moveNew" (to a new file, named via
   // opts.newFileName).
-  const journalBulkAction = useCallback(async (markedList, mode, opts) => {
+  // Shared by Journal, Agenda, and TODO's own "Marked For Action" bulk
+  // panels — all three show items that can come from a different file than
+  // whatever's currently open, so items are always matched by title (never
+  // by id, which is ephemeral per fetch) within whichever file each one
+  // actually came from. markedList: [{ file, title }] (nodeId, if present,
+  // is only for that view's own in-session checkbox identity — never used
+  // here). mode is one of "copy"/"move"/"link" (to today), "delete",
+  // "copyOtherPane"/"moveOtherPane", or "copyNew"/"moveNew" (to a new file,
+  // named via opts.newFileName).
+  const crossFileBulkAction = useCallback(async (markedList, mode, opts) => {
     if (!markedList || markedList.length === 0) return { ok: false };
     const byFile = new Map();
     for (const item of markedList) {
@@ -9486,18 +10546,66 @@ function App() {
       byFile.get(item.file).push(item);
     }
 
+    // The currently-open file goes through the LIVE tree (setNodes/
+    // markDirty/undo, exactly like any other structural edit) instead of a
+    // raw fetch+PUT — a raw write to that same file would race the primary
+    // pane's own 3s autosave (which still holds the pre-bulk-op tree in
+    // memory) and risk the server's conflict-merge duplicating or losing
+    // content. Confirmed live: this exact race produced a duplicated node
+    // before this fix. Every other file has no live session to race, so
+    // those still go through the plain API round trip.
+    const isLive = (file) => file === currentFileRef.current;
+    const readFile = async (file) => {
+      if (isLive(file)) return { nodes: nodesRef.current || [] };
+      const doc = await api.get(docUrl(file));
+      return { nodes: doc.nodes || [], hash: doc.hash, preamble: doc.preamble || "" };
+    };
+    const writeFile = async (file, newNodes, read, undoAction, undoDetail) => {
+      if (isLive(file)) {
+        maybeSnapshotForUndo(undoAction, null, undoDetail);
+        setNodes(newNodes);
+        markDirty();
+        return;
+      }
+      await api.put(docUrl(file), { hash: read.hash, preamble: read.preamble || "", nodes: newNodes });
+    };
+
     try {
       if (mode === "delete") {
         let count = 0;
         for (const [file, items] of byFile) {
-          const doc = await api.get(docUrl(file));
-          const { remaining, removed } = removeMatchedByTitle(doc.nodes || [], items);
+          const read = await readFile(file);
+          const { remaining, removed } = removeMatchedByTitle(read.nodes, items);
           if (removed.length === 0) continue;
-          await api.put(docUrl(file), { hash: doc.hash, preamble: doc.preamble || "", nodes: remaining });
+          const noun = removed.length === 1 ? "item" : "items";
+          await writeFile(file, remaining, read, "bulk-delete", `${removed.length} ${noun}`);
           count += removed.length;
         }
         showToast(count > 0 ? `Deleted ${count} ${count === 1 ? "item" : "items"}` : "Nothing to delete");
         return { ok: count > 0 };
+      }
+
+      if (mode === "copyOtherPane" || mode === "moveOtherPane") {
+        if (!secondPaneRef.current) { showToast("Open a second pane first"); return { ok: false }; }
+        const clonesByKey = new Map(); // "file::title" -> cloned node
+        let extractedCount = 0;
+        for (const [file, items] of byFile) {
+          const read = await readFile(file);
+          const { remaining, removed } = removeMatchedByTitle(read.nodes, items);
+          if (removed.length === 0) continue;
+          for (const n of removed) clonesByKey.set(file + "::" + n.title, cloneNodeForCopy(n));
+          extractedCount += removed.length;
+          if (mode === "moveOtherPane") {
+            const noun = removed.length === 1 ? "item" : "items";
+            await writeFile(file, remaining, read, "bulk-move-pane", `${removed.length} ${noun}`);
+          }
+        }
+        if (extractedCount === 0) { showToast("Nothing to " + (mode === "moveOtherPane" ? "move" : "copy")); return { ok: false }; }
+        const newNodes = markedList.map((it) => clonesByKey.get(it.file + "::" + it.title)).filter(Boolean);
+        const applied = secondPaneRef.current.receiveTransfer(newNodes);
+        const verb = mode === "moveOtherPane" ? "Moved" : "Copied";
+        showToast(`${verb} ${applied} ${applied === 1 ? "item" : "items"} to the other pane`);
+        return { ok: applied > 0 };
       }
 
       if (mode === "copyNew" || mode === "moveNew") {
@@ -9506,13 +10614,14 @@ function App() {
         const clonesByKey = new Map(); // "file::title" -> cloned node
         let extractedCount = 0;
         for (const [file, items] of byFile) {
-          const doc = await api.get(docUrl(file));
-          const { remaining, removed } = removeMatchedByTitle(doc.nodes || [], items);
+          const read = await readFile(file);
+          const { remaining, removed } = removeMatchedByTitle(read.nodes, items);
           if (removed.length === 0) continue;
           for (const n of removed) clonesByKey.set(file + "::" + n.title, cloneNodeForCopy(n));
           extractedCount += removed.length;
           if (mode === "moveNew") {
-            await api.put(docUrl(file), { hash: doc.hash, preamble: doc.preamble || "", nodes: remaining });
+            const noun = removed.length === 1 ? "item" : "items";
+            await writeFile(file, remaining, read, "bulk-move-new", `${removed.length} ${noun}`);
           }
         }
         if (extractedCount === 0) { showToast("Nothing to " + (mode === "moveNew" ? "move" : "copy")); return { ok: false }; }
@@ -9535,13 +10644,14 @@ function App() {
 
       for (const [file, items] of byFile) {
         if (file === todayFile) { skippedToday += items.length; continue; }
-        const doc = await api.get(docUrl(file));
-        const curNodes = doc.nodes || [];
+        const read = await readFile(file);
+        const curNodes = read.nodes;
         const { remaining, removed } = removeMatchedByTitle(curNodes, items);
         if (removed.length === 0) continue;
 
         if (mode === "link") {
           let workingNodes = curNodes;
+          let liveChanged = false;
           for (const srcNode of removed) {
             if (srcNode.properties?.TRANSCLUDE) { skippedTransclusion++; continue; }
             let transcludeId = srcNode.properties?.TRANSCLUDE_ID;
@@ -9549,24 +10659,32 @@ function App() {
               const r = tree.ensureTranscludeId(workingNodes, srcNode.id);
               workingNodes = r.nodes;
               transcludeId = r.id;
+              liveChanged = true;
             }
             newTodayNodes.push({ id: tree.newId(), title: "", body: "", status: "", tags: [], properties: { TRANSCLUDE: tree.formatTranscludeRef(file, transcludeId) }, children: [], collapsed: false });
             applied++;
           }
-          if (workingNodes !== curNodes) {
-            await api.put(docUrl(file), { hash: doc.hash, preamble: doc.preamble || "", nodes: workingNodes });
+          if (liveChanged) {
+            await writeFile(file, workingNodes, read, "bulk-link-today", `${applied} ${applied === 1 ? "item" : "items"}`);
           }
         } else {
           for (const srcNode of removed) { newTodayNodes.push(cloneNodeForCopy(srcNode)); applied++; }
           if (mode === "move") {
-            await api.put(docUrl(file), { hash: doc.hash, preamble: doc.preamble || "", nodes: remaining });
+            const noun = removed.length === 1 ? "item" : "items";
+            await writeFile(file, remaining, read, "bulk-move-today", `${removed.length} ${noun}`);
           }
         }
       }
 
       if (newTodayNodes.length > 0) {
-        const todayDoc = await api.get(docUrl(todayFile));
-        await api.put(docUrl(todayFile), { hash: todayDoc.hash, preamble: todayDoc.preamble || "", nodes: [...(todayDoc.nodes || []), ...newTodayNodes] });
+        if (isLive(todayFile)) {
+          maybeSnapshotForUndo("bulk-receive-pane", null, `${newTodayNodes.length} ${newTodayNodes.length === 1 ? "item" : "items"}`);
+          setNodes((p) => [...(p || []), ...newTodayNodes]);
+          markDirty();
+        } else {
+          const todayDoc = await api.get(docUrl(todayFile));
+          await api.put(docUrl(todayFile), { hash: todayDoc.hash, preamble: todayDoc.preamble || "", nodes: [...(todayDoc.nodes || []), ...newTodayNodes] });
+        }
       }
 
       const verb = mode === "copy" ? "Copied" : mode === "move" ? "Moved" : "Linked";
@@ -9581,10 +10699,10 @@ function App() {
       showToast("Something went wrong — try again");
       return { ok: false };
     }
-  }, [showToast]);
+  }, [showToast, maybeSnapshotForUndo, markDirty]);
 
   // Bulk actions for the outline's own "Marked For Action" (see
-  // markedNodeIds above and MarkedActionMenu). Unlike journalBulkAction,
+  // markedNodeIds above and MarkedActionMenu). Unlike crossFileBulkAction,
   // this works directly against the live nodes tree already in memory —
   // no re-fetching or title-matching needed, since every marked id is
   // already valid in nodesRef.current. Delete and Move To New Outline both
@@ -9607,6 +10725,29 @@ function App() {
       markDirty();
       showToast(`Deleted ${count} ${noun}`);
       setMarkedNodeIds(new Set());
+      setOutlineBulkPanelOpen(false);
+      return;
+    }
+
+    if (mode === "copyOtherPane" || mode === "moveOtherPane") {
+      if (!secondPaneRef.current) {
+        showToast("Open a second pane first");
+        return;
+      }
+      const cloned = prunedNodes.map(cloneNodeForCopy);
+      const applied = secondPaneRef.current.receiveTransfer(cloned);
+      if (applied > 0 && mode === "moveOtherPane") {
+        maybeSnapshotForUndo("bulk-move-pane", null, `${count} ${noun}`);
+        setNodes((p) => {
+          let result = p;
+          for (const id of prunedIds) result = tree.removeNode(result, id);
+          return result;
+        });
+        markDirty();
+      }
+      const verb = mode === "moveOtherPane" ? "Moved" : "Copied";
+      showToast(`${verb} ${applied} ${applied === 1 ? "item" : "items"} to the other pane`);
+      if (applied > 0) setMarkedNodeIds(new Set());
       setOutlineBulkPanelOpen(false);
       return;
     }
@@ -9707,6 +10848,24 @@ function App() {
       }
     }
   }, [markedNodeIds, maybeSnapshotForUndo, markDirty, showToast]);
+
+  // Receiving end of a Copy/Move To Other Pane from SecondOutlinePane (the
+  // mirror of secondPaneRef.current.receiveTransfer, for the opposite
+  // direction) — lands the already-cloned nodes as siblings right after
+  // whichever node is focused here, or appended at the top level if
+  // nothing is (see tree.insertNodesAfter's own fallback). Returns how many
+  // were applied, so the sending pane knows whether to remove its
+  // originals (Move) and what to report in its own toast.
+  const transferIntoPrimaryPane = useCallback((clonedNodes) => {
+    if (!clonedNodes || clonedNodes.length === 0) return 0;
+    const count = clonedNodes.length;
+    const insertAfterId = focusedId && focusedId !== "preamble" ? focusedId : null;
+    maybeSnapshotForUndo("bulk-receive-pane", null, `${count} ${count === 1 ? "item" : "items"}`);
+    setNodes((p) => tree.insertNodesAfter(p, insertAfterId, clonedNodes));
+    markDirty();
+    showToast(`Received ${count} ${count === 1 ? "item" : "items"} from the other pane`);
+    return count;
+  }, [focusedId, maybeSnapshotForUndo, markDirty, showToast]);
 
   // Transclusion — see tree.js's "Transclusion" section for the property
   // scheme. "Copy Reference" assigns the node a permanent TRANSCLUDE_ID
@@ -10429,6 +11588,28 @@ function App() {
   const focusedBookmarkName = focusedNode?.properties?.BOOKMARK || "";
   const isBookmarkGlobal = !!focusedBookmarkName && globalNamesForFile.has(focusedBookmarkName);
 
+  // The second pane + its splitter — identical regardless of which main
+  // view (Outline/Agenda/TODO/Journal) is open alongside it, so computed
+  // once here and appended into whichever view's own .outline-split-container
+  // is currently rendered, rather than duplicated per view.
+  const splitPaneAddon = secondPaneOpen && html`
+    <div className="pane-splitter" onMouseDown=${startSplitterDrag} />
+    <div className="second-pane-wrapper" style=${{ flexBasis: ((1 - splitRatio) * 100) + "%" }}>
+      <${SecondOutlinePane} ref=${secondPaneRef}
+        isActive=${activePane === "second"}
+        onActivate=${() => setActivePane("second")}
+        onClose=${() => { setSecondPaneOpen(false); setActivePane("primary"); }}
+        showToast=${showToast}
+        onTransferToPrimary=${transferIntoPrimaryPane}
+        files=${files} onCreateFile=${handleCreateFile} onRenameFile=${handleRenameFile} onDeleteFile=${handleDeleteFile}
+        onChangeHomeFolder=${() => setShowFolderPicker(true)}
+        titleFormatMode=${titleFormatMode} outlineFormat=${outlineFormat} levelFormats=${levelFormats}
+        globalFont=${globalFont} levelFonts=${levelFonts} globalColor=${globalColor} levelColors=${levelColors}
+        verticalLines=${verticalLines} showTagChips=${showTagChips} tagsOnRight=${tagsOnRight}
+        checkboxesVisible=${checkboxesVisible} />
+    </div>
+  `;
+
   return html`
     <div className=${"app-shell" + (!checkboxesVisible ? " hide-mark-checkboxes" : "")}>
       ${headerCollapsed && html`
@@ -10460,6 +11641,7 @@ function App() {
                   showTagChips=${showTagChips} onToggleShowTagChips=${toggleShowTagChips}
                   tagsOnRight=${tagsOnRight} onToggleTagsOnRight=${toggleTagsOnRight}
                   isHoisted=${isHoisted} canToggleHoist=${isHoisted || (focusedId && focusedId !== "preamble")} onToggleHoist=${toggleHoist}
+                  secondPaneOpen=${secondPaneOpen} onToggleSplitView=${() => { setSecondPaneOpen((v) => !v); setActivePane("primary"); }}
                   readingWidth=${readingWidth} onToggleReadingWidth=${toggleReadingWidth}
                   sidebarVisible=${sidebarVisible} onToggleSidebar=${toggleSidebar}
                   onFoldToLevel=${foldToLevel}
@@ -10694,7 +11876,7 @@ function App() {
       <div className="app-layout">
         ${sidebarVisible && html`
           <${Sidebar} favorites=${validFavorites} recentFiles=${validRecentFiles} currentFile=${currentFile}
-            onSelect=${loadFile} onToggleFavorite=${toggleFavorite}
+            onSelect=${openFileIntoActivePane} onToggleFavorite=${toggleFavorite}
             bookmarks=${fileOnlyBookmarks}
             onNavigateToBookmark=${navigateToBookmark}
             onDeleteBookmark=${deleteBookmark}
@@ -10758,7 +11940,11 @@ function App() {
           </div>
         `}
         ${view === "outline" && !textMode && html`
-          <div className="outline-pane" onMouseDown=${(e) => {
+          <div ref=${splitContainerRef} className=${"outline-split-container" + (!secondPaneOpen ? " single" : "")}>
+          <div className=${"outline-pane" + (secondPaneOpen && activePane === "primary" ? " pane-active" : "")}
+               style=${secondPaneOpen ? { flexBasis: (splitRatio * 100) + "%" } : {}}
+               onMouseDown=${(e) => {
+            if (secondPaneOpen) setActivePane("primary");
             if (titleFormatMode && focusedId && !e.target.closest(".node-row")) {
               setFocusedId(null);
             }
@@ -10823,6 +12009,7 @@ function App() {
               busy=${outlineBulkBusy}
               onToggleItem=${unmarkNode}
               onAction=${outlineBulkAction}
+              showOtherPaneActions=${secondPaneOpen}
               onClear=${() => { setMarkedNodeIds(new Set()); setOutlineBulkPanelOpen(false); }}
               onClose=${() => setOutlineBulkPanelOpen(false)} />`}
             ${outlineMarkCollision && html`<${MarkCollisionDialog}
@@ -10833,25 +12020,42 @@ function App() {
               onStartNew=${() => resolveOutlineMarkCollision(true)}
               onCancel=${() => setOutlineMarkCollision(null)} />`}
           </div>
+          ${splitPaneAddon}
+          </div>
         `}
         ${view === "agenda" && html`
-          <div className="outline-pane">
+          <div className=${"outline-split-container" + (!secondPaneOpen ? " single" : "")}>
+          <div className=${"outline-pane" + (secondPaneOpen && activePane === "primary" ? " pane-active" : "")}
+               style=${secondPaneOpen ? { flexBasis: (splitRatio * 100) + "%" } : {}}
+               onMouseDown=${() => { if (secondPaneOpen) setActivePane("primary"); }}>
             <div className=${"outline-content" + (readingWidth ? " reading-width" : "")}>
               <${AgendaView} nodes=${nodes} currentFile=${currentFile} onSelect=${handleAgendaSelect}
                 onEditNode=${handleAgendaEditNode} searchQuery=${searchQuery} selectedTags=${selectedTags}
-                onGoToDate=${goToJournalDate} onNewAppointment=${openApptDialog} />
+                onGoToDate=${goToJournalDate} onNewAppointment=${openApptDialog}
+                onBulkAction=${crossFileBulkAction} showOtherPaneActions=${secondPaneOpen} />
             </div>
+          </div>
+          ${splitPaneAddon}
           </div>
         `}
         ${view === "todo" && html`
-          <div className="outline-pane">
+          <div className=${"outline-split-container" + (!secondPaneOpen ? " single" : "")}>
+          <div className=${"outline-pane" + (secondPaneOpen && activePane === "primary" ? " pane-active" : "")}
+               style=${secondPaneOpen ? { flexBasis: (splitRatio * 100) + "%" } : {}}
+               onMouseDown=${() => { if (secondPaneOpen) setActivePane("primary"); }}>
             <div className=${"outline-content" + (readingWidth ? " reading-width" : "")}>
-              <${TodoView} nodes=${nodes} currentFile=${currentFile} onSelect=${handleAgendaSelect} searchQuery=${searchQuery} selectedTags=${selectedTags} />
+              <${TodoView} nodes=${nodes} currentFile=${currentFile} onSelect=${handleAgendaSelect} searchQuery=${searchQuery} selectedTags=${selectedTags}
+                onBulkAction=${crossFileBulkAction} showOtherPaneActions=${secondPaneOpen} />
             </div>
+          </div>
+          ${splitPaneAddon}
           </div>
         `}
         ${view === "journal" && html`
-          <div className="outline-pane">
+          <div className=${"outline-split-container" + (!secondPaneOpen ? " single" : "")}>
+          <div className=${"outline-pane" + (secondPaneOpen && activePane === "primary" ? " pane-active" : "")}
+               style=${secondPaneOpen ? { flexBasis: (splitRatio * 100) + "%" } : {}}
+               onMouseDown=${() => { if (secondPaneOpen) setActivePane("primary"); }}>
             <div className=${"outline-content" + (readingWidth ? " reading-width" : "")}>
               <${JournalView}
                 onOpenFile=${(filename) => { navDispatch({ type: "push", entry: { view: "journal" } }); loadFile(filename); setView("outline"); }}
@@ -10869,10 +12073,13 @@ function App() {
                 }}
                 onGoToDate=${goToJournalDate}
                 onNewAppointment=${openApptDialog}
-                onJournalBulkAction=${journalBulkAction}
+                onJournalBulkAction=${crossFileBulkAction}
+                showOtherPaneActions=${secondPaneOpen}
                 searchQuery=${searchQuery}
               />
             </div>
+          </div>
+          ${splitPaneAddon}
           </div>
         `}
         ${view === "searchall" && html`
@@ -11349,6 +12556,15 @@ function IconHoistOff() {
       <polyline points="21 8 16 8 16 3" />
       <polyline points="16 21 16 16 21 16" />
       <polyline points="3 16 8 16 8 21" />
+    </svg>
+  `;
+}
+
+function IconSplitView() {
+  return html`
+    <svg ...${ICON_PROPS}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <line x1="12" y1="4" x2="12" y2="20" />
     </svg>
   `;
 }
@@ -13769,7 +14985,7 @@ function OutlineActionsPanel({ onAction, focusedId, onClose }) {
   `;
 }
 
-function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, filterExpanded, setFilterExpanded, rawFindMatches, rawFindIdx, onRawFindNavigate, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, checkboxesVisible, onToggleCheckboxesVisible, outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat, globalFont, onSetGlobalFont, levelFonts, onSetLevelFont, globalColor, onSetGlobalColor, levelColors, onSetLevelColor, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, onOpenSearchPanel, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer, onShowHistory, onExportToOrg, onExportToHtml, onOpenSettings, onOpenQuickSwitcher }) {
+function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, searchQuery, setSearchQuery, searchInputRef, filterExpanded, setFilterExpanded, rawFindMatches, rawFindIdx, onRawFindNavigate, allTags, selectedTags, onToggleTag, onClearTags, detailVisible, onToggleDetails, tagPanelVisible, onToggleTagPanel, bookmarkPanelVisible, onToggleBookmarkPanel, titleFormatMode, onToggleTitleFormat, textMode, onToggleTextMode, onCycleViewMode, onSetViewMode, textModeError, notesVisible, onToggleNotesVisible, checkboxesVisible, onToggleCheckboxesVisible, outlineFormat, onSetOutlineFormat, levelFormats, onSetLevelFormat, globalFont, onSetGlobalFont, levelFonts, onSetLevelFont, globalColor, onSetGlobalColor, levelColors, onSetLevelColor, verticalLines, onToggleVerticalLines, showTagChips, onToggleShowTagChips, tagsOnRight, onToggleTagsOnRight, isHoisted, canToggleHoist, onToggleHoist, secondPaneOpen, onToggleSplitView, readingWidth, onToggleReadingWidth, sidebarVisible, onToggleSidebar, onFoldToLevel, theme, onToggleTheme, topBarColor, onSetTopBarColor, canUndo, canRedo, onUndo, onRedo, homeDir, onPickHomeDir, journalDir, onPickJournalDir, onClearJournalDir, tagListFile, onPickTagListFile, onClearTagListFile, bookmarkListFile, onPickBookmarkListFile, onClearBookmarkListFile, onOpenTextSearch, onOpenSearchPanel, canGoBack, canGoForward, onGoBack, onGoForward, homeFile, onGoHome, onSetHomeFile, toolbarConfig, statusBarVisible, onToggleStatusBar, dateStampFmt, onSetDateStampFmt, onShowShortcutEditor, onShowOutlineActions, onShowToolbarCustomizer, onShowHistory, onExportToOrg, onExportToHtml, onOpenSettings, onOpenQuickSwitcher }) {
   // Whether the toolbar/search/etc. actually fit is measured, not guessed
   // from viewport width — a long filename or a pile of tags eats into the
   // same space a phone-width media query would assume is free. Rather than
@@ -13948,6 +15164,13 @@ function Header({ onHelp, syncStatus, view, setView, currentFile, onBack, search
               </button>
             </div>
           `}
+          <div className="view-toggle">
+            <button className=${"view-tab" + (secondPaneOpen ? " active" : "")}
+                    onClick=${onToggleSplitView} disabled=${textMode}
+                    title=${textMode ? "Not available in reveal codes mode" : secondPaneOpen ? "Close split view" : "Split view — open a second outline pane side by side"}>
+              <${IconSplitView} />
+            </button>
+          </div>
           ${toolbarConfig.undoRedo && !hide("undoRedo") && html`
             <div className="view-toggle">
               <button className="view-tab" onClick=${onUndo} disabled=${!canUndo || textMode}

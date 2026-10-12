@@ -2856,6 +2856,115 @@ header.header-tinted {
   height: 100%;
 }
 
+/* Split view — a second, independent outline pane alongside the primary
+   one (see SecondOutlinePane). .single (no second pane open) leaves
+   .outline-pane's own flex:1 alone; otherwise each side gets an explicit
+   flex-basis (the split ratio, set inline) and must not grow past it. */
+.outline-split-container {
+  display: flex;
+  flex: 1;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+.outline-split-container:not(.single) > .outline-pane {
+  flex: 0 0 auto;
+}
+.pane-splitter {
+  flex: 0 0 6px;
+  cursor: col-resize;
+  background: var(--border);
+  position: relative;
+}
+.pane-splitter:hover,
+.pane-splitter:active {
+  background: var(--accent);
+}
+.second-pane-wrapper {
+  flex: 0 0 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.second-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border: 2px solid transparent;
+}
+.second-pane.pane-active,
+.outline-pane.pane-active {
+  border-color: var(--accent);
+}
+.outline-pane.pane-active {
+  border-style: solid;
+}
+.second-pane-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.second-pane.pane-active .second-pane-header {
+  background: var(--focused-bg);
+}
+.second-pane-filename {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.second-pane-header-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.second-pane-header-btn:hover { background: var(--focused-bg); }
+.second-pane-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0 2px;
+}
+.second-pane-close:hover { color: var(--text); }
+.second-pane-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.second-pane-content {
+  flex: 1;
+  overflow-y: auto;
+}
+.second-pane-placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Reading-width toggle — the scroll container (.outline-pane) stays full
    width so the scrollbar hugs the right edge; only the content column
    narrows and centers. */
@@ -3908,7 +4017,7 @@ body.dnd-dragging, body.dnd-dragging * { cursor: move !important; user-select: n
 
 .node-mark-cb {
   flex-shrink: 0;
-  margin-left: 8px;
+  margin-right: 8px;
   align-self: center;
   width: 14px;
   height: 14px;
@@ -6367,7 +6476,6 @@ a.org-file-link {
 }
 
 .journal-node-mark-cb {
-  margin-left: auto;
   flex-shrink: 0;
   width: 14px;
   height: 14px;

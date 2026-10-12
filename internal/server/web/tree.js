@@ -207,6 +207,32 @@ export function insertSiblingAfter(nodes, afterId) {
   return { nodes: insertAfter(nodes, afterId, nn), newId: nn.id };
 }
 
+// Inserts a list of already-constructed nodes (fresh ids throughout —
+// typically from cloning a different document's nodes, see cloneNodeForCopy
+// in app.js) as consecutive siblings directly after afterId. Falls back to
+// appending at the top level when afterId is null or no longer present —
+// used by cross-pane Copy/Move To Other Pane, where "the destination's
+// focused node" may not exist (nothing focused there yet, or it's since
+// been deleted).
+export function insertNodesAfter(nodes, afterId, newNodes) {
+  if (!newNodes || newNodes.length === 0) return nodes;
+  if (afterId == null || !findNode(nodes, afterId)) return [...nodes, ...newNodes];
+  function walk(list) {
+    const result = [];
+    for (const n of list) {
+      if (n.id === afterId) {
+        result.push({ ...n, children: n.children ? [...n.children] : [] });
+        result.push(...newNodes);
+      } else {
+        const updated = n.children?.length > 0 ? walk(n.children) : n.children;
+        result.push(updated !== n.children ? { ...n, children: updated } : n);
+      }
+    }
+    return result;
+  }
+  return walk(nodes);
+}
+
 // Duplicates a node and its full subtree as a new sibling directly after,
 // generating fresh ids throughout so the copy is fully independent (editing
 // one never touches the other).

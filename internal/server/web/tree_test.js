@@ -155,6 +155,37 @@ test("insertSiblingAfter: nested", () => {
   assertEqual(result[0].children[2].id, "a2");
 });
 
+// insertNodesAfter
+test("insertNodesAfter: inserts multiple nodes after a root-level id", () => {
+  const t = [node("a", "A"), node("b", "B")];
+  const result = tree.insertNodesAfter(t, "a", [node("x", "X"), node("y", "Y")]);
+  assertEqual(result.map((n) => n.id), ["a", "x", "y", "b"]);
+});
+
+test("insertNodesAfter: inserts after a nested id, preserving that node's children", () => {
+  const t = [node("a", "A", [node("a1", "A1"), node("a2", "A2")])];
+  const result = tree.insertNodesAfter(t, "a1", [node("x", "X")]);
+  assertEqual(result[0].children.map((n) => n.id), ["a1", "x", "a2"]);
+});
+
+test("insertNodesAfter: falls back to appending at the top level when afterId is null", () => {
+  const t = [node("a", "A"), node("b", "B")];
+  const result = tree.insertNodesAfter(t, null, [node("x", "X")]);
+  assertEqual(result.map((n) => n.id), ["a", "b", "x"]);
+});
+
+test("insertNodesAfter: falls back to appending at the top level when afterId no longer exists", () => {
+  const t = [node("a", "A"), node("b", "B")];
+  const result = tree.insertNodesAfter(t, "ghost", [node("x", "X")]);
+  assertEqual(result.map((n) => n.id), ["a", "b", "x"]);
+});
+
+test("insertNodesAfter: no-op on an empty list of new nodes", () => {
+  const t = [node("a", "A"), node("b", "B")];
+  const result = tree.insertNodesAfter(t, "a", []);
+  assertEqual(result.map((n) => n.id), ["a", "b"]);
+});
+
 // insertSiblingBefore
 test("insertSiblingBefore: at root level", () => {
   const t = [node("a", "A"), node("b", "B")];

@@ -343,7 +343,13 @@ func (s *Store) LoadFile(name string) (*FileState, error) {
 	content := string(data)
 	preamble := strings.TrimRight(extractPreamble(content), "\n")
 
-	conf := org.New()
+	// Silent: go-org logs a warning straight to stderr for every node it
+	// can't parse (stray drawers, etc.) or SETUPFILE it can't resolve
+	// (Emacs org-export directives like readtheorg themes, which epicorg's
+	// own renderer never uses) — harmless, but with enough such content in
+	// the workspace it buries the terminal. Parsing still falls back the
+	// same way either way; this only silences the log line.
+	conf := org.New().Silent()
 	doc := conf.Parse(strings.NewReader(content), path)
 
 	meta := loadMeta(path + ".meta.json")
@@ -739,7 +745,7 @@ func extractPreamble(content string) string {
 }
 
 func parseOrg(content, path string) *org.Document {
-	conf := org.New()
+	conf := org.New().Silent()
 	return conf.Parse(strings.NewReader(content), path)
 }
 

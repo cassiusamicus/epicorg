@@ -1078,7 +1078,7 @@ Who is more in error than you [the Epicureans] about language? You completely ab
 [[https://epicurustoday.com/citationclips/plutarch-againstcolotes-1119f-goodwin.jpg][Plutarch, Against Colotes 1119F (tr. Goodwin, 1874)]]
 [[https://epicurustoday.com/citationclips/plutarch-againstcolotes-1119f-languagecreated.jpg][Plutarch, Against Colotes 1119F (tr. Long & Sedley)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:2008.01.0397:section=1][Plutarch, Against Colotes (tr. Goodwin, 1874) -- Perseus Digital Library (same translation used for this project's citation clips; search page for exact passage)]]
-** Dialectical Logic And Radical Skepticism Do Not Determine Truth
+** Dialectical Logic And Radical Skepticism Cannot Determine Truth
 *** Scientific Methodology - Deductive Reasoning and Self-Refuting Arguments
 **** _Commentary_ :MethodOfReasoning:EpicurusNotCompleteEmpiricist:
 It is a major mistake to consider Epicurus to be a simple "empiricist" who holds that the senses alone are the tests of truth. Epicurus relied heavily on deductive reasoning. It is impossible to observe atoms or void directly, so we must deduce their existence from things that we do perceive. Similarly, it is impossible to observe abstract concepts directly, so we must make deductions about them using the concrete examples which are perceivable to us. Epicurus does not denounce logic or reason at all, but he insists that their conclusions must be grounded in observations which can be validated by the senses, anticipations, and feelings.
@@ -1118,10 +1118,15 @@ Of opinions, then, according to Epicurus, some are true, some false. True are th
 [Above: Long & Sedley excerpt. Below: the same passage in full surrounding context, tr. Bury, Loeb , Against the Logicians I.208-215.]
 [[https://epicurustoday.com/citationclips/sextusempiricus-logicians1-206-tower-bury-b.jpg][Sextus Empiricus, Against the Logicians I.208-215 (tr. Bury, Loeb)]]
 [[https://epicurustoday.com/citationclips/sextusempiricus-logicians1-211-216-attestation-bury.jpg][Sextus Empiricus, Against the Logicians I.211-216 (tr. Bury, Loeb)]]
-*** Dialectical Logic And Radical Skepticism Do Not Determine Truth
+*** Dialectical Logic And Academic / Logical Skepticism Cannot Determine Truth
 **** _Commentary_ :AntiSkepticism:MethodOfReasoning:EpicurusNotCompleteEmpiricist:
 Epicurus rejected the use of dialectical logic  --  the method of purely abstract argumentation developed by Plato and refined by the Stoics and Academics  --  as a self-sufficient path to truth. His objection was not that logic and argument have no role in philosophy, but that formal argumentation, when disconnected from the evidence of the senses, becomes a tool for generating any conclusion the arguer wants rather than a reliable path to reality. The Stoics and Academic philosophers placed enormous confidence in the power of deductive chains of reasoning to establish philosophical conclusions; Epicurus countered that any argument whose premises cannot be grounded in reliable sensory evidence is worthless as a guide to truth, no matter how formally valid the deduction. In Cicero's report, Torquatus notes that Epicurus "judged that the logic of your school possesses no efficacy either for the amelioration of life or for the facilitation of debate"  --  precisely because it floated free of the evidence that could test it.
 Radical skepticism  --  the position that nothing at all can be known with certainty  --  receives the same rejection but on different grounds. As discussed in B-1, radical skepticism is self-defeating: the person who asserts it cannot even assert it coherently. But beyond self-refutation, radical skepticism is practically catastrophic: if no reliable knowledge is possible, then no deliberation, no ethical judgment, no philosophical investigation can even begin. Diogenes of Oinoanda observed that those who assert that things are inapprehensible are, in effect, saying that natural science is unnecessary  --  for who would pursue knowledge they believe can never be found? Epicurus' response was that the evidence of the senses, anticipations, and feelings is sufficient for the knowledge we actually need to live well, and that uncertainty about remote or speculative matters does not justify abandoning confidence in what our natural faculties reliably report.
+Note that the Four Principles of Academic Skepticism in Book 2 of Academic Questions:
+1  - There Are Some False Appearances
+2 - A False Appearance Cannot Be Perceived
+3 - As to appearances which appear the same, it is not possible through the senses to grasp as true some but not others.
+4 - For every true impression there also a false impression, so no impression is securely graspable   
 **** /Epicurus, Principal Doctrine 23/ :AntiSkepticism:CriteriaOfTruth:SensationAsBasisOfKnowledge:
 If you fight against all your sensations, you will not have a standard against which to judge even those of them you say are mistaken. (L&S-THP)
 [[https://epicurustoday.com/citationclips/epicurus-pd-22-29-bailey.jpg][Epicurus, Principal Doctrine 23 (tr. Bailey), same page also carries PD 22 and 24-29]]
