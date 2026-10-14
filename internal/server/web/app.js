@@ -11546,7 +11546,7 @@ function App() {
   // is currently rendered, rather than duplicated per view.
   const splitPaneAddon = secondPaneOpen && html`
     <div className="pane-splitter" onMouseDown=${startSplitterDrag} />
-    <div className="second-pane-wrapper" style=${{ flexBasis: ((1 - splitRatio) * 100) + "%" }}>
+    <div className="second-pane-wrapper" style=${{ flexBasis: `calc(${(1 - splitRatio) * 100}% - 3px)` }}>
       <${SecondOutlinePane} ref=${secondPaneRef}
         isActive=${activePane === "second"}
         onActivate=${() => setActivePane("second")}
@@ -11902,7 +11902,7 @@ function App() {
         ${view === "outline" && !textMode && html`
           <div ref=${splitContainerRef} className=${"outline-split-container" + (!secondPaneOpen ? " single" : "")}>
           <div className=${"outline-pane" + (secondPaneOpen && activePane === "primary" ? " pane-active" : "")}
-               style=${secondPaneOpen ? { flexBasis: (splitRatio * 100) + "%" } : {}}
+               style=${secondPaneOpen ? { flexBasis: `calc(${splitRatio * 100}% - 3px)` } : {}}
                onMouseDown=${(e) => {
             if (secondPaneOpen) setActivePane("primary");
             if (titleFormatMode && focusedId && !e.target.closest(".node-row")) {
@@ -11986,7 +11986,7 @@ function App() {
         ${view === "agenda" && html`
           <div className=${"outline-split-container" + (!secondPaneOpen ? " single" : "")}>
           <div className=${"outline-pane" + (secondPaneOpen && activePane === "primary" ? " pane-active" : "")}
-               style=${secondPaneOpen ? { flexBasis: (splitRatio * 100) + "%" } : {}}
+               style=${secondPaneOpen ? { flexBasis: `calc(${splitRatio * 100}% - 3px)` } : {}}
                onMouseDown=${() => { if (secondPaneOpen) setActivePane("primary"); }}>
             <div className=${"outline-content" + (readingWidth ? " reading-width" : "")}>
               <${AgendaView} nodes=${nodes} currentFile=${currentFile} onSelect=${handleAgendaSelect}
@@ -12001,7 +12001,7 @@ function App() {
         ${view === "todo" && html`
           <div className=${"outline-split-container" + (!secondPaneOpen ? " single" : "")}>
           <div className=${"outline-pane" + (secondPaneOpen && activePane === "primary" ? " pane-active" : "")}
-               style=${secondPaneOpen ? { flexBasis: (splitRatio * 100) + "%" } : {}}
+               style=${secondPaneOpen ? { flexBasis: `calc(${splitRatio * 100}% - 3px)` } : {}}
                onMouseDown=${() => { if (secondPaneOpen) setActivePane("primary"); }}>
             <div className=${"outline-content" + (readingWidth ? " reading-width" : "")}>
               <${TodoView} nodes=${nodes} currentFile=${currentFile} onSelect=${handleAgendaSelect} searchQuery=${searchQuery} selectedTags=${selectedTags}
@@ -12014,7 +12014,7 @@ function App() {
         ${view === "journal" && html`
           <div className=${"outline-split-container" + (!secondPaneOpen ? " single" : "")}>
           <div className=${"outline-pane" + (secondPaneOpen && activePane === "primary" ? " pane-active" : "")}
-               style=${secondPaneOpen ? { flexBasis: (splitRatio * 100) + "%" } : {}}
+               style=${secondPaneOpen ? { flexBasis: `calc(${splitRatio * 100}% - 3px)` } : {}}
                onMouseDown=${() => { if (secondPaneOpen) setActivePane("primary"); }}>
             <div className=${"outline-content" + (readingWidth ? " reading-width" : "")}>
               <${JournalView}
