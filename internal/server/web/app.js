@@ -4639,7 +4639,13 @@ const SecondOutlinePane = forwardRef(function SecondOutlinePane({
         </div>
       </div>
       <div className="second-pane-content outline-content">
-        ${(displayNodes || []).map((node, i) => html`
+        ${(displayNodes || []).length === 0 ? html`
+          <div className="empty" onClick=${() => {
+            if (isFiltering) { setSearchQuery(""); return; }
+            const nn = tree.newNode();
+            setNodes([nn]); focusNode(nn.id); markDirty();
+          }}>${isFiltering ? "No matches — click to clear filter" : "Click or press any key to start"}</div>
+        ` : (displayNodes || []).map((node, i) => html`
           <${OutlineNode} key=${node.id} node=${node} depth=${0} siblingIndex=${i}
             focusedId=${focusedId} dispatch=${dispatch} inputRefs=${inputRefs}
             titleFormatMode=${titleFormatMode} notesVisible=${true}
@@ -4796,7 +4802,7 @@ function JournalDayCard({ filename, onOpen, onOpenDetail, onOpenAt, markedKeys, 
           <div className="journal-day-empty">No entries yet — click to add</div>
         `}
         ${content && displayNodes.length > 0 && html`
-          ${displayNodes.slice(0, 6).map((node, i) => {
+          ${displayNodes.map((node, i) => {
             const transcludeRef = node.properties?.TRANSCLUDE;
             const displayTitle = transcludeRef ? (transcludeTitles[transcludeRef] || "Loading…") : (node.title || "");
             return html`
@@ -4817,9 +4823,6 @@ function JournalDayCard({ filename, onOpen, onOpenDetail, onOpenAt, markedKeys, 
             </div>
           `;
           })}
-          ${displayNodes.length > 6 && html`
-            <div className="journal-more">+${displayNodes.length - 6} more…</div>
-          `}
         `}
       </div>
     </div>

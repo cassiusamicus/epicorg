@@ -6724,13 +6724,6 @@ a.org-file-link {
   gap: 8px;
 }
 
-.journal-more {
-  font-size: 12px;
-  color: var(--text-dim);
-  padding: 4px 0 0;
-  font-style: italic;
-}
-
 /* Mobile hamburger panel buttons */
 .hamburger-mobile-panels {
   display: flex;
