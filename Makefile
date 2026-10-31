@@ -1,4 +1,4 @@
-.PHONY: help build run test test-js clean
+.PHONY: help build run test test-js export-sample install-hooks clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
@@ -17,6 +17,12 @@ test: ## Run Go tests
 test-js: ## Run JS tree tests (open in browser)
 	@echo "Open http://localhost:58217/test.html in your browser"
 	@echo "(server must be running)"
+
+export-sample: ## Regenerate docs/Outline.html (GitHub Pages sample) from examples/Outline.org
+	./scripts/export-sample.sh
+
+install-hooks: ## Use scripts/hooks (pre-commit keeps docs/Outline.html current)
+	git config core.hooksPath scripts/hooks
 
 clean: ## Remove build artifacts
 	rm -f epicorg

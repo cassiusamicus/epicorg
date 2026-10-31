@@ -1,0 +1,10 @@
+#!/bin/bash
+# Keep the GitHub Pages sample (docs/Outline.html) in step with
+# examples/Outline.org: whenever a commit includes the outline, regenerate
+# the HTML export and add it to the same commit.
+# Installed by `make install-hooks`.
+if git diff --cached --name-only | grep -qx 'examples/Outline.org'; then
+  echo "pre-commit: regenerating docs/Outline.html from examples/Outline.org"
+  ./scripts/export-sample.sh || { echo "pre-commit: export failed; commit aborted"; exit 1; }
+  git add docs/Outline.html
+fi

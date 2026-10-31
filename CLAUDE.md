@@ -58,6 +58,10 @@ Git only commits the single active org file, never other files in the workspace.
 - Collapsed state lives in a `.meta.json` sidecar, not in the org file.
 - Node IDs are ephemeral (assigned on parse, regenerated on load). The frontend generates temporary IDs (`n1`, `n2`, ...) for new nodes. IDs are not persisted.
 
+## Sample Export (GitHub Pages)
+
+`docs/Outline.html` (the README's "Sample Exported Outline") is regenerated from `examples/Outline.org` by `make export-sample` (`scripts/export-sample.sh`). It serves a temporary copy of `examples/*.org` with a private epicorg build on port 58299, then runs the app's own `generateExportHtml` (export.js) under Node via `scripts/export-sample.mjs` (dark theme, accent `#166534`, bullets). Never point the server at `examples/` directly: it would `git init` a nested repo there and rotate the `~N~` backups. Node is used only by this offline maintenance script; the frontend itself stays free of Node and build tooling. `make install-hooks` sets `core.hooksPath` to `scripts/hooks`, whose pre-commit hook re-exports and stages `docs/Outline.html` whenever a commit includes `examples/Outline.org`.
+
 ## Contributing
 
 - Unit tests should be written for all functionality, in the UI and backend.
