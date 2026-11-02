@@ -17,6 +17,7 @@
 * EpicurusEasyToUnderstand
 * EpicurusNotAnAtheist
 * EpicurusNotCompleteEmpiricist
+* FateInRivalTraditions
 * FriendshipAsPleasurable
 * Happiness
 * HappinessAsLifeOfPleasure
@@ -30,6 +31,7 @@
 * LiveUnknownDoesNotMeanIsolation
 * LoveHatePleasurePain
 * MethodOfReasoning
+* NatureDoesNotDeceive
 * NatureOfGods
 * NietzscheConfirmsCanon
 * NoPoliticsDoesNotMeanQuietist
@@ -47,5 +49,6 @@
 * UniverseInfiniteAndEternal
 * VirtueAsContextual
 * Void
+* WhatIsRealAndTrue
 * TAG1
 * TAG2
