@@ -22,6 +22,7 @@
 * Happiness
 * HappinessAsLifeOfPleasure
 * HappinessDoesNotRequireCompleteAbsenceOfPain
+* HappinessNotByLettingGo
 * HowToLive
 * Images
 * KatastematicNotBestPleasure
