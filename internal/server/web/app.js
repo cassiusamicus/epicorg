@@ -154,9 +154,19 @@ function formatDateDisplay(dateStr) {
   } catch { return dateStr; }
 }
 
-function isOverdue(dateStr) {
+function isPastDate(dateStr) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   return new Date(dateStr + "T00:00:00") < today;
+}
+
+// "Overdue" means an unfinished actionable TODO whose date has passed —
+// not just any past date. A plain calendar appointment (no TODO keyword)
+// or a TODO already marked DONE/CANCELLED already happened; it isn't
+// something still waiting to be done, so it should never get the same
+// red "overdue" treatment as a task you still owe.
+function isOverdue(dateStr, items) {
+  if (!isPastDate(dateStr)) return false;
+  return (items || []).some((it) => it.status && it.status !== "DONE" && it.status !== "CANCELLED");
 }
 
 function isToday(dateStr) {
@@ -3627,10 +3637,10 @@ function AgendaView({ nodes, currentFile, onSelect, onEditNode, searchQuery, sel
       `}
       ${groups.map((g) => html`
         <div className="agenda-group" key=${g.date}>
-          <div className=${"agenda-date" + (isOverdue(g.date) ? " overdue" : "") + (isToday(g.date) ? " today" : "")}>
+          <div className=${"agenda-date" + (isOverdue(g.date, g.items) ? " overdue" : "") + (isToday(g.date) ? " today" : "")}>
             ${formatDateDisplay(g.date)}
             ${isToday(g.date) && html`<span className="agenda-badge">today</span>`}
-            ${isOverdue(g.date) && html`<span className="agenda-badge overdue">overdue</span>`}
+            ${isOverdue(g.date, g.items) && html`<span className="agenda-badge overdue">overdue</span>`}
           </div>
           ${g.items.map((item, idx) => {
             const editKey = (item.id || item.file + item.title) + "-" + item.kind + "-" + idx;
