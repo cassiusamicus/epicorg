@@ -1751,6 +1751,9 @@ Again, the truth that pleasure is the supreme good can be most easily apprehende
 [[https://epicurustoday.com/citationclips/cicero-onends-1-40-reid-mosteasilyapprehended.jpg][Cicero, On Ends 1.40 (tr. Reid)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Fin.+1.40][Cicero, On Ends (De Finibus) 1.40 (Latin text only) -- Perseus Digital Library]]
 **** /Cicero, On Ends 1.40 (Torquatus, Rackham)/ :HappinessAsLifeOfPleasure:Pleasure:
+:PROPERTIES:
+:TRANSCLUDE_ID: cicero-on-ends-1-40-rackham
+:END:
 Let us imagine a man living in the continuous enjoyment of numerous and vivid pleasures alike of body and of mind, undisturbed either by the presence or by the prospect of pain: what possible state of existence could we describe as being more excellent or more desirable? (Rackham)
 [[https://epicurustoday.com/citationclips/cicero-onends-1-40-rackham-continuousenjoyment.jpg][Cicero, On Ends 1.40 (tr. Rackham)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Cic.+Fin.+1.40][Cicero, On Ends (De Finibus) 1.40 (Latin text only) -- Perseus Digital Library]]
@@ -1856,6 +1859,9 @@ The important qualification is that "pleasure as guide" refers to pleasure as a 
 The claim that pleasure guides should not be confused with the claim that pleasure compels. Pleasure is a guide the way a compass is a guide: it indicates the direction of the good, which it is then our task to pursue intelligently and with full use of reason. The Epicurean does not run blindly toward every pleasure any more than the navigator sails blindly toward every heading the compass might indicate. The guidance is real and reliable  --  pleasure genuinely indicates what is beneficial, pain genuinely indicates what is harmful  --  but wisdom is required to interpret and apply that guidance well over the course of an entire life.
 The universality of pleasure as guide is also important: every living creature, from the moment of birth, pursues pleasure and avoids pain without being taught to do so. This is nature's own testimony, delivered through the conduct of every creature that has ever lived, that pleasure is the natural good and pain the natural evil. No philosophical argument for any competing theory of the good is more powerful than this universal natural testimony.
 **** /Epicurus, Letter to Menoeceus 129/ :PleasureAsGuide:Pleasure:
+:PROPERTIES:
+:TRANSCLUDE_ID: epicurus-letter-to-menoeceus-129
+:END:
 And for this cause we call pleasure the beginning and end of the blessed life. For we recognize pleasure as the first good innate in us, and from pleasure we begin every act of choice and avoidance, and to pleasure we return again, using the feeling as the standard by which we judge every good. (Bailey: [129])
 [[https://epicurustoday.com/citationclips/epicurus-lettermenoeceus-126-129-bailey.jpg][Epicurus, Letter to Menoeceus 129 (tr. Bailey)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Letter to Menoeceus 129 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
@@ -2243,6 +2249,60 @@ So is it with the race of men. However much training gives some of them an equal
 :PROPERTIES:
 :TRANSCLUDE: diogenes-laertius-10-22
 :END:
+*** Almost Is Not Nothing -- The All-Or-Nothing Error, And Why The Limit Of Pleasure Does Not Make Lesser Degrees Worthless
+**** _Commentary_ :NotAllOrNothing:PleasureHasANaturalLimit:PleasuresAreNotEquivalent:
+A nineteenth-century hymn, P. P. Bliss's "Almost Persuaded" (1871), warns that "'Almost' is but to fail." It rests on a strand of theology built on verses such as "For all have sinned, and come short of the glory of God" (Romans 3:23) and "whosoever shall keep the whole law, and yet offend in one point, he is guilty of all" (James 2:10), from which much popular preaching concludes that God detests all sin equally and that the only conditions that finally matter are saved and lost. The idea is far older than the hymn. Its root is a standard of perfection set outside this world, against which every human distance becomes the same distance: measured against something infinitely far away, a man one step short and a man a thousand steps short are both infinitely short.
+
+It begins with Plato. In the /Philebus/ "more and less" is the test of the good, and pleasure is "a generation only," with "no true being at all"; in the /Timaeus/ the things of this world are "always becoming and never" really are. The Stoics made it a system: all goods are equal, all faults are equal, a stick is straight or crooked, the man one furlong from Canopus is as much "not in Canopus" as the man a hundred furlongs away, and the drowning man near the surface drowns with the man at the bottom (see "One Wise Man Is Not Wiser Than Another" above for those passages). The leading Latin Christian writers knew where the doctrine came from. Jerome mocked Jovinian, who taught that all sins are equal, for exchanging "Christ for Zeno" (/Against Jovinianus/ II.21), and Augustine, troubled by James 2:10, called the equality of sins a tenet "the Stoics alone dared to maintain" (/Letter/ 167.4). Yet both kept a final verdict with only two classes, saved or lost, so grading sins softened the system without removing its root.
+
+The same error corrupts goodness (all faults alike), happiness (no one is happy short of perfection), knowledge (certainty or nothing, the shared premise of the Stoic sage and the skeptic who withholds all assent), reality (the world of the senses never fully "is"), progress (the student who has come most of the way counts for nothing), justice and divinity (every offense deserves one sentence from an offended judge), and above all pleasure. Read through all-or-nothing eyes, Epicurus' statement that the limit of pleasure is the removal of all pain seems to say that pleasure has no real degrees and that the only pleasure worth having is complete absence of pain. That reading produces the familiar picture of Epicurus as a mystic or an ascetic. Cicero himself answered the Stoic form of the error: "All the lyres equally are out of tune; but it does not follow that all are equally out of tune" (/On Ends/ IV.75).
+
+Epicurus answered it at the root. A limit is an edge in this world, seen against what lies beyond it, so distances to it can be measured. Below the limit, more and less are real, and the limit does not make lesser degrees worthless, for five reasons. (1) The limit is a limit of the same thing: for the Stoics everything short of virtue is vice, its opposite, but for Epicurus everything short of the limit of pleasure is still pleasure, since "every pleasure ... is good" (Menoeceus 129). (2) The feeling, not the concept, is the standard by which we judge every good, and pleasure is felt as good at every degree; the concept of the limit supplements the feelings by letting us measure progress toward the goal. (3) The measure of a life is predominance, not perfection: the limit pictured by Torquatus is full of "numerous and vivid pleasures" (/On Ends/ I.40), but the actual wise man is happy because his pleasures always outbalance his pains, and pains never prevent him "from finding more reasons for joy than for vexation" (I.62). (4) We are human beings, and reaching our goals takes effort and depends on circumstance; we accept pains for greater pleasures (Menoeceus 129), and DeWitt argued that on Epicurus' principles even divine beings must act to preserve their own happiness. (5) The limit gives direction: it is formed by the mind's "reasoned understanding" (PD 18, 20), it tells us which way to go, and it shows that the goal is close and "easy to obtain" (PD 21), not infinitely distant, so every step toward it is a real step. Faults are unequal (DL X.122 Bailey), progress counts at every age, knowledge is possible without infallibility, and a blessed being is "never constrained by anger or favour" (PD 1).
+
+For the full discussion see [[https://epicurustoday.com/02-key-sources/almostisnotnothing/][Almost Is Not Nothing: The All-Or-Nothing Error From Plato To "Almost Persuaded," And How Epicurus Answered It -- EpicurusToday.com]].
+**** /Plato, Philebus 53c-55a (Pleasure As "A Generation Only")/ :NotAllOrNothing:PleasureIsBeingNotMereBecoming:
+:PROPERTIES:
+:TRANSCLUDE: plato-philebus-53c-55a
+:END:
+**** /Jerome, Against Jovinianus II.21 (tr. Fremantle) (The Equality Of Sins Is Stoic), reporting the Christian position/ :NotAllOrNothing:
+In sexual intercourse and full feeding he is an Epicurean; in the distribution of rewards and punishments he all at once becomes a Stoic, He exchanges Jerusalem for Citium, Judæa for Cyprus, Christ for Zeno. If we may not depart a hair's breadth from virtue, and all sins are equal, and a man who in a fit of hunger steals a piece of bread is no less guilty than he who slays a man: you must, in your turn, be held guilty of the greatest crimes. (Fremantle)
+[Jerome's label "Epicurean" for Jovinian's pleasures is the usual abuse of the period. At II.35 Jerome says he has "pulverized Zeno's old opinion," yet he describes the final judgment as "the sheep and goats on the right hand and the left, the righteous and the wicked ... distributed into two classes."]
+[[https://www.newadvent.org/fathers/30092.htm][Jerome, Against Jovinianus Book II (tr. Fremantle, Nicene and Post-Nicene Fathers) -- New Advent]]
+**** /Augustine, Letter 167.4 (to Jerome, AD 415) (tr. Cunningham) (On James 2:10), reporting the Christian position/ :NotAllOrNothing:
+The doctrine of the equality of sins, however, the Stoics alone dared to maintain in opposition to the unanimous sentiments of mankind: an absurd tenet, which in writing against Jovinianus (a Stoic in this opinion, but an Epicurean in following after and defending pleasure) you have most clearly refuted from the Holy Scriptures. (Cunningham)
+[[https://www.newadvent.org/fathers/1102167.htm][Augustine, Letter 167 (tr. Cunningham, Nicene and Post-Nicene Fathers) -- New Advent]]
+**** /Cicero, On Ends 4.75 (Cicero Against Cato) (The Lyres)/ :NotAllOrNothing:
+Suppose, says my opponent, of a number of lyres not one is so strung as to be in tune; then all are equally out of tune; similarly with transgressions, since all are departures from rule, all are equally departures from rule; therefore all are equal.— Here we are put off with an equivocation. All the lyres equally are out of tune; but it does not follow that all are equally out of tune. (Rackham)
+[[https://epicurustoday.com/02-key-sources/111-cicero-on-ends-rackham/#4-75][Cicero, On Ends IV.75 (tr. Rackham) -- EpicurusToday.com]]
+**** /Cicero, On Ends 4.64-65 (Cicero Against Cato) (Progress Is Real: Dim Eyesight And Weak Health)/ :NotAllOrNothing:
+Good analogies would be these: one man's eyesight is dim, another's general health is weak; apply remedies, and they get better day by day; every day the one is stronger and the other sees better; similarly with all who earnestly pursue virtue; they get better, their vices and errors are gradually reduced. ... But still the elder Gracchus was not a Wise Man; who ever was? or when, or where, or how? (Rackham)
+[[https://epicurustoday.com/02-key-sources/111-cicero-on-ends-rackham/#4-65][Cicero, On Ends IV.64-65 (tr. Rackham) -- EpicurusToday.com]]
+**** /Epicurus, Letter to Menoeceus 129-130 (Every Pleasure Is Good; A Scale Of Comparison)/ :NotAllOrNothing:PleasuresAreNotEquivalent:CalculatingDesires:
+Every pleasure then because of its natural kinship to us is good, yet not every pleasure is to be chosen: even as every pain also is an evil, yet not all are always of a nature to be avoided. Yet by a scale of comparison and by the consideration of advantages and disadvantages we must form our judgment on all these matters. (Bailey)
+[[https://epicurustoday.com/02-key-sources/010-diogenes-laertius-book-10-bailey-edition/#dl-129][Epicurus, Letter to Menoeceus 129-130 (tr. Bailey) -- EpicurusToday.com]]
+**** /Epicurus, Letter to Menoeceus 129 (Pleasure As The Standard Of Every Good)/ :NotAllOrNothing:PleasureAsGuide:
+:PROPERTIES:
+:TRANSCLUDE: epicurus-letter-to-menoeceus-129
+:END:
+**** /Cicero, On Ends 1.40 (Torquatus, Rackham) (The Limit Pictured: Numerous And Vivid Pleasures)/ :NotAllOrNothing:PleasureHasANaturalLimit:
+:PROPERTIES:
+:TRANSCLUDE: cicero-on-ends-1-40-rackham
+:END:
+**** /Cicero, On Ends 1.62 (Torquatus) (More Reasons For Joy Than For Vexation)/ :NotAllOrNothing:HappinessDoesNotRequireCompleteAbsenceOfPain:
+And pains, if any befall him, have never power enough to prevent the wise man from finding more reasons for joy than for vexation. (Reid)
+[Rackham: "there is no moment when the pleasures he experiences do not outbalance the pains ... any pains that the Wise Man may encounter are never so severe but that he has more cause for gladness than for sorrow."]
+[[https://epicurustoday.com/02-key-sources/040-cicero-on-ends-reid-translation/][Cicero, On Ends I.62 (tr. Reid) -- EpicurusToday.com]]
+[[https://epicurustoday.com/02-key-sources/111-cicero-on-ends-rackham/#1-62][Cicero, On Ends I.62 (tr. Rackham) -- EpicurusToday.com]]
+**** /Norman DeWitt, Epicurus and His Philosophy (1954), "Incorruptibility and Virtue" (Even Divine Beings Must Act To Keep Their Happiness)/ :NotAllOrNothing:NatureOfGods:
+... the corporeal cannot be immune from the hazard of destruction; the gods are consequently not deathless, only incorruptible; this incorruptibility, not being inherent, demands some sort of conservation, which can only be ascribed to the foresight and effort of the gods themselves. This, then, is their virtue, to preserve their own happiness and incorruptibility. (DeWitt)
+**** /Epicurus, Principal Doctrine 21 (The Goal Is Easy To Obtain)/ :NotAllOrNothing:PleasureHasANaturalLimit:
+:PROPERTIES:
+:TRANSCLUDE: epicurus-principal-doctrine-21
+:END:
+**** /Epicurus, Principal Doctrine 1 (Never Constrained By Anger Or Favour)/ :NotAllOrNothing:NatureOfGods:
+:PROPERTIES:
+:TRANSCLUDE: epicurus-principal-doctrine-1
+:END:
 ** Virtue Is Not Absolute Or An End In Itself
 *** Virtue Is Not Absolute Or An End In Itself - All Good And Evil Consists In Sensation
 **** _Commentary_ :VirtueAsContextual:
@@ -2542,6 +2602,9 @@ The flesh perceives the limits of pleasure as unlimited, and unlimited time is r
 [[https://epicurustoday.com/citationclips/epicurus-pd-15-21-bailey.jpg][Epicurus, Principal Doctrine 20 (tr. Bailey), same page also carries PD 15-21]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Principal Doctrine 20 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
 **** /Epicurus, Principal Doctrine 21/ :LengthOfLife:CalculatingDesires:
+:PROPERTIES:
+:TRANSCLUDE_ID: epicurus-principal-doctrine-21
+:END:
 He who has learned the limits of life knows that that which removes the pain due to want, and makes the whole of life complete, is easy to obtain, so that there is no need of actions which involve competition. (L&S-THP)
 [[https://epicurustoday.com/citationclips/epicurus-pd-15-21-bailey.jpg][Epicurus, Principal Doctrine 21 (tr. Bailey), same page also carries PD 15-20]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Principal Doctrine 21 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
@@ -3286,6 +3349,9 @@ The removal of all pain is the limit of the magnitude of pleasures, and wherever
 **** _Commentary_
 Plato argues in the Philebus that pleasure is a /genesis/ -- a "generation," a process aimed at something beyond itself -- and for that reason cannot be /ousia/, real "being." This is the being/becoming distinction from Plato's physics, redeployed against ethics: whatever is merely "becoming" cannot be the good. Epicurus holds that a pleasure is a motion when looked at as it unfolds and a complete state when the whole of a life is in view, with PD3 fixing the exact point of completeness. The Epicureans' own image for that completeness was a /filled/ vessel, not Plato's static "being." See the companion articles [[https://epicurustoday.com/02-key-sources/pleasureofrebellingagainstplato/][Epicurus and the Pleasure of Rebelling Against Plato]], Ethics section, and [[https://epicurustoday.com/02-key-sources/cicero-completeness-argument/][The Completeness Argument, Cicero's Knowledge Of It, And The Epicurean Response]].
 **** /Plato, Philebus 53c-55a (tr. Jowett)/ :PleasureIsBeingNotMereBecoming:
+:PROPERTIES:
+:TRANSCLUDE_ID: plato-philebus-53c-55a
+:END:
 Then, as I said at first, we ought to be very grateful to him who first pointed out that pleasure was a generation only, and had no true being at all; for he is clearly one who laughs at the notion of pleasure being a good.
 [[https://epicurustoday.com/img/plato-completeness-philebus-generation.jpg][Plato, Philebus 53c-55a (tr. Jowett)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0174:text=Phileb.:section=53c][Plato, Philebus 53c-55a (tr. Fowler, Loeb) -- Perseus Digital Library]]
