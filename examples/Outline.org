@@ -397,6 +397,9 @@ The universe  --  meaning the totality of everything that exists, all atoms and 
 The practical importance of this conclusion is immense. If the universe is infinite and eternal and entirely self-sufficient, then there is no role left for a creator god or for any supernatural overseer of the whole. No god stands outside nature directing its operations. This does not mean Epicurus denied the existence of divine beings  --  he did not  --  but those beings, whatever their nature, exist within the universe and are subject to its natural conditions. The removal of a supernatural creator and governor from the framework of nature is one of the essential steps Epicurean physics takes toward freeing human beings from the fears that destroy happy living.
 The Epicureans did not rest the case against a creator on the size and age of the universe alone. They pressed a series of direct questions against the creation story of Plato's /Timaeus/, which was the leading account of creation in Epicurus's day. The Stoics soon took up the same conviction that the world is the work of a divine intelligence for the sake of gods and men, differing from Plato mainly on how the making took place, so in answering Plato the Epicureans were answering the Stoics as well. Where would the gods have found the model of a world, or even the notion of a human being, before any such thing existed to be seen? Why would beings who had lived happily for endless ages suddenly want something new? Whom would creation benefit, when no one who does not yet exist is harmed by never being born? How could any one god govern the innumerable worlds of an infinite universe? And if the world was made for man, why is so much of it hostile to him? In place of design the Epicureans put the power of infinity. The atoms are infinite in number, but their kinds are limited, though too many to imagine, and by isonomia things of the same standing are spread evenly through the infinite. So the possible kinds of world are finite while the worlds are unlimited, and worlds like ours must form again and again without any planner. This is the Epicurean alternative to divine creation, set out in full in the next section, "The Atoms Are Infinite In Number, But Their Kinds Are Not." Among living things, only the kinds equipped to feed, defend themselves, and breed have survived, and the organs of the body existed before their uses were found.
 **** /Epicurus, Letter to Herodotus 41-2/ :UniverseInfiniteAndEternal:
+:PROPERTIES:
+:TRANSCLUDE_ID: epicurus-letter-to-herodotus-41-2
+:END:
 (1) Moreover, the totality is infinite. For what is limited has an extremity, and the extremity of something is viewed in contrast to something else. Consequently, since it has no extremity, it has no limit; and since it has no limit, it must be infinite and not limited. (2) Moreover, the totality is infinite both in the number of bodies and in the size of the void. (3) For if the void were infinite and the bodies limited, the bodies would not remain stationary anywhere, but would be moving scattered through the infinite void, lacking any support or impediment from collision. (4) And if the void were limited, the infinite bodies would not have room to occupy. (L&S-THP)
 [[https://epicurustoday.com/citationclips/epicurus-letterherodotus-40-42-bailey.jpg][Epicurus, Letter to Herodotus 41-2 (tr. Bailey), same page also carries sec. 40]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Letter to Herodotus 41-2 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
@@ -774,6 +777,9 @@ Death is nothing to us and concerns us not one jot, since the nature of mind is 
 [[https://epicurustoday.com/citationclips/lucretius-3-867-896-bailey-symmetryargument-c.jpg][Lucretius, De Rerum Natura III.867-896 (tr. Bailey)]]
 Now there is naught to fear in death, for one who does not exist cannot be wretched. When death has come, when mortal life is done, the man himself no longer is; and therefore naught that may follow can be suffered by him, or kindle his desire. For he who is no more has naught to suffer. So if one shall weep and grieve that after death he shall moulder away, or be consumed by flames, or be caught in the jaws of wild beasts, he does not ring true; for his heart is still a covert sting though he denies that he has any feeling. He does not, I think, grant what he professes, nor the grounds thereof; nor does he remove and cast himself wholly out of life, but all unwitting makes something of himself survive. For whoever while alive imagines that birds and beasts will mangle his body after death, he pities himself. He does not separate himself from that prostrate form, he imagines himself standing there, and infects it with his own feeling. Hence it is that he is indignant that he was born mortal, and does not see that in true death there will be no other self alive, who could lament that he was dead, and stand there bewailing that his own body lay there mangled or burning. (Bailey, adapted)
 **** /Diogenes Laertius 10.22 (Usener 138)/ :DeathIsNothingness:HappinessDoesNotRequireCompleteAbsenceOfPain:
+:PROPERTIES:
+:TRANSCLUDE_ID: diogenes-laertius-10-22
+:END:
 [Above: Long & Sedley excerpt. Below: the same letter (to Idomeneus) in Bailey's translation.]
 [[https://epicurustoday.com/citationclips/epicurus-fragments-23-30-bailey-anaxarchusidomeneus.jpg][Diogenes Laertius X.22 (tr. Bailey) -- same letter already clipped in the Epicurus fragments phase]]
 Here is the letter to Idomeneus which he (Epicurus) wrote on his deathbed: 'I wrote this to you on that blessed day of my life which was also the last. Strangury and dysentery had set in, with all the extreme intensity of which they are capable. But the joy in my soul at the memory of our past discussions was enough to counterbalance all this.  I ask you, as befits your lifelong companionship with me and with philosophy: take care of the children of Metrodorus. '  (L&S-THP)
@@ -1140,6 +1146,9 @@ So we should pay heed to those feelings which are present in us, and to our sens
 Thus Epicurus, in the Canon ('Yardstick'), says that sensations, preconceptions and feelings are the criteria of truth. The Epicureans add the 'focusings of thought into an impression.'  (L&S-THP)
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Diogenes Laertius 10.31 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
 **** /Diogenes Laertius 10.33/ :CriteriaOfTruth:AnticipationsAreNotOpinions:
+:PROPERTIES:
+:TRANSCLUDE_ID: diogenes-laertius-10-33
+:END:
 [Above: Long & Sedley excerpt. Below: the same passage in Bailey's translation.]
 [[https://epicurustoday.com/citationclips/diogeneslaertius-10-32-34-bailey.jpg][Diogenes Laertius X.33 (tr. Bailey)]]
 Preconception, they [the Epicureans] say, is as it were a perception, or correct opinion, or conception, or universal 'stored notion' (i.e. memory), of that which has frequently become evident externally: e.g. 'Such and such a kind of thing is a man.' For as soon as the word 'man' is uttered, immediately its delineation also comes to mind by means of preconception, since the senses give the lead. Thus what primarily underlies each name is something self-evident. And what we inquire about we would not have inquired about if we had not had prior knowledge of it.  For example: 'Is what's standing over there a horse or a cow?' For one must at some time have come to know the form of a horse and that of a cow by means of preconception.  Nor would we have named something if we had not previously learned its delineation by means of preconception. Thus preconceptions are self-evident. And opinion depends on something prior and self-evident, which is our point of reference when we say, e.g., 'How do we know if this is a man?'  (L&S-THP)
@@ -1233,6 +1242,34 @@ Who is more in error than you [the Epicureans] about language? You completely ab
 [[https://epicurustoday.com/citationclips/plutarch-againstcolotes-1119f-goodwin.jpg][Plutarch, Against Colotes 1119F (tr. Goodwin, 1874)]]
 [[https://epicurustoday.com/citationclips/plutarch-againstcolotes-1119f-languagecreated.jpg][Plutarch, Against Colotes 1119F (tr. Long & Sedley)]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:2008.01.0397:section=1][Plutarch, Against Colotes (tr. Goodwin, 1874) -- Perseus Digital Library (same translation used for this project's citation clips; search page for exact passage)]]
+*** Meaning Comes Through Examples Perceived And Contrasted, Not Through Definitions -- A Limit Is Seen Against What Lies Beyond It
+**** _Commentary_ :MeaningThroughContrast:CriteriaOfTruth:AntiIdealism:
+Epicurus held that we come to know what things are through examples, not definitions. The examples come to us through the sensations, the anticipations and the feelings, and setting one example against another marks off one real thing from another. We know horse and cow because we have met many of each and seen how they differ, so that we can ask of a distant shape, "Is that a horse or a cow?" (X.33). We know heat against cold, light against dark, and pleasure against pain. Torquatus refused to define pleasure: "who is there who does not know what pleasure is? Who needs a definition to assist him to understand it?" (/On Ends/ II.6), and Cicero complained that Epicurus "does not hold with giving a definition of the thing in question" (II.4). Pleasure and pain need no proof, because they are perceived "as that fire is hot, snow white, honey sweet" (I.30). The mind builds these contrasted examples into a coherent picture of the world. Reality is what the senses, anticipations and feelings make real to us, not an arbitrary or mathematical standard, and not a standard outside this world.
+
+Epicurus' physics states the same principle for limits. "That which is bounded has an extreme point: and the extreme point is seen against something else" (X.41). Lucretius shows it with what anyone can see: air bounds the hills, land bounds the sea, and sea bounds the land, but the universe has nothing outside it to bound it (I.998-1001). So the universe has no /peras/ (limit) and is /apeiron/ (unlimited). Pleasure, by contrast, has something on the other side of it, pain, with no neutral feeling between them. That is why Epicurus states the limit of pleasure as "the removal of all that is painful" (PD 3): in any experience, pleasure reaches as far as pain does not. Lucretius applies the same thinking to the qualities we sense: "a fixed limit to things marks the extreme on either side," as heat and cold are "marked off at either end by the twin points" (II.507-521).
+
+A limit known this way is real, but it is a concept, not a moment anyone can point to. It is like a shoreline or a heap. Anyone can tell sea from land, though no grain of sand marks the exact spot, and anyone can tell a heap from a few scattered grains, though no single grain turns one into the other. The concepts of happiness, pleasure and wisdom work the same way. This is neither the Stoic all or nothing (a stick is straight or crooked, a man is wise or a fool) nor Plato's division between "that which always is" and "that which is always becoming" (/Timaeus/ 27d-28a; see "Being vs. Becoming" under Rebellion Against Platonism), in which the true limit of anything is a pattern outside this world grasped by reason alone. Epicurus set up no Form, no essence, and no geometer's line to measure pleasure or wisdom against. For the application to the wise man, see "One Wise Man Is Not Wiser Than Another" in the Ethics section.
+**** /Epicurus, Letter to Herodotus 41-2 (The Extreme Point Is Seen Against Something Else)/ :MeaningThroughContrast:
+:PROPERTIES:
+:TRANSCLUDE: epicurus-letter-to-herodotus-41-2
+:END:
+**** /Lucretius, De Rerum Natura I.998-1001 (One Thing Is Seen To Bound Another)/ :MeaningThroughContrast:UniverseInfiniteAndEternal:
+Lastly, before our eyes one thing is seen to bound another; air is as a wall between the hills, and mountains between tracts of air, land bounds the sea, and again sea bounds all lands; yet the universe in truth there is nothing to limit outside. (Bailey)
+[[https://epicurustoday.com/02-key-sources/020-lucretius-bailey-translation/#book-one---the-epicurean-view-of-the-universe][Lucretius, De Rerum Natura I.998 (tr. Bailey) -- EpicurusToday.com]]
+**** /Lucretius, De Rerum Natura II.507-521 (A Fixed Limit Marks The Extreme On Either Side)/ :MeaningThroughContrast:PleasureHasANaturalLimit:
+... for something more excellent than all else would ever be arising. Likewise, all things would sink back on the worse side, just as we have told that they would rise towards the better. For, on the other hand, something would be more loathly too than all else to nostrils and ears and eyes, and the taste of the mouth. And since these things are not so, but a fixed limit to things marks the extreme on either side, you must needs confess that the first-matter too has a limited difference in shapes. Again from fire right on to the icy frost of winter is but a limited way, and in like manner is the way measured back again. For all heat and cold and tepid warmths in the middle lie between the two, filling up the sum in due order. And so they are brought to being differing with limited degrees, since they are marked off at either end by the twin points, beset on this side by flames, on that by stiffening frosts. (Bailey)
+[[https://epicurustoday.com/02-key-sources/020-lucretius-bailey-translation/#book-two][Lucretius, De Rerum Natura II.507 (tr. Bailey) -- EpicurusToday.com]]
+**** /Diogenes Laertius 10.33 (Horse Or Cow: Knowing By Examples)/ :MeaningThroughContrast:
+:PROPERTIES:
+:TRANSCLUDE: diogenes-laertius-10-33
+:END:
+**** /Cicero, On Ends 2.4-6 (Epicurus Does Not Define; Who Does Not Know What Pleasure Is?)/ :MeaningThroughContrast:
+[Cicero, II.4:] For he says that he does not hold with giving a definition of the thing in question.
+[Torquatus, II.6:] Who is there who does not know what pleasure is? Who needs a definition to assist him to understand it? (Rackham)
+[[https://epicurustoday.com/02-key-sources/111-cicero-on-ends-rackham/#2-4][Cicero, On Ends II.4-6 (tr. Rackham) -- EpicurusToday.com]]
+**** /Torquatus In Cicero's On Ends 1.30 (As That Fire Is Hot, Snow White, Honey Sweet)/ :MeaningThroughContrast:SensationAsBasisOfKnowledge:
+[Pleasure and pain need no proof, because they are perceived by the senses] as that fire is hot, snow white, honey sweet. (Rackham)
+[[https://epicurustoday.com/02-key-sources/111-cicero-on-ends-rackham/#1-30][Cicero, On Ends I.30 (tr. Rackham) -- EpicurusToday.com]]
 ** Dialectical Logic And Radical Skepticism Cannot Determine Truth
 *** Scientific Methodology - Deductive Reasoning and Self-Refuting Arguments
 **** _Commentary_ :MethodOfReasoning:EpicurusNotCompleteEmpiricist:
@@ -1622,6 +1659,9 @@ If you live according to nature, you will never be poor; if you live according t
 [[https://epicurustoday.com/citationclips/seneca-letters16-gummere-naturewants-a.jpg][Seneca, Letters to Lucilius 16 (tr. Gummere, Loeb), "Nature's wants are slight"]]
 [[https://epicurustoday.com/citationclips/seneca-letters16-gummere-naturewants-b.jpg][Seneca, Letters to Lucilius 16 (tr. Gummere, Loeb), "Natural desires are limited"]]
 **** /Seneca, Letters to Lucilius 66.45-47/ :PleasureNotTranquilityIsHighestGood:Pleasure:
+:PROPERTIES:
+:TRANSCLUDE_ID: seneca-letters-66-45-47
+:END:
 [Seneca presses the Platonic no-limit argument directly against Epicurus's own reported two-goods formula, insisting that anything capable of increase cannot be the complete, highest good -- precisely the challenge PD3 and PD18 answer.]
 We find mentioned in the works of Epicurus two goods, of which his Supreme Good, or blessedness, is composed, namely, a body free from pain and a soul free from disturbance. These goods, if they are complete, do not increase; for how can that which is complete increase? The body is, let us suppose, free from pain; what increase can there be to this absence of pain? The soul is composed and calm; what increase can there be to this tranquility? Just as fair weather, purified into the purest brilliancy, does not admit of a still greater degree of clearness, so too, when a man takes care of his body and of his soul, weaving the texture of his good from both, his condition is perfect, and he has found the consummation of his prayers, if there is no commotion in his soul or pain in his body. Whatever delights fall to his lot over and above these two things do not increase his Supreme Good; they merely season it, so to speak, and add spice to it. For the absolute good of man's nature is satisfied with peace in the body and peace in the soul.... What can be added to that which is perfect? Nothing -- otherwise that was not perfect to which something has been added.... The ability to increase is proof that a thing is still imperfect.
 [Note: this quote splices two passages from the same letter using "..." -- the Epicurus two-goods discussion (Epistle 66, secs. 45-47) and a separate "ability to increase" refrain used earlier in the same very long letter (sec. ~9) in a different, more general context about virtue. Both are genuine Seneca text; the "..." already flags the join.]
@@ -2110,6 +2150,9 @@ Injustice is not an evil in itself, but only in consequence of the fear which at
 [[https://epicurustoday.com/citationclips/epicurus-pd-29-37-bailey.jpg][Epicurus, Principal Doctrine 34-35 (tr. Bailey), same page also carries PD 29-33 and 36-37]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Principal Doctrine 34-35 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
 **** /Diogenes Laertius 10.117-18 (On the Wise Man's Emotions)/ :LoveHatePleasurePain:HappinessDoesNotRequireCompleteAbsenceOfPain:
+:PROPERTIES:
+:TRANSCLUDE_ID: diogenes-laertius-10-117-18
+:END:
 [[https://epicurustoday.com/citationclips/diogeneslaertius-10-34-116-118-bailey.jpg][Diogenes Laertius X.117-18 (tr. Bailey), same page also carries the tail of sec. 34 and secs. 83]]
 Once he has become wise, he no longer adopts the opposite character and does not intentionally feign it either; rather, he will be affected by feelings but without having his wisdom impeded. However, not every bodily condition nor every people makes the occurrence of a wise man possible. Even if he is put on the rack, the wise man is happy, but when he is on the rack, he shrieks and groans. (L&S-THP)
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Diogenes Laertius 10.117-18 (On the Wise Man's Emotions) -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
@@ -2125,6 +2168,81 @@ It now remains to explain why the soul's motions and the soul itself are not all
 :END:
 [Quoting Epicurus] 'Empty are the words of that philosopher who offers therapy for no human suffering. For just as there is no use in medical expertise if it does not give therapy for bodily diseases, so too there is no use in philosophy if it does not expel the suffering of the soul.' (L&S-THP)
 [[https://epicurustoday.com/citationclips/porphyry-tomarcella-31-32-zimmern.jpg][Porphyry, To Marcella 31 (tr. Zimmern, 1896)]]
+*** One Wise Man Is Not Wiser Than Another -- Pleasure Has A Limit, So Wisdom Is Not All Or Nothing And Progress Toward It Is Real
+**** _Commentary_ :WiseMenEqual:NotAllOrNothing:PleasureHasANaturalLimit:
+Diogenes Laertius records the Epicurean saying that "one wise man is not wiser than another" (X.121). The Stoics said the same thing, and Cicero's Cato states the rule behind it: whoever holds that the highest good is "capable of degree" must hold that one man can be wiser than another (/On Ends/ III.48). The question is therefore really about the shape of the goal of life. Does the highest good have a top, a limit, or is there always more of it to get? Plato had already made "more and less" the test of the good in the /Philebus/, where Philebus boasts that pleasure belongs among the unlimited things, and Socrates answers that what has no limit cannot be what makes a thing good.
+
+The Stoics and Epicurus reached the same sentence from opposite starting points. For the Stoics, virtue is all or nothing: all goods are equal, all faults are equal, a stick is straight or crooked, and the man one furlong from Canopus is as much "not in Canopus" as the man a hundred furlongs away. The drowning man near the surface drowns as surely as the man at the bottom, so the man who has made progress toward virtue is as miserable as the man who has made none. Their wise men are equal because perfection cannot be more perfect, and everyone else is equally a failure.
+
+Epicurus rejected that framework. His good is pleasure, and pleasure has a natural limit: "the removal of all that is painful" (PD 3). Once pain is removed, pleasure "is not increased ... but is only varied" (PD 18). Torquatus says the same: beyond complete absence of pain "pleasure may vary in kind, but it cannot vary in intensity or degree" (/On Ends/ I.38). Even Seneca concedes that Epicurus' good, when complete, does not increase, so it passes the test Seneca set for virtue. Because the goal has a limit, there is no higher level of it for a "wiser" man to aim at, and one wise man, considered as wise, does not stand above another. The limit is like the sea's edge, known by what lies on the other side of it, pain (see the Canonics section on meaning through contrast).
+
+This equality is not all or nothing. "Wise man," like "heap," names something real that has no exact boundary. No single lesson turns a student into a wise man, yet wise men exist, and the men themselves still differ in learning, talent and temperament. Epicurus ranked his own students: some reached the truth unaided, Metrodorus needed a guide, and Hermarchus had to be driven, yet "both reached the same goal" (Seneca, /Letters/ 52.3-4). Faults are not all of equal gravity (X.120), temperaments remain different though training leaves only small traces of them (Lucretius III.307-322), and once a man has attained wisdom he does not fall back (X.117). Progress toward the goal is real progress, and nearness to it counts.
+
+Nor are wise men equally happy at every moment. Complete happiness, "such as belongs to a god," admits of no increase; human happiness "is concerned with the addition and subtraction of pleasures" (X.121). Among men, happiness and pleasure are always more or less, known as more or less by being seen against their opposites, unhappiness and pain, and some experiences of pleasure are more desirable than others, while the goal as a concept stays the same for every man. This does not contradict the view that happiness and pleasure have limits: we can and do conceive of them as pure and unmixed with their opposites, and it is by contrast with those opposites that we recognize them in the first place. The limit is a concept, real like a heap, not a state a man must enter even for a moment in order to be happy. Epicurus called the last day of his life "truly happy" while his disease was "lacking nothing of its natural severity" (X.22). What the wise share is the goal and its limit; a man who arranges his life so that pleasure predominates can "rival even Zeus in happiness" (VS 33) though some pain remains.
+
+For the full discussion, with every school whose answer Diogenes Laertius records, see [[https://epicurustoday.com/02-key-sources/wisemenequallywise/][One Wise Man Is Not Wiser Than Another: What Epicurus' Saying Tells Us About Pleasure, Happiness, And How We Know What Is Real -- EpicurusToday.com]].
+**** /Diogenes Laertius 10.121 (One Wise Man Is Not Wiser Than Another)/ :WiseMenEqual:
+One wise man is not wiser than another. (Bailey)
+[Yonge's translation, "It is possible for one wise man to be wiser than another," reverses the Greek. Both principal manuscripts (B and P) carry a negative; Marcovich (Teubner, 1999) prints "and that one is not wiser than another"; Hicks (Loeb, 1925) follows P, "One wise man does not move more wisely than another." Usener collects the saying as fragment 561: "It is not possible for one Sage to be wiser than another."]
+[[https://epicurustoday.com/02-key-sources/010-diogenes-laertius-book-10-bailey-edition/#dl-121][Diogenes Laertius X.121 (tr. Bailey) -- EpicurusToday.com]]
+[[https://epicurustoday.com/02-key-sources/014-epicurean-fragments-usener-collection/#u561][Usener 561 -- EpicurusToday.com]]
+**** /Cicero, On Ends 3.48 (Cato, the Stoic Spokesman)/ :WiseMenEqual:NotAllOrNothing:
+So it is consistent with the principles already stated that those who deem the End of Goods, that which we term the extreme or ultimate Good, to be capable of degree, are on their own theory also bound to hold that one man can be wiser than another, and similarly that one can commit a more sinful or more righteous action than another; which it is not open to us to say, who do not think that the End of Goods can vary in degree. For just as a drowning man is no more able to breathe if he be not far from the surface of the water, so that he might at any moment emerge, than if he were actually at the bottom already, and just as a puppy on the point of opening its eyes is no less blind than one just born, similarly a man that has made some progress towards the state of virtue is none the less in misery than he that has made no progress at all. (Rackham)
+[[https://epicurustoday.com/02-key-sources/111-cicero-on-ends-rackham/#3-48][Cicero, On Ends III.48 (tr. Rackham) -- EpicurusToday.com]]
+**** /Plato, Philebus 27e-28a/ :WiseMenEqual:PleasureHasANaturalLimit:
+SOCRATES: Have pleasure and pain a limit, or do they belong to the class which admits of more and less?
+PHILEBUS: They belong to the class which admits of more, Socrates; for pleasure would not be perfectly good if she were not infinite in quantity and degree.
+SOCRATES: Nor would pain, Philebus, be perfectly evil. And therefore the infinite cannot be that element which imparts to pleasure some degree of good. (Jowett)
+[[https://epicurustoday.com/02-key-sources/057-plato-philebus/#27][Plato, Philebus 27e-28a (tr. Jowett) -- EpicurusToday.com]]
+**** /Diogenes Laertius 7.120 and 7.127 (The Stoics: All Faults Equal, Nothing Between Virtue And Vice)/ :NotAllOrNothing:
+For the man who is a hundred furlongs from Canopus, and the man who is only one, are both equally not in Canopus; and so too, he who commits a greater sin, and he who commits a less, are both equally not in the right path. (Yonge, VII.120)
+For the Stoics say, that as a stick must be either straight or crooked, so a man must be either just or unjust, and cannot be more just than just, or more unjust than unjust; and that the same rule applies to all cases. (Yonge, VII.127)
+[[https://epicurustoday.com/02-key-sources/050-diogenes-laertius-lives-of-eminent-philosophers-complete/#life-of-zeno][Diogenes Laertius VII.120, VII.127 (tr. Yonge) -- EpicurusToday.com]]
+**** /Seneca, Moral Letters 66.8-9 (The Stoic Test: Increase Proves Imperfection)/ :NotAllOrNothing:WiseMenEqual:
+Therefore the power and the greatness of virtue cannot rise to greater heights, because increase is denied to that which is superlatively great. You will find nothing straighter than the straight, nothing truer than the truth, and nothing more temperate than that which is temperate. ... What can be added to that which is perfect? ... The ability to increase is proof that a thing is still imperfect. (Gummere)
+[[https://epicurustoday.com/02-key-sources/115-seneca-moral-letters-gummere/#ep-66-9][Seneca, Moral Letters 66.8-9 (tr. Gummere) -- EpicurusToday.com]]
+**** /Seneca, Letters to Lucilius 66.45-47 (Epicurus' Good, When Complete, Does Not Increase)/ :WiseMenEqual:PleasureHasANaturalLimit:
+:PROPERTIES:
+:TRANSCLUDE: seneca-letters-66-45-47
+:END:
+**** /Epicurus, Principal Doctrine 3/ :WiseMenEqual:PleasureHasANaturalLimit:
+:PROPERTIES:
+:TRANSCLUDE: epicurus-principal-doctrine-3
+:END:
+**** /Epicurus, Principal Doctrine 18/ :WiseMenEqual:PleasureHasANaturalLimit:
+:PROPERTIES:
+:TRANSCLUDE: epicurus-principal-doctrine-18
+:END:
+**** /Epicurus, Principal Doctrine 20/ :WiseMenEqual:PleasureHasANaturalLimit:
+:PROPERTIES:
+:TRANSCLUDE: epicurus-principal-doctrine-20
+:END:
+**** /Torquatus In Cicero's On Ends 1.38 (The Limit And Highest Point Of Pleasure)/ :WiseMenEqual:PleasureHasANaturalLimit:
+Complete absence of pain Epicurus considers to be the limit and highest point of pleasure; beyond this point pleasure may vary in kind, but it cannot vary in intensity or degree. (Rackham)
+[[https://epicurustoday.com/02-key-sources/111-cicero-on-ends-rackham/#1-38][Cicero, On Ends I.38 (tr. Rackham) -- EpicurusToday.com]]
+**** /Diogenes Laertius 10.121 (Two Ideas Of Happiness)/ :WiseMenEqual:HappinessDoesNotRequireCompleteAbsenceOfPain:
+:PROPERTIES:
+:TRANSCLUDE: diogenes-laertius-10-121
+:END:
+**** /Diogenes Laertius 10.120 (Faults Are Not Equal)/ :NotAllOrNothing:
+[X.122 in Bailey's numbering.]
+They hold that faults are not all of equal gravity. (Bailey)
+[[https://epicurustoday.com/02-key-sources/010-diogenes-laertius-book-10-bailey-edition/#dl-122][Diogenes Laertius X.122 (tr. Bailey) -- EpicurusToday.com]]
+**** /Diogenes Laertius 10.117-18 (Once Wise, A Man Does Not Fall Back)/ :WiseMenEqual:
+:PROPERTIES:
+:TRANSCLUDE: diogenes-laertius-10-117-18
+:END:
+**** /Seneca, Moral Letters 52.3-4 (Epicurus' Grades Of Students)/ :WiseMenEqual:NotAllOrNothing:
+Epicurus remarks that certain men have worked their way to the truth without any one's assistance, carving out their own passage. And he gives special praise to these, for their impulse has come from within, and they have forged to the front by themselves. Again, he says, there are others who need outside help, who will not proceed unless someone leads the way, but who will follow faithfully. Of these, he says, Metrodorus was one; this type of man is also excellent, but belongs to the second grade. (Gummere)
+[Of the second and third classes (Hermarchus being an example of the third), Epicurus "is more ready to congratulate the one, but he feels more respect for the other; for although both reached the same goal, it is a greater credit to have brought about the same result with the more difficult material upon which to work" (52.4).]
+[[https://epicurustoday.com/02-key-sources/115-seneca-moral-letters-gummere/#ep-52-3][Seneca, Moral Letters 52.3-4 (tr. Gummere) -- EpicurusToday.com]]
+**** /Lucretius, De Rerum Natura III.307-322 (Temperaments Remain, Yet Nothing Hinders A Godlike Life)/ :WiseMenEqual:NotAllOrNothing:
+So is it with the race of men. However much training gives some of them an equal culture, yet it leaves those first traces of the nature of the mind of each. Nor must we think that such maladies can be plucked out by the roots, but that one man will more swiftly fall into bitter anger, another be a little sooner assailed by fear, while a third will take some things more gently than is right. ... One thing herein I see that I can affirm, that so small are the traces of these natures left, which reason could not dispel for us, that nothing hinders us from living a life worthy of the gods. (Bailey)
+[[https://epicurustoday.com/02-key-sources/020-lucretius-bailey-translation/][Lucretius, De Rerum Natura III.307 (tr. Bailey) -- EpicurusToday.com]]
+**** /Diogenes Laertius 10.22 (A Truly Happy Day, Though Pain Remains)/ :WiseMenEqual:HappinessDoesNotRequireCompleteAbsenceOfPain:
+:PROPERTIES:
+:TRANSCLUDE: diogenes-laertius-10-22
+:END:
 ** Virtue Is Not Absolute Or An End In Itself
 *** Virtue Is Not Absolute Or An End In Itself - All Good And Evil Consists In Sensation
 **** _Commentary_ :VirtueAsContextual:
@@ -2417,6 +2535,9 @@ PD19. Infinite time contains no greater pleasure than limited time, if one measu
 [[https://epicurustoday.com/citationclips/epicurus-pd-15-21-bailey.jpg][Epicurus, Principal Doctrine 19 (tr. Bailey), same page also carries PD 15-21]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Principal Doctrine 19 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
 **** /Epicurus, Principal Doctrine 20/ :LengthOfLife:HappinessAsLifeOfPleasure:
+:PROPERTIES:
+:TRANSCLUDE_ID: epicurus-principal-doctrine-20
+:END:
 The flesh perceives the limits of pleasure as unlimited, and unlimited time is required to supply it. But the mind, having attained a reasoned understanding of the ultimate good of the flesh and its limits, and having dissipated the fears concerning the time to come, supplies us with the complete life, and we have no further need of infinite time; but neither does the mind shun pleasure, nor, when circumstances begin to bring about the departure from life, does it approach its end as though it fell short, in any way, of the best life. (L&S-THP)
 [[https://epicurustoday.com/citationclips/epicurus-pd-15-21-bailey.jpg][Epicurus, Principal Doctrine 20 (tr. Bailey), same page also carries PD 15-21]]
 [[https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.01.0258:book=10:chapter=1][Epicurus, Principal Doctrine 20 -- Perseus Digital Library (Diogenes Laertius X, tr. Hicks, Loeb)]]
